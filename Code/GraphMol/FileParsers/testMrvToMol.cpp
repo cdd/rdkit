@@ -28,142 +28,123 @@
 #include <clocale>
 #include <cstdlib>
 
+
+#include <GraphMol/QueryOps.h>
+#include <GraphMol/ChemReactions/Reaction.h>
+#include <GraphMol/ChemReactions/ReactionParser.h>
+
 #include <string>
 #include <fstream>
 #include <boost/lexical_cast.hpp>
 
 using namespace RDKit;
 
-void testMrvToMol()
+class MolTest
 {
-  BOOST_LOG(rdInfoLog) << "testing atom query parsing" << std::endl;
+  public:
+  std::string fileName;
+  int atomCount;
+  int bondCount;
+
+  MolTest(std::string fileNameInit, int atomCountInit, int bondCountInit)
+    : fileName(fileNameInit), atomCount(atomCountInit), bondCount(bondCountInit)
+  {};
+
+};
+
+class RxnTest
+{
+  public:
+  std::string fileName;
+  int recactantCount;
+  int agentCount;
+  int productCount;
+
+  RxnTest(std::string fileNameInit, int recactantCountInit, int agentCountInit, int productCountInit)
+    : fileName(fileNameInit), recactantCount(recactantCountInit), agentCount(agentCountInit), productCount(productCountInit)
+  {};
+
+};
+
+void testMrvToMol(const MolTest molTest)
+{
+  BOOST_LOG(rdInfoLog) << "testing simple mol parsing" << std::endl;
 
   std::string rdbase = getenv("RDBASE");
   std::string fName =
-      rdbase + "/Code/GraphMol/test_data/ketback01.mrv";
-  RWMol *m = MrvFileToMol(fName);
+      rdbase + "/Code/GraphMol/test_data/" + molTest.fileName;
+  RWMol *m = (RWMol *)MrvFileParser(fName);
   // MolOps::sanitizeMol(*m);
-  TEST_ASSERT(m);
+  TEST_ASSERT(m != NULL);
 
-  // TEST_ASSERT(m->getNumAtoms() == 6);
-  // std::string smi = MolToSmiles(*m);
-  // TEST_ASSERT(smi == "C1=CC=CC=C1");
-
-  // m->updatePropertyCache();
-  // smi = MolToSmarts(*m);
-  // TEST_ASSERT(smi == "[#6]1=[#6]-[#6]=[#6]-[#6]=[#6,#7,#15]-1");
-
-  // smi = "C1=CC=CC=C1";
-  // RWMol *m2 = SmilesToMol(smi, false, false);
-  // MatchVectType mv;
-  // TEST_ASSERT(SubstructMatch(*m2, *m, mv));
-  // TEST_ASSERT(mv.size() == 6);
-  // // sanitize it, which will aromatize the bonds... we will not match:
-  // MolOps::sanitizeMol(*m2);
-  // TEST_ASSERT(!SubstructMatch(*m2, *m, mv));
-  // TEST_ASSERT(mv.size() == 0);
-
-  // delete m2;
-  // smi = "N1=CC=CC=C1";
-  // m2 = SmilesToMol(smi, false, false);
-  // TEST_ASSERT(SubstructMatch(*m2, *m, mv));
-  // TEST_ASSERT(mv.size() == 6);
-  // delete m2;
-  // smi = "S1=CC=CC=C1";
-  // m2 = SmilesToMol(smi, false, false);
-  // TEST_ASSERT(!SubstructMatch(*m2, *m, mv));
-  // TEST_ASSERT(mv.size() == 0);
-  // delete m2;
-  // smi = "P1=CC=CC=C1";
-  // m2 = SmilesToMol(smi, false, false);
-  // TEST_ASSERT(SubstructMatch(*m2, *m, mv));
-  // TEST_ASSERT(mv.size() == 6);
-  // delete m2;
-
-  // delete m;
-  // fName = rdbase + "/Code/GraphMol/FileParsers/test_data/not-list-query.mol";
-  // m = MolFileToMol(fName);
-  // TEST_ASSERT(m);
-
-  // smi = "CC(=C)C";
-  // m2 = SmilesToMol(smi, false, false);
-  // TEST_ASSERT(SubstructMatch(*m2, *m, mv));
-  // TEST_ASSERT(mv.size() == 4);
-  // delete m2;
-
-  // smi = "CC(=O)C";
-  // m2 = SmilesToMol(smi, false, false);
-  // TEST_ASSERT(!SubstructMatch(*m2, *m, mv));
-  // delete m2;
-
-  // smi = "CC(=N)C";
-  // m2 = SmilesToMol(smi, false, false);
-  // TEST_ASSERT(!SubstructMatch(*m2, *m, mv));
-  // delete m2;
-
-  // smi = "CC(=O)C(=C)C";
-  // m2 = SmilesToMol(smi, false, false);
-  // TEST_ASSERT(SubstructMatch(*m2, *m, mv));
-  // TEST_ASSERT(mv.size() == 4);
-  // delete m2;
-
-  // smi = "C(=C)C";
-  // m2 = SmilesToMol(smi, false, false);
-  // TEST_ASSERT(!SubstructMatch(*m2, *m, mv));
-  // delete m2;
-
-  // // make sure new-style atom lists override old-style atom lists:
-  // delete m;
-  // fName = rdbase +
-  //         "/Code/GraphMol/FileParsers/test_data/conflicting-list-query.mol";
-  // m = MolFileToMol(fName);
-  // TEST_ASSERT(m);
-
-  // smi = "CC(=C)C";
-  // m2 = SmilesToMol(smi, false, false);
-  // TEST_ASSERT(SubstructMatch(*m2, *m, mv));
-  // TEST_ASSERT(mv.size() == 4);
-  // delete m2;
-
-  // smi = "CC(=O)C";
-  // m2 = SmilesToMol(smi, false, false);
-  // TEST_ASSERT(!SubstructMatch(*m2, *m, mv));
-  // delete m2;
-
-  // // longer list queries, this was issue 2413431:
-  // delete m;
-  // fName = rdbase + "/Code/GraphMol/FileParsers/test_data/list-query-long.mol";
-  // m = MolFileToMol(fName);
-  // TEST_ASSERT(m);
-  // TEST_ASSERT(m->getAtomWithIdx(14)->hasQuery());
-
-  // smi = "C1COC2=CC3=CC4=C(C=CC=C4)C=C3C=C2C1";
-  // m2 = SmilesToMol(smi);
-  // TEST_ASSERT(SubstructMatch(*m2, *m, mv));
-  // delete m2;
-  // smi = "C1C[Se]C2=CC3=CC4=C(C=CC=C4)C=C3C=C2C1";
-  // m2 = SmilesToMol(smi);
-  // TEST_ASSERT(SubstructMatch(*m2, *m, mv));
-  // delete m2;
-  // smi = "C1C[Te]C2=CC3=CC4=C(C=CC=C4)C=C3C=C2C1";
-  // m2 = SmilesToMol(smi);
-  // TEST_ASSERT(SubstructMatch(*m2, *m, mv));
-  // delete m2;
-  // smi = "C1C[As]C2=CC3=CC4=C(C=CC=C4)C=C3C=C2C1";
-  // m2 = SmilesToMol(smi);
-  // TEST_ASSERT(!SubstructMatch(*m2, *m, mv));
-  // delete m2;
-
+  //TEST_ASSERT(m.atoms.count() == molTest.numberOfAtoms)
+  //TEST_ASSERT(m.bonds.count() == molTest.numberOfbonds)
+  
   delete m;
+  BOOST_LOG(rdInfoLog) << "done" << std::endl;
+}
+
+void testMrvToRxn(const RxnTest rxnTest)
+{
+  BOOST_LOG(rdInfoLog) << "testing simple mol parsing" << std::endl;
+
+  std::string rdbase = getenv("RDBASE");
+  std::string fName =
+      rdbase + "/Code/GraphMol/test_data/" + rxnTest.fileName;
+  ChemicalReaction *r = (ChemicalReaction *)MrvFileParser(fName);
+  // MolOps::sanitizeMol(*m);
+  TEST_ASSERT(r != NULL);
+
+  //TEST_ASSERT(r.reagents.count() == molTest.numberOfAtoms)
+  //TEST_ASSERT(r.agents.count() == molTest.numberOfAtoms)
+  //TEST_ASSERT(m.products.count() == molTest.numberOfbonds)
+  
+  delete r;
   BOOST_LOG(rdInfoLog) << "done" << std::endl;
 }
 
 void RunTests()
 {
-#if 1
-  testMrvToMol();
-#endif
-}
+  
+  // first the molecule tests
+
+  std::list<MolTest> molFileNames
+  {
+     MolTest("ketback01.mrv",11,11)
+    ,MolTest("ketback02.mrv",9,9)
+    ,MolTest("ketback07.mrv",12,11)
+    ,MolTest("ketback10.mrv",10,10)
+    ,MolTest("marvin06.mrv",11,11)
+    ,MolTest("ketback12.mrv",10,10)
+
+  };
+
+  for (std::list<MolTest>::const_iterator it = molFileNames.begin() ; it != molFileNames.end(); ++it)
+  {
+    printf("Test\n\n %s\n\n", it->fileName.c_str());
+    testMrvToMol(*it);
+  }
+
+
+// now the reactions
+
+ std::list<RxnTest> rxnFileNames
+ {
+     RxnTest("ketback03.mrv",1,1,1)
+    ,RxnTest("ketback04.mrv",2,1,2)
+    ,RxnTest("ketback08.mrv",2,4,2)
+    ,RxnTest("ketback09.mrv",2,3,2)
+    ,RxnTest("ketback11.mrv",2,0,1)
+    ,RxnTest("marvin05.mrv",2,1,1)
+  };
+
+  for (std::list<RxnTest>::const_iterator it = rxnFileNames.begin() ; it != rxnFileNames.end(); ++it)
+  {
+    printf("Test\n\n %s\n\n", it->fileName.c_str());
+    testMrvToRxn(*it);
+  }
+
+};
 
 int main(int argc, char *argv[])
 {

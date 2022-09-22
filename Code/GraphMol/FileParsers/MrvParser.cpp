@@ -7,23 +7,37 @@
 //  which is included in the file license.txt, found at the root
 //  of the RDKit source tree.
 //
-#include <RDGeneral/BoostStartInclude.h>
-#include <boost/lexical_cast.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/tokenizer.hpp>
-#include <boost/algorithm/string/trim.hpp>
-#include <boost/format.hpp>
-#include <RDGeneral/BoostEndInclude.h>
 
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/xml_parser.hpp>
-#include <boost/foreach.hpp>
+// this file parses MRV file for molecules and reactions
+
+
 #include <string>
 #include <set>
 #include <exception>
 #include <iostream>
+#include <fstream>
+#include <typeinfo>
+#include <exception>
+#include <charconv>
+#include <locale>
+#include <cstdlib>
+#include <cstdio>
+#include <string_view>
+#include <vector>
+#include <algorithm>
 
-namespace pt = boost::property_tree;
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/xml_parser.hpp>
+#include <boost/foreach.hpp>
+#include <RDGeneral/BoostStartInclude.h>
+#include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/tokenizer.hpp>
+//#include <boost/algorithm/string/trim.hpp>
+#include <boost/format.hpp>
+#include <RDGeneral/BoostEndInclude.h>
+#include <sstream>
+
 
 #include "FileParsers.h"
 #include "FileParserUtils.h"
@@ -37,31 +51,33 @@ namespace pt = boost::property_tree;
 #include <RDGeneral/StreamOps.h>
 #include <RDGeneral/RDLog.h>
 
-#include <fstream>
+#include <GraphMol/QueryOps.h>
+#include <GraphMol/ChemReactions/Reaction.h>
+#include <GraphMol/ChemReactions/ReactionParser.h>
+
+
+#include <RDGeneral/StreamOps.h>
 #include <RDGeneral/FileParseException.h>
 #include <RDGeneral/BadFileException.h>
 #include <RDGeneral/LocaleSwitcher.h>
-#include <typeinfo>
-#include <exception>
-#include <charconv>
+
+//#include "ReactionUtils.h"
+
 
 #ifdef RDKIT_USE_BOOST_REGEX
 #include <boost/regex.hpp>
 using boost::regex;
 using boost::regex_match;
 using boost::smatch;
+//using boost::algorithm>;
+
 #else
 #include <regex>
 using std::regex;
 using std::regex_match;
 using std::smatch;
 #endif
-#include <sstream>
-#include <locale>
-#include <cstdlib>
-#include <cstdio>
-#include <string_view>
-#include <list>
+
 
 using namespace RDKit::SGroupParsing;
 
@@ -72,71 +88,641 @@ namespace RDKit
     Imports the Marvin-specific dialect of CML (Chemical Markup Language) and converts it to datastructures
     that are compatible with Molfile, RXNfile, and Molfile complemented with canvas objects.
   */
-
-  class MarvinArrow
-  {
-  public:
-    double x1;
-    double y1;
-    double x2;
-    double Y2;
-  };
-
-  class MarvinPlus
-  {
-  public:
-    double x;
-    double y;
-  };
-
-  class MarvinText
-  {
-    std::string text;
-    double x;
-    double y;
-    double fontScale;
-
-    std::string halign;
-    std::string valign;
-  };
-
-  class Watermark
-  {
-    double molID;
-    double atomID;
-    double bondID;
-    double sgroupID;
-    double objectID;
-  };
-
-  // const safeAttr = (el: Element, attr: string): string => el.getAttribute(attr) ?? '';
-
   class MarvinCML
   {
-    private:
-      std::string xml;
-
+    
     public:
       RWMol *mol;
+      ChemicalReaction *rxn;
 
-    std::list<MarvinText> textBoxes;
+    const std::vector<std::string> sruSgroupConnectChoices  { "hh","ht","eu"};
+    const std::vector<std::string> marvinBondOrders  { "1","2","3","A","SD","SA","DA"};
+    const std::vector<std::string> marvinRadicalVals  {"monovalent",   "divalent1", "trivalent4", "4"};
+    
 
-    std::list<RWMol *> reactants;
-    std::list<RWMol *> agents;
-    std::list<RWMol *> products;
-
-    MarvinArrow arrow;
-
-    std::list<MarvinPlus> plusSigns;
-
+    public:
     MarvinCML()
         : mol(NULL)
-        // ,reactants(new std::list<RWMol>())
-        // ,agents(new std::list<RWMol>())
-        // ,products(new std::list<RWMol>())
+        , rxn(NULL)
     {
+    };
+
+    ~MarvinCML()
+    { 
+    };
+
+
+    private:
+
+    class MarvinArrow
+    {
+    public:
+      std::string type;
+      double x1;
+      double y1;
+      double x2;
+      double y2;
+
+      std::string toString() const
+      {
+
+        std::ostringstream out;
+        out << "<arrow type=\"" << type << "\" x1=\"" << x1<< "\" y1=\"" << y1 << "\" x2=\"" << x2<< "\" y2=\"" << y2 << "\"/>";
+    
+        return out.str();
+      }
+    };
+
+    class MarvinPlus
+    {
+      public:
+      std::string id;
+      double x1;
+      double y1;
+      double x2;
+      double y2;
+
+
+      std::string toString() const
+      {
+
+        std::ostringstream out;
+
+        out << "<MReactionSign id=\"" << id << "\" toptions=\"NOROT\" fontScale=\"14.0\" halign=\"CENTER\" valign=\"CENTER\" autoSize=\"true\">"
+              "<Field name=\"text\"><![CDATA[ {D font=SansSerif,size=18,bold}+ ]]></Field>"
+              "<MPoint x=\"" << x1 << "\" y=\"" << y1 << "\"/>"
+              "<MPoint x=\"" << x2 << "\" y=\"" << y1 << "\"/>"
+              "<MPoint x=\"" << x2 << "\" y=\"" << y2 << "\"/>"
+              "<MPoint x=\"" << x1 << "\" y=\"" << y2 << "/>"
+              "</MReactionSign>";
+
+        return out.str();
+            
+      }
+    };
+
+    class MarvinCondition
+    {
+      public:
+      std::string id;
+      std::string text;
+      double x;
+      double y;
+      double fontScale;
+
+      std::string halign;
+      std::string valign;
+
+      std::string toString() const
+      {
+        std::ostringstream out;
+
+        out << "<MTextBox id=\"" << id << "\" toption=\"NOROT\" fontScale=\"" << fontScale << "\" halign=\"" << halign << "\" valign=\"" << valign << "\" autoSize=\"true\">"
+              "<Field name=\"text\">" << text << "</Field>"
+              "<MPoint x=\"" << x << "\" y=\"" << y << "\"/>"
+              "<MPoint x=\"" << x << "\" y=\"" << y << "\"/>"
+              "<MPoint x=\"" << x << "\" y=\"" << y << "\"/>"
+              "<MPoint x=\"" << x << "\" y=\"" << y << "\"/>"
+              "</MTextBox>";
+
+        return out.str();
+      }
+    };
+
+    
+    class MarvinAttachmentPoint
+    {
+      public:
+
+      // <AttachmentPoint atom="a7" order="1" bond="b6"/>
+      std::string atom;
+      std::string bond;
+      std::string order;
+
+      std::string toString() const
+      {
+        std::ostringstream out;
+
+        out << "<AttachmentPoint atom=\"" << atom << "\" order=\"" << order << "\" bond=\"" << bond << "\"/>";
+
+        return out.str();
+      }
+    };
+
+    class MarvinAtom
+    {
+      public:
+      std::string id;
+      std::string elementType;
+      double x2;
+      double y2;
+      int formalCharge;
+      std::string radical;
+      int isotope;
+      std::string mrvAlias;
+      std::string mrvStereoGroup;
+      int mrvMap;
+      std::string sgroupRef;
+      std::string sgroupAttachmentPoint;
+
+      MarvinAtom()
+      : x2(DBL_MIN)
+      , y2(DBL_MIN)
+      , formalCharge(0)
+    
+      , mrvMap(0)
+    {
+    }
+
+    
+      bool operator==(const MarvinAtom& rhs) const
+      {
+          return this->id == rhs.id;
+      }
+      
+      bool operator==(const MarvinAtom *rhs) const
+      {
+          return this->id == rhs->id;
+      }
+
+    std::string toString() const
+    {
+        // <atom id="a7" elementType="C" x2="15.225" y2="-8.3972" sgroupAttachmentPoint="1"/>
+
+        std::ostringstream out;
+        out << "<atom id=\"" << id << "\" elementType=\"" << elementType << "\" x2=\"" << x2 << "\" y2=\"" << y2;
+
+        if (formalCharge !=0)
+          out << " formalCharge=\"" << formalCharge << "\"";
+
+        if (radical != "")
+          out << " radical=\"" << radical << "\"";
+
+        if (isotope != 0)
+          out << " isotope=\"" << isotope << "\"";
+
+        if (mrvAlias != "")
+          out << " mrvAlias=\"" << mrvAlias << "\"";
+
+        if (mrvStereoGroup != "")
+          out << " mrvStereoGroup=\"" << mrvStereoGroup << "\"";
+
+        if (mrvMap != 0)
+          out << " mrvMap=\"" << mrvMap << "\"";
+
+        if (sgroupRef != "")
+          out << " sgroupRef=\"" << sgroupRef << "\"";
+
+        if (sgroupAttachmentPoint != "")
+          out << " sgroupAttachmentPoint=\"" << sgroupAttachmentPoint << "\"";
+
+        out << "/>";
+
+        return out.str();
+      }     
+    };
+
+    class MarvinBond
+    {
+      public:
+      std::string id;
+      std::string atomRefs2[2];
+      std::string order;
+      std::string bondStereo;
+
+      bool isEqual(const MarvinAtom& other) const
+      {
+        return this->id == other.id;
+      }
+
+      bool operator==(const MarvinAtom& rhs) const
+      {
+          return this->isEqual(rhs);
+      }
+
+      std::string toString() const
+      {
+        // <bond id="b8" atomRefs2="a1 a7" order="1">
+
+        std::ostringstream out;
+        
+        out << "<bond id=\"" << id << "\" atomRefs2=\"" << atomRefs2[0] << " " << atomRefs2[1] << "\" order=\"" << order << "\"";
+        if (bondStereo != "")
+          out << "><bondStereo>" << bondStereo << "</bondStereo></bond>";
+        else
+          out << "/>";
+          
+        return out.str();
+      }
+    };
+
+    class MarvinMolBase
+    {
+      public:
+      std::string molID;
+      std::vector<MarvinAtom *> atoms;
+      std::vector<MarvinBond *> bonds;      
+
+      
+      virtual std::string role() = 0;
+
+      MarvinMolBase()
+      {
+
+      }
+
+      virtual ~MarvinMolBase()
+      {
+        for ( std::vector<MarvinAtom *>::iterator it = atoms.begin(); it != atoms.end(); ++it)
+          delete(*it);
+        for ( std::vector<MarvinBond *>::iterator it = bonds.begin(); it != bonds.end(); ++it)
+          delete(*it);
+      }
+    };
+
+    class MarvinSruSgroup : public MarvinMolBase
+    {
+      public:
+      std::string id;
+      std::vector<std::string> atomRefs;
+      std::string title;
+      std::string connect;
+      std::string correspondence;
+      std::vector<std::string> bondList;
+
+      MarvinSruSgroup()
+      {
+        
+      }
+      ~MarvinSruSgroup()
+      {
+        
+      }
+
+      std::string toString() const
+      {
+        std::ostringstream out;
+
+        out << "<molecule molID=\"" << molID << "\" id=\"" << id << "\" role=\"SruSgroup\" atomRefs=\"" << boost::algorithm::join(atomRefs,",") << "\" title=\"" << title 
+          <<"\" connect=\"" << connect << "\" correspondence=\"" << correspondence << "\" bondList=\"" << boost::algorithm::join(bondList,",") << "\"/>";
+
+        return out.str();
+      }
+
+      std::string role()
+      {
+        return std::string("SruSgroup");
+      } 
 
     };
+
+    
+    class MarvinSuperatomSgroup : public MarvinMolBase
+    {
+      public:
+      std::string id;
+      std::string title;
+      std::vector<MarvinAttachmentPoint *> attachmentPoints;
+
+      MarvinSuperatomSgroup()
+      {
+
+      }
+
+      ~MarvinSuperatomSgroup()
+      {
+        for ( std::vector<MarvinAttachmentPoint *>::iterator it = attachmentPoints.begin(); it != attachmentPoints.end(); ++it)
+          delete(*it);
+      }
+
+      std::string role()
+      {
+        return std::string("SuperatomSgroup");
+      } 
+
+      std::string toString() const
+      {
+        std::ostringstream out;
+
+        out << "<molecule molID=\"" << molID << "\" id=\"" << id << "\" role=\"SuperatomSgroup\" title=\"" << title << "\">";
+
+        out <<"<atomArray>";
+        for (std::vector<MarvinAtom *>::const_iterator it = atoms.begin();  it != atoms.end(); ++it)
+          out << (*it)->toString();
+        out << "</atomArray>";
+
+        out <<"<bondArray>";
+        for (std::vector<MarvinBond *>::const_iterator it = bonds.begin();  it != bonds.end(); ++it)
+          out << (*it)->toString();
+        out << "</bondArray>";
+
+        if (attachmentPoints.size() > 0)
+        {
+          out <<"<AttachmentPointArray>";
+          for (std::vector<MarvinAttachmentPoint *>::const_iterator it = attachmentPoints.begin();  it != attachmentPoints.end(); ++it)
+            out << (*it)->toString();
+          out << "</AttachmentPointArray>";
+        }
+        out << "</molecule>";
+        
+        return out.str();
+
+      }   
+    };
+
+    class MarvinSuperInfo   // used in converting superatoms group to mol stule groups
+    {
+      public:
+      std::string title;
+      std::vector<std::string> atoms;
+    };
+    
+    class MarvinMol : public MarvinMolBase
+    {
+      public:
+
+      std::vector<MarvinSuperatomSgroup *> superatomSgroups;
+      std::vector<MarvinSruSgroup *>  sruSgroups;
+      std::vector<MarvinSuperInfo *> superInfos;  // used in convertng superatomSgroups to mol-type CTs
+
+      MarvinMol()
+      {
+
+      }
+
+      ~MarvinMol()
+      {
+        for (std::vector<MarvinSuperatomSgroup *>::iterator it = superatomSgroups.begin(); it != superatomSgroups.end(); ++it)
+          delete(*it);
+        for (std::vector<MarvinSruSgroup *>::iterator it = sruSgroups.begin(); it != sruSgroups.end(); ++it)
+          delete(*it);
+        for (std::vector<MarvinSuperInfo *>::iterator it = superInfos.begin(); it != superInfos.end(); ++it)
+          delete(*it);
+      }
+
+      std::string role()
+      {
+        return std::string("Parent");
+      } 
+
+
+      static bool atomRefInAtoms(MarvinAtom *a, std::string b )
+      { 
+        return a->id == b; 
+      }
+
+      void convertSuperAtoms()
+      {
+        // the mol-style super atoms are significatnly different than the Marvin super atoms.  The mol style has all atoms and bonds in the main mol, and parameter lines that
+        // indicate the name of the super atom and the atom indices affected.
+        //
+        // The Marvin as a dummy atom with the super atom name in the main molecule, and a separate sub-mol with the atoms and bonds of the superatom.  It also has a separate record 
+        // called attachmentPoint that atom in the super atom sub=mol that is replaces the dummy atom, and also a bond pointer and bond order in case the bond order changes.
+        //
+        //This routine copies the aboms and bonds from the sub=mol to the parent mol, and deleted the dummy atom form the parent mol.  It also saves the infor needed to make a mol-file type
+        // superatom in the MarvinSuperInfo array.
+
+        for(std::vector<MarvinSuperatomSgroup *>::iterator subMolIter =  superatomSgroups.begin() ; subMolIter != superatomSgroups.end() ; ++subMolIter)
+        {
+          //save the name of the superatom
+          
+          auto marvinSuperInfo = new MarvinSuperInfo();
+          this->superInfos.push_back(marvinSuperInfo);
+
+          marvinSuperInfo->title = (*subMolIter)->title;
+
+          //  remove and delete the dummy atom from the parent.
+
+          auto dummyAtomIter = find_if(atoms.begin(), atoms.end(), [subMolIter](const MarvinAtom *arg) { 
+                                            return arg->sgroupRef == (*subMolIter)->id; });
+          if (dummyAtomIter != atoms.end())
+          {
+            delete *dummyAtomIter;  // get rid of the MolAtom
+            atoms.erase(dummyAtomIter);   // get rid of the atoms pointer to the old dummy atom
+          }
+
+          // add the atoms and bonds from the super group to the parent
+
+          for (std::vector<MarvinAtom *>::iterator subAtomIter = (*subMolIter)->atoms.begin() ; subAtomIter != (*subMolIter)->atoms.end() ; ++subAtomIter)
+          {
+            atoms.push_back( *subAtomIter);
+            marvinSuperInfo->atoms.push_back((*subAtomIter)->id);
+
+            // remove the sgroupRef from the atom (only one will have it)
+            (*subAtomIter)->sgroupAttachmentPoint = "";
+
+          }
+          for (std::vector<MarvinBond *>::iterator subBondIter = (*subMolIter)->bonds.begin()  ; subBondIter != (*subMolIter)->bonds.end() ; ++subBondIter)
+          {
+            bonds.push_back( *subBondIter);
+          }
+
+          // process the attachment points - fix the bond that was made wrong by deleting the dummy atom
+
+          for (std::vector<MarvinAttachmentPoint *>::iterator attachIter = (*subMolIter) -> attachmentPoints.begin() ;  attachIter != (*subMolIter) -> attachmentPoints.end(); ++attachIter)
+          {
+            // find the bond in the parent
+            
+            auto bondIter = find_if(bonds.begin(), bonds.end(), [attachIter](const MarvinBond *arg) { 
+                                            return arg->id == (*attachIter)->bond; });
+            if (bondIter == bonds.end())
+              throw FileParseException("Bond specification for an AttachmentPoint definition was not found in the bond array in MRV file");
+
+            // one of the two atoms in the bond is NOT in the mol - we deleted the dummy atom.
+
+            int atomIndex;
+            for (atomIndex = 0 ; atomIndex < 2 ; ++atomIndex)
+            {
+              if (!boost::algorithm::contains(atoms, std::vector<std::string>{(*bondIter)->atomRefs2[atomIndex]}, atomRefInAtoms ))
+              {
+                (*bondIter)->atomRefs2[atomIndex] = (*attachIter)->atom;   // the attach atom
+                (*bondIter)->order = (*attachIter)->order;  // fix the bond order
+                break;
+              }
+            }
+            if (atomIndex == 2)  // not found?
+            {
+                std::ostringstream err;
+                err << "Bond " << (*attachIter)->bond.c_str() << " from attachment point did not have a missing atom in MRV file";
+                throw FileParseException(err.str());
+            }
+
+          
+
+            delete *attachIter;         
+          }
+          
+          // clean up - delete the super atom mols and the attach points
+
+          (*subMolIter)->attachmentPoints.clear();
+          (*subMolIter)->atoms.clear();
+          (*subMolIter)->bonds.clear();
+          delete *subMolIter;
+        }
+        this->superatomSgroups.clear();
+      }
+
+
+      int getAtomIndex(std::string id)
+      {
+        auto atomIter = find_if(atoms.begin(), atoms.end(), [id](const MarvinAtom *arg) { return arg->id == id; });
+        if (atomIter != atoms.end())
+              return atomIter - atoms.begin();
+          else 
+              return -1;
+      }
+
+      int getBondIndex(std::string id)
+      {
+        auto bondIter = find_if(bonds.begin(), bonds.end(), [id](const MarvinAtom *arg) { return arg->id == id; });
+        if (bondIter != bonds.end())
+              return bondIter - bonds.begin();
+          else 
+              return -1;
+      }
+
+  
+      std::string toString() const
+      {
+        std::ostringstream out;
+
+        out << "<molecule molID=\"" << molID << "\">";
+
+        out <<"<atomArray>";
+        for (std::vector<MarvinAtom *>::const_iterator it = atoms.begin();  it != atoms.end(); ++it)
+          out << (*it)->toString();
+        out <<"</atomArray>";
+
+        out <<"<bondArray>";
+        for (std::vector<MarvinBond *>::const_iterator it = bonds.begin();  it != bonds.end(); ++it)
+          out << (*it)->toString();
+        out << "</bondArray>";
+
+      
+        for (std::vector<MarvinSuperatomSgroup *>::const_iterator it = superatomSgroups.begin();  it != superatomSgroups.end(); ++it)
+          out << (*it)->toString();
+        for (std::vector<MarvinSruSgroup *>::const_iterator it = sruSgroups.begin();  it != sruSgroups.end(); ++it)
+          out << (*it)->toString();
+        
+        out <<"</molecule>";
+        
+        return out.str();
+
+
+      }   
+
+      std::string generateMolString()
+      {
+        std::ostringstream out;
+
+        out << "<cml xmlns=\"http://www.chemaxon.com\" version=\"ChemAxon file format v20.20.0, generated by RDKit\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
+            "xsi:schemaLocation=\"http://www.chemaxon.com http://www.chemaxon.com/marvin/schema/mrvSchema_20_20_0.xsd\">"
+            "<MDocument><MChemicalStruct>";
+
+        out << toString();
+      
+        out << "</MChemicalStruct></MDocument></cml>";
+        return out.str();
+      }
+
+    };
+
+  
+
+    class MarvinReaction
+    {
+      public:
+
+      std::vector<MarvinMol *> reactants;
+      std::vector<MarvinMol *> agents;
+      std::vector<MarvinMol *> products;
+
+      MarvinArrow arrow;
+      std::vector<MarvinPlus *> pluses;
+      std::vector<MarvinCondition *> conditions;
+
+      ~MarvinReaction()
+      {
+        for (std::vector<MarvinMol *>::iterator it = reactants.begin(); it != reactants.end(); ++it)
+          delete(*it);      
+        for (std::vector<MarvinMol *>::iterator it = agents.begin(); it != agents.end(); ++it)
+          delete(*it);      
+        for (std::vector<MarvinMol *>::iterator it = products.begin(); it != products.end(); ++it)
+          delete(*it);
+        for (std::vector<MarvinPlus *>::iterator it = pluses.begin(); it != pluses.end(); ++it)
+          delete(*it);
+        for (std::vector<MarvinCondition *>::iterator it = conditions.begin(); it != conditions.end(); ++it)
+          delete(*it);
+      }
+
+      void convertSuperAtoms()
+      {
+        //This routine converts all the mols in the rxn to be ready for conversion to RDKIT mols
+
+        for (std::vector<MarvinMol *>::iterator molIter = reactants.begin() ; molIter != reactants.end() ; ++molIter)
+          (*molIter)->convertSuperAtoms();
+        for (std::vector<MarvinMol *>::iterator molIter = agents.begin() ; molIter != agents.end() ; ++molIter)
+          (*molIter)->convertSuperAtoms();
+        for (std::vector<MarvinMol *>::iterator molIter = products.begin() ; molIter != products.end() ; ++molIter)
+          (*molIter)->convertSuperAtoms();
+        
+      }
+      std::string toString()
+      {
+        std::ostringstream out;
+
+        out << "<cml xmlns=\"http://www.chemaxon.com\" version=\"ChemAxon file format v20.20.0, generated by RDKit\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""
+              " xsi:schemaLocation=\"http://www.chemaxon.com http://www.chemaxon.com/marvin/schema/mrvSchema_20_20_0.xsd\">"
+              "<MDocument><MChemicalStruct><reaction>";
+
+        out <<"<reactantList>";
+        for (std::vector<MarvinMol *>::const_iterator it = reactants.begin();  it != reactants.end(); ++it)
+          out << (*it)->toString();
+        out <<"</reactantList>";
+        out <<"<agentList>";
+        for (std::vector<MarvinMol *>::const_iterator it = agents.begin();  it != agents.end(); ++it)
+          out << (*it)->toString();
+        out <<"</agentList>";
+        out <<"<productList>";
+        for (std::vector<MarvinMol *>::const_iterator it = products.begin();  it != products.end(); ++it)
+          out << (*it)->toString();
+        out <<"</productList>";
+
+        out << arrow.toString();
+
+        out << "</reaction></MChemicalStruct>";
+
+        for (std::vector<MarvinPlus *>::const_iterator it = pluses.begin();  it != pluses.end(); ++it)
+          out << (*it)->toString();
+        for (std::vector<MarvinCondition *>::const_iterator it = conditions.begin();  it != conditions.end(); ++it)
+          out << (*it)->toString();
+
+        
+        out << "</MDocument></cml>";
+        return out.str();
+      }
+    };
+
+    class MarvinStereoGroup
+    {
+      public:
+
+      StereoGroupType grouptype;  // one of ABS AND OR
+      int groupNumber;
+      std::vector<int> atoms;
+
+      MarvinStereoGroup(StereoGroupType grouptypeInit, int groupNumberInit )
+      {
+        grouptype = grouptypeInit;
+        groupNumber = groupNumberInit;
+      }
+    };
+
+
+    public:
+ 
+    //this routine does the work of parsing.  It returns either an RDMol * or a ChemicalStructure *
+    // either way it is cast to a void *
 
     void parse(std::istream &is)
     {
@@ -145,941 +731,1134 @@ namespace RDKit
       ptree tree;
 
       // Parse the XML into the property tree.
-      //pt::read_xml(filename, tree);
 
       read_xml(is, tree);
 
-      // loop over all mols in the record
+      // find a molecule or a reaction
 
-      BOOST_FOREACH(
-          boost::property_tree::ptree::value_type &mol, tree.get_child("cml.MDocument.MChemicalStruct"))
+      bool molFlag = false;
+      boost::property_tree::ptree molOrRxn;
+      try
       {
-          std::string id = mol.second.get<std::string>("<xmlattr>.molID", "0");
-          printf("id: %s\n", id.c_str());
+        molOrRxn = tree.get_child("cml.MDocument.MChemicalStruct.molecule");
+        molFlag = true;
+      }
+      catch(const std::exception& e)
+      {
+        // do nothing try a reaction
+      }
+      if (molFlag)
+      {
+        mol = (RWMol *) parseMolecule(molOrRxn, true);
+       
+        return;
+      }
       
-        BOOST_FOREACH(
-            boost::property_tree::ptree::value_type &v, mol.second.get_child("atomArray"))
+      try
+      {
+        molOrRxn = tree.get_child("cml.MDocument.MChemicalStruct.reaction");
+      }
+      catch(const std::exception& e)
+      {
+        throw FileParseException("Expected \"molecule\" or \"reaction\" in MRV file");
+      }
+
+      rxn = parseReaction(molOrRxn, tree.get_child("cml.MDocument.MChemicalStruct.reaction")); 
+      
+      return;
+    }
+
+ 
+
+    bool getCleanDouble(std::string strToParse, double &outDouble)
+    {
+     
+      if (boost::algorithm::trim_copy(strToParse) != strToParse)   // should be no white space
+        return false;
+      try
+      {
+        outDouble = boost::lexical_cast<double>(strToParse);
+      }
+      catch(const std::exception& e)
+      {
+        return false;
+      }
+
+
+      return true;
+
+    }
+    
+    bool getCleanInt(std::string strToParse, int &outInt)
+    {
+    
+      if (boost::algorithm::trim_copy(strToParse) != strToParse)  // should be no white space
+        return false;
+      try
+      {
+        outInt = boost::lexical_cast<int>(strToParse);
+
+      }
+      catch(const std::exception& e)
+      {
+        return false;
+      }
+
+      return true;
+
+    }
+   
+    static bool bondRefInBonds(MarvinBond *a, std::string b )
+    { 
+      return a->id == b; 
+    }
+
+
+    Atom *molAtomFromMarvinAtom(MarvinAtom *marvinAtom)
+    {
+      Atom *res = NULL;
+
+      std::string symb = marvinAtom->elementType;
+      boost::trim(symb);
+      
+      if (symb == "R") 
+      {
+          auto *query = new QueryAtom(0);
+          query->setQuery(makeAtomNullQuery());
+          res = query;
+          // queries have no implicit Hs:
+          res->setNoImplicit(true);
+      } 
+      else if (symb[0] == 'R' && symb >= "R0" && symb <= "R99") 
+      {
+        auto *query = new QueryAtom(0);
+        query->setQuery(makeAtomNullQuery());
+        res = query;
+
+        if ( marvinAtom->isotope == 0)
         {
-          std::string atomId = v.second.get<std::string>("<xmlattr>.id", "0");
-          printf("atomId: %s\n", atomId.c_str());
-          std::string elementType = v.second.get<std::string>("<xmlattr>.elementType", "0");
-          printf("elementType: %s\n", elementType.c_str());
-          std::string x2 = v.second.get<std::string>("<xmlattr>.x2", "0");
-          printf("x2: %s\n", x2.c_str());
-          std::string y2 = v.second.get<std::string>("<xmlattr>.y2", "0");
-          printf("y2: %s\n", y2.c_str());
-          std::string formalCharge = v.second.get<std::string>("<xmlattr>.formalCharge", "0");
-          printf("formalCharge: %s\n", formalCharge.c_str());
+          std::string rlabel = "";
+          rlabel = symb.substr(1, symb.length() - 1);
+          int rnumber;
+          try 
+          {
+            rnumber = boost::lexical_cast<int>(rlabel);
+          } catch (boost::bad_lexical_cast &) {
+            rnumber = -1;
+          }
+          if (rnumber >= 0) 
+          {
+            res->setIsotope(rnumber);
+          }
+        }
+      } 
+     
+      else if (symb.size() == 2 && symb[1] >= 'A' && symb[1] <= 'Z') 
+      {
+        // must be a regular atom
+
+        res = new Atom();
+        symb[1] = static_cast<char>(tolower(symb[1]));
+       
+        try 
+        {
+          res->setAtomicNum(PeriodicTable::getTable()->getAtomicNumber(symb));
+        } 
+        catch (const Invar::Invariant &e) 
+        {
+          delete res;
+          throw FileParseException(e.what());
+        }
+      }
+      else
+        throw FileParseException("Unrecognized atom type in MRV file");
+
+ 
+      //res->setPos(marvinAtom.x2,marvinAtom->y2,0.0);
+      
+      if (marvinAtom->formalCharge != 0) 
+        res->setFormalCharge(marvinAtom->formalCharge);
+
+    
+      if (marvinAtom->isotope != 0)
+      {
+        res->setIsotope(marvinAtom->isotope);
+        res->setProp(common_properties::_hasMassQuery, true);
+      }
+
+      //  we no not get parity (chirality) frommarvin file
+      //res->setProp(common_properties::molParity, parity);
+      //res->setProp(common_properties::molStereoCare, stereoCare);
+      
+      // total valence is not parsed from marvin file
+      //res->setProp(common_properties::molTotValence, totValence);
+     
+      // rxnRole is not parsed from marvin file
+      //res->setProp(common_properties::molRxnRole, rxnRole);
+      //res->setProp(common_properties::molRxnComponent, rxnComponent);
+      
+      if (marvinAtom->mrvMap != 0)
+        res->setProp(common_properties::molAtomMapNumber, marvinAtom->mrvMap);
+
+      // not set
+      //res->setProp(common_properties::molInversionFlag, inversionFlag);
+      // res->setProp("molExactChangeFlag", exactChangeFlag);
+      
+      return res;
+    }
+
+    void molBondFromMarvinBond(MarvinBond *marvinBond, MarvinMol *marvinMol, RWMol *mol, bool &chiralityPossible)
+    {  
+      unsigned int bType, stereo;
+
+      int idx1 = marvinMol->getAtomIndex(marvinBond->atomRefs2[0]);
+      int idx2 = marvinMol->getAtomIndex(marvinBond->atomRefs2[1]);
+
+      Bond::BondType type;
+      Bond *bond = nullptr;
+      std::string temp = boost::algorithm::to_lower_copy(marvinBond->order);
+      if (temp == "1")
+      {
+          type = Bond::SINGLE;
+          bond = new Bond;
+          bType = 1;
+      }
+      else if (temp == "2")
+      {
+          type = Bond::DOUBLE;
+          bond = new Bond;
+          bType = 2;
+      }
+      else if (temp == "3")
+      {
+          type = Bond::TRIPLE;
+          bond = new Bond;
+          bType = 3;
+      }
+      else if (temp == "A")
+      {
+          bType = 4;
+          type = Bond::AROMATIC;
+          bond = new Bond;
+      }
+      else if (temp == "SD")
+      {
+          bType = 5;
+          type = Bond::UNSPECIFIED;
+          bond = new QueryBond;
+          bond->setQuery(makeSingleOrDoubleBondQuery());
+      }
+      else if (temp == "SA")
+      {
+          bType = 6;
+          type = Bond::UNSPECIFIED;
+          bond = new QueryBond;
+          bond->setQuery(makeSingleOrAromaticBondQuery());
+      }
+      else if (temp == "DA")
+      {
+          bType = 6;
+          type = Bond::UNSPECIFIED;
+          bond = new QueryBond;
+          bond->setQuery(makeDoubleOrAromaticBondQuery());
+      }
+      else
+      {
+          std::ostringstream err;
+          err      << "unrecognized bond type " << marvinBond->order << " in MRV File ";
+          throw FileParseException(err.str());
+      }
+        
+
+
+      bond->setBeginAtomIdx(idx1);
+      bond->setEndAtomIdx(idx2);
+      bond->setBondType(type);
+      bond->setProp(common_properties::_MolFileBondType, bType);
+      
+      temp = boost::algorithm::to_lower_copy(marvinBond->bondStereo);
+      if (temp == "")  
+      {         
+        bond->setBondDir(Bond::NONE);
+          stereo = 0;
+      }
+      else if (temp == "w")  
+      {         
+          bond->setBondDir(Bond::BEGINWEDGE);
+           chiralityPossible = true;
+          stereo = 1;
+      } else if (temp == "h")  
+      {         
+          stereo = 6;
+          chiralityPossible = true;
+          bond->setBondDir(Bond::BEGINDASH);
+      }
+      else
+      {
+          std::ostringstream err;
+          err      << "unrecognized bond stereo " << marvinBond->bondStereo << " in MRV File ";
+          throw FileParseException(err.str());
+      }
+      
+      bond->setProp(common_properties::_MolFileBondStereo, stereo);
+    
+      // if we got an aromatic bond set the flag on the bond and the connected
+      // atoms
+      if (bond->getBondType() == Bond::AROMATIC) 
+        bond->setIsAromatic(true);
+
+      // v2k has no way to set stereoCare on bonds, so set the property if both
+      // the beginning and end atoms have it set:
+      int care1 = 0;
+      int care2 = 0;
+      if (!bond->hasProp(common_properties::molStereoCare) &&
+          mol->getAtomWithIdx(bond->getBeginAtomIdx())
+              ->getPropIfPresent(common_properties::molStereoCare, care1) &&
+          mol->getAtomWithIdx(bond->getEndAtomIdx())
+              ->getPropIfPresent(common_properties::molStereoCare, care2)) {
+        if (care1 && care2) {
+          bond->setProp(common_properties::molStereoCare, 1);
+        }
+      }
+      mol->addBond(bond, true);
+      mol->setBondBookmark(bond, marvinMol->getBondIndex(marvinBond->id));
+    }   
+
+    RWMol *parseMolecule(boost::property_tree::ptree molTree, bool sanitize=true)
+    {
+      try
+      {
+      
+      
+        RWMol *mol = new RWMol();
+
+        MarvinMol *marvinMol = (MarvinMol *)parseMarvinMolecule(molTree);
+        printf("%s\n", marvinMol->generateMolString().c_str());
+        marvinMol->convertSuperAtoms();
+        printf("%s\n", marvinMol->generateMolString().c_str());
+
+
+
+
+        mol->setProp(common_properties::_Name, marvinMol->molID);
+        mol->setProp("_MolFileComments", "Generated by RDKit");
+
+        // set the atoms
+
+        
+        std::vector<MarvinStereoGroup *> stereoGroups;
+        unsigned int i;
+        std::vector<MarvinAtom *>::const_iterator atomIter;
+        for (i = 0, atomIter = marvinMol->atoms.begin() ; atomIter != marvinMol->atoms.end();  ++i, ++atomIter)
+        {
+        
+          
+          Atom *atom = molAtomFromMarvinAtom(*atomIter);
+          unsigned int aid = mol->addAtom(atom, false, true);
+          auto conf = new Conformer(marvinMol->atoms.size());
+
+          RDGeom::Point3D pos;
+          pos.x = (*atomIter)->x2;
+          pos.y = (*atomIter)->y2;
+          pos.z = 0.0;
+          
+          conf->setAtomPos(aid, pos);
+          mol->setAtomBookmark(atom, i+1);
+
+
+          //also collect the stereo groups here
+
+          if ((*atomIter)->mrvStereoGroup != "")
+          {
+            RDKit::StereoGroupType groupType;
+            int groupNumber;
+
+            // get the group parts
+            std::string temp = boost::algorithm::to_lower_copy((*atomIter)->mrvStereoGroup);
+            if (boost::starts_with(temp, "abs"))
+            {
+              groupType  = RDKit::StereoGroupType::STEREO_ABSOLUTE;
+              if (! getCleanInt(temp.substring(3), groupNumber))
+                 throw FileParseException("Group Number must be an integer in a stereo group in a MRV file"); 
+            }
+            else if (boost::starts_with(temp, "and"))
+            {
+              groupType  = RDKit::StereoGroupType::STEREO_AND;
+              if (! getCleanInt(temp.substring(3),groupNumber))
+                 throw FileParseException("Group Number must be an integer in a stereo group in a MRV file"); 
+            }
+            else if (boost::starts_with(temp, "or"))
+            {
+              groupType  = RDKit::StereoGroupType::STEREO_OR;
+              if (! getCleanInt(temp.substring(2), groupNumber))
+                 throw FileParseException("Group Number must be an integer in a stereo group in a MRV file"); 
+            }
+            else
+              throw FileParseException("Unrecognized group definition"); 
+
+
+            // see if the group already exists
+
+            MarvinStereoGroup *marvinStereoGroup;
+            auto groupIter = find_if(stereoGroups.begin(), stereoGroups.end(), [groupType, groupNumber](const MarvinStereoGroup *arg) { 
+                                            return arg->groupNumer ==groupNumber && arg.groupType == groupType; });
+            if (groupIter != stereoGroups.end())
+                marvinStereoGroup = *groupIter;
+            else  
+              marvinStereoGroup = new MarvinStereoGroup(groupType, groupNumber);
+
+            // add this atom to the group
+
+            marvinStereoGroup.atoms.push_back(marvinMol->getAtomIndex((*atomIter)->molID))
+          }
+      }
+ 
+
+      // set the bonds
+
+        std::vector<MarvinBond *>::const_iterator bondIter;
+        bool chiralityPossible = false;
+
+        for (i = 0, bondIter = marvinMol->bonds.begin() ; bondIter != marvinMol->bonds.end();  ++i, ++bondIter)
+          molBondFromMarvinBond(*bondIter, marvinMol, mol, chiralityPossible)
+          
+        //  add the stereo groups
+
+        std::vector<StereoGroup> groups;
+        for (std::vector<MarvinStereoGroup *>::const_iterator groupIter = stereoGroups.begin() ; groupIter != stereoGroups.end() ; ++groupIter)
+          groups.emplace_back(groupIter->groupType, std::move(groupIter->atoms));
+        if (!groups.empty()) 
+          mol->setStereoGroups(std::move(groups));
+
+        // add the super atoms records
+
+        int sequenceId;
+        std::vector<MarvinSuperInfo *>::iterator superIter;
+        for ( sequenceId= 1, superIter = marvinMol->superInfos.begin() ; superIter != marvinMol->superInfos.end() ; ++superIter, ++sequenceId)
+        {
+          std::string typ = "SUP";         
+          SubstanceGroup sgroup = SubstanceGroup(mol, typ);
+          sgroup.setProp<unsigned int>("index", sequenceId);
+ 
+          void (SubstanceGroup::*sGroupAddIndexedElement)(const int) = nullptr;
+          sGroupAddIndexedElement = &SubstanceGroup::addAtomWithBookmark;
+
+          std::vector<int>::const_iterator atomIter;
+          for (atomIter = (*superIter)->atoms.begin(); atomIter != (*superIter)->atoms.end(); ++atomIter)
+            (sgroup.*sGroupAddIndexedElement)(*atomIter);
+
+          sgroup.setProp("LABEL", (*superIter)->title);    
+        }
+    
+        // now the SruGroups
+
+        // note: sequence continues counting from the loop above
+        for ( std::vector<MarvinSruSgroup *>::iterator sruIter = marvinMol->sruSgroups.begin() ; sruIter != marvinMol->sruSgroups->superInfos.end() ; ++sruIter, ++sequenceId)
+        {
+          std::string typ = "SRU";         
+          SubstanceGroup sgroup = SubstanceGroup(mol, typ);
+          sgroup.setProp<unsigned int>("index", sequenceId);
+ 
+          sgroup.setProp("CONNECT", (*sruIter)->connect);
+
+          void (SubstanceGroup::*sGroupAddIndexedElement)(const int) = nullptr;
+          sGroupAddIndexedElement = &SubstanceGroup::addAtomWithBookmark;
+
+          std:vector<std::string>::const_iterator atomIter;
+          for (atomIter = (*sruIter)->atomRefs.begin(); atomIter != (*sruIter)->atomRefs.end(); ++atomIter)
+          {
+            int atomIndex = marvinMol->getAtomIndex((*atomIter)) + 1;
+            (sgroup.*sGroupAddIndexedElement)(atomIndex);
+          }
+          std:vector<std::string>::const_iterator bondIter;
+          for (bondIter = (*sruIter)->bondList.begin(); bondIter != (*sruIter)->bondList.end(); ++bondIter)
+          {
+            int bondINdex = marvinMol->getBondIndex((*bondIter)) + 1;
+            (sgroup.*sGroupAddIndexedElement)(atomIndex);
+          }
+          sgroup.setProp("LABEL", (*sruIter)->title);
+
+        }
+
+
+        mol->clearAllAtomBookmarks();
+        mol->clearAllBondBookmarks();
+
+        // calculate explicit valence on each atom:
+        for (RWMol::AtomIterator atomIt = mol->beginAtoms(); atomIt != mol->endAtoms(); ++atomIt) 
+          (*atomIt)->calcExplicitValence(false);
+
+
+        // update the chirality and stereo-chemistry
+        //
+        // NOTE: we detect the stereochemistry before sanitizing/removing
+        // hydrogens because the removal of H atoms may actually remove
+        // the wedged bond from the molecule.  This wipes out the only
+        // sign that chirality ever existed and makes us sad... so first
+        // perceive chirality, then remove the Hs and sanitize.
+        //
+        const Conformer &conf = mol->getConformer();
+        if (chiralityPossible) 
+          DetectAtomStereoChemistry(*mol, &conf);
+
+        if (sanitize) 
+        {
+          try {
+            if (removeHs) {
+              MolOps::removeHs(*res, false, false);
+            } else {
+              MolOps::sanitizeMol(*res);
+            }
+            // now that atom stereochem has been perceived, the wedging
+            // information is no longer needed, so we clear
+            // single bond dir flags:
+            ClearSingleBondDirFlags(*res);
+
+            // unlike DetectAtomStereoChemistry we call detectBondStereochemistry
+            // here after sanitization because we need the ring information:
+            MolOps::detectBondStereochemistry(*res);
+          } catch (...) {
+            delete res;
+            res = nullptr;
+            throw;
+          }
+          MolOps::assignStereochemistry(*res, true, true, true);
+        } 
+        else 
+        {
+          // we still need to do something about double bond stereochemistry
+          // (was github issue 337)
+          // now that atom stereochem has been perceived, the wedging
+          // information is no longer needed, so we clear
+          // single bond dir flags:
+          ClearSingleBondDirFlags(*res);
+          MolOps::detectBondStereochemistry(*res);
+        }
+
+        if (res->hasProp(common_properties::_NeedsQueryScan)) {
+          res->clearProp(common_properties::_NeedsQueryScan);
+          QueryOps::completeMolQueries(res);
+        }
+
+        // clean up
+
+        for (vector<MarvinStereoGroups>::iterator it = stereoGroups.begin() ; it != stereoGroups.end())
+          delete *it;
+      
+        delete marvinMol;
+        return mol;
+      }
+      catch(const std::exception& e)
+      {
+        delete mol;
+        delete marvinMol;
+        for (vector<MarvinStereoGroups>::iterator it = stereoGroups.begin() ; it != stereoGroups.end())
+          delete *it;
+        
+        throw;
+      }
+    }
+
+    MarvinMolBase *parseMarvinMolecule(boost::property_tree::ptree molTree, MarvinMol *parentMol=NULL)  // parent is for sub-mols
+    {
+
+      MarvinMolBase *res;
+
+      std::string molID = molTree.get<std::string>("<xmlattr>.molID", "");
+
+      if (molID == "")
+        throw FileParseException("Expected a molID in MRV file");
+      
+      std::string role = "";
+
+      if (parentMol == NULL)\
+      {
+        res = new MarvinMol();
+      } 
+      else // is is a sub-mol - used for super atoms and sruGroups
+      {
+        role = molTree.get<std::string>("<xmlattr>.role", "");
+        if (role == "")
+          throw FileParseException("Expected a role for a sub-molecule in MRV file");
+
+       
+        if (role == "SuperatomSgroup")
+        {
+            MarvinSuperatomSgroup *marvinSuperatomSgroup = new MarvinSuperatomSgroup();
+            res = marvinSuperatomSgroup;  
+
+            marvinSuperatomSgroup.id = molTree.get<std::string>("<xmlattr>.id", "");
+
+            marvinSuperatomSgroup.title = molTree.get<std::string>("<xmlattr>.title", "");
+            if (marvinSuperatomsgroup.title == "")
+              throw FileParseException("Expected  title for a SuperatomSgroup definition in MRV file");
+          
+        } 
+        else if (role == "SruSgroup")
+        {
+          //      <molecule molID="m2" id="sg1" role="SruSgroup" atomRefs="a1 a3 a4" title="n" connect="ht" correspondence="" bondList=""/>
+          //      <molecule molID="m3" id="sg2" role="SruSgroup" atomRefs="a5 a6 a7 a8" title="n" connect="hh" correspondence="" bondList=""/>
+          //      <molecule molID="m4" id="sg3" role="SruSgroup" atomRefs="a10 a11" title="n" connect="eu" correspondence="" bondList=""/></molecule>
+
+          MarvinSruSgroup *marvinSruSgroup = new MarvinSruSgroup();
+          res = marvinSruSgroup;
+         
+          marvinSr.id = molTree.get<std::string>("<xmlattr>.id", "");
+
+          std::string atomRefsStr = molTree.get<std::string>("<xmlattr>.atomRefs", "");
+          if (atomRefsStr == "")
+            throw FileParseException("Expected  atomRefs for a SruSgroup definition in MRV file");
+          boost::algorithm::split(marvinSruSgroup.atomRefs, atomRefsStr, boost::algorithm::is_space());
+          for (std::vector<std::string>::const_iterator it = marvinSruSgroup.atomRefs.begin() ;  it != marvinSruSgroup.atomRefs.end(); ++it)
+            if (!boost::algorithm::contains(parentMol->atoms, std::vector<std::string>{*it}, MarvinMol::atomRefInAtoms ))
+              throw FileParseException("All of the AtomRefs in the sruSgroup must in the parent molecule");
+
+          marvinSrusgroup.title = molTree.get<std::string>("<xmlattr>.title", "");
+          if (marvinSrusgroup.title == "")
+            throw FileParseException("Expected  title for a SruSgroup definition in MRV file");
+
+          marvinSrusgroup.connect = molTree.get<std::string>("<xmlattr>.connect", "");
+          if (!boost::algorithm::contains(sruSgroupConnectChoices,std::vector<std::string>{marvinSrusgroup.connect}))
+          {
+            std::ostringstream err;
+            err << "Expected  a connect  string of \"" << boost::algorithm::join(sruSgroupConnectChoices, ", ") << "\" for a SruSgroup definition in MRV file";
+            throw FileParseException(err.str());
+          }
+
+          marvinSrusgroup.correspondence = molTree.get<std::string>("<xmlattr>.correspondence", "");
+
+          std::string bondListStr = molTree.get<std::string>("<xmlattr>.bondList", "");
+          if (bondListStr != "")
+          {
+            boost::algorithm::split(marvinSrusgroup.bondList, bondListStr, boost::algorithm::is_space());
+            for (std::vector<std::string>::const_iterator it = marvinSrusgroup.bondList.begin() ;  it != marvinSrusgroup.bondList.end(); ++it)
+              if (!boost::algorithm::contains(parentMol->bopnds, std::vector<std::string>{*it}, MarvinMol::bondRefInBonds ))
+                throw FileParseException("All of the BondList entries in the sruSgroup must in the parent molecule");
+          }
+        }
+        else if (role == "MultipleSgroup")
+        {
+          throw FileParseException("MultipleSgroup in not yet implemented in MRV file");
+        }
+        else
+          throw FileParseException("Unexpected role " + role + " in MRV file");
+
+      }
+      
+      res->molID = molID;
+
+    // get atoms if this is NOT a role == "SruSgroup"
+
+      if (role != "SruSgroup")
+      {
+        boost::property_tree::ptree atomArray = molTree.get_child("atomArray");
+
+        // there are two types of atom arrays:
+        // <atomArray atomID="a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11" elementType="C C C C C C Cl C N O O" formalCharge="0 0 0 0 0 0 0 0 1 0 -1" lonePair="0 0 0 0 0 0 3 0 0 2 3" x2="-4.3334 -5.6670 -5.6670 -4.3334 -2.9997 -2.9997 -4.3335 -1.6660 -7.0007 -1.6660 -0.3323" y2="1.7693 0.9993 -0.5409 -1.3109 -0.5409 0.9993 3.3093 -1.3109 -1.3109 -2.8509 -0.5410"></atomArray>
+        //  AND
+        // <atomArray>
+        //       <atom id="a1" elementType="C" x2="-9.4583" y2="1.9358" mrvStereoGroup="and1"/>
+        //       <atom id="a2" elementType="C" x2="-10.7921" y2="1.1658"/>
+        //       <atom id="a3" elementType="C" x2="-10.7921" y2="-0.3744"/>
+        //       <atom id="a8" elementType="O" x2="-12.1257" y2="-1.1444" lonePair="2"/>
+        //   </atomArray>
+        
+        // See which one we have
+
+        
+        std::string atomID = atomArray.get<std::string>("<xmlattr>.atomID", "");
+        if (atomID == "")
+        {
+           // long form - each atom on a line
+
+          BOOST_FOREACH(
+              boost::property_tree::ptree::value_type &v, molTree.get_child("atomArray"))
+          {
+            MarvinAtom *mrvAtom = new MarvinAtom();   
+            res->atoms.push_back(mrvAtom);
+
+            mrvAtom->id = v.second.get<std::string>("<xmlattr>.id", "");
+            mrvAtom->elementType = v.second.get<std::string>("<xmlattr>.elementType", "");
+            std::string x2 = v.second.get<std::string>("<xmlattr>.x2", "");
+            std::string y2 = v.second.get<std::string>("<xmlattr>.y2", "");
+            if (mrvAtom->id == "" || mrvAtom->elementType == "" || x2 == "" || y2 == "" )
+                throw FileParseException("Expected id, elementType. x2 and y2 for an atom definition in MRV file");
+
+            // x2 and y2 are doubles
+
+            if (!getCleanDouble(x2, mrvAtom->x2) || !getCleanDouble(y2, mrvAtom->y2))
+                throw FileParseException("The values x2 and y2 must be large floats in MRV file");        
+
+            std::string formalCharge = v.second.get<std::string>("<xmlattr>.formalCharge", "");
+            if (formalCharge != "")
+            {
+              if (!getCleanInt(formalCharge, mrvAtom->formalCharge) )
+                  throw FileParseException("The value for formalCharge must be an integer in MRV file"); 
+            }
+            else
+              mrvAtom->formalCharge = 0;
+            
+
+            mrvAtom->radical = v.second.get<std::string>("<xmlattr>.radical", "");
+            if (mrvAtom->radical != "")
+            {
+              if (!boost::algorithm::contains(marvinRadicalVals, std::vector<std::string>{mrvAtom->radical} ))
+              {
+                std::ostringstream err;
+                err << "The value for radical must be one of " << boost::algorithm::join(marvinRadicalVals,", ") << " in MRV file";
+                throw FileParseException(err.str()); 
+              }
+            }
+
+            std::string isotopeStr = v.second.get<std::string>("<xmlattr>.radical", "");
+            if (isotopeStr != "")
+            {
+              if (!getCleanInt(isotopeStr, mrvAtom->isotope) || mrvAtom->isotope <=0)
+              {
+                std::ostringstream err;
+                err << "The value for isotope must be a positive number in MRV file";
+                throw FileParseException(err.str()); 
+              }
+            }
+
+            else 
+              mrvAtom->radical = "";
+
+            mrvAtom->mrvAlias = v.second.get<std::string>("<xmlattr>.mrvAlias", "");
+
+            mrvAtom->mrvStereoGroup = v.second.get<std::string>("<xmlattr>.mrvStereoGroup", "");
+
+            std::string mrvMap = v.second.get<std::string>("<xmlattr>.mrvMap", "");
+            if (mrvMap != "")
+            {
+              if (!getCleanInt(mrvMap, mrvAtom->mrvMap) || mrvAtom->mrvMap <=0)
+                  throw FileParseException("The value for mrvMap must be an non-=negative integer in MRV file"); 
+            }
+            else
+              mrvAtom->mrvMap = 0;
+
+            mrvAtom->sgroupRef = v.second.get<std::string>("<xmlattr>.sgroupRef", "");
+
+            if (role== "SuperatomSgroup")
+            {
+              mrvAtom->sgroupAttachmentPoint = v.second.get<std::string>("<xmlattr>.sgroupAttachmentPoint", "");
+
+              //atom->setProp(common_properties::molAttachPoint, ival);
+            }
+
+          
+          }
+        }
+        else  // single line form of atoms
+        {
+          // <atomArray atomID="a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11" elementType="C C C C C C Cl C N O O" formalCharge="0 0 0 0 0 0 0 0 1 0 -1" lonePair="0 0 0 0 0 0 3 0 0 2 3" x2="-4.3334 -5.6670 -5.6670 -4.3334 -2.9997 -2.9997 -4.3335 -1.6660 -7.0007 -1.6660 -0.3323" y2="1.7693 0.9993 -0.5409 -1.3109 -0.5409 0.9993 3.3093 -1.3109 -1.3109 -2.8509 -0.5410"></atomArray>
+          
+          std::vector<std::string> atomIds;
+          boost::algorithm::split(atomIds,atomID,boost::algorithm::is_space());
+          size_t atomCount = atomIds.size();
+
+          std::vector<std::string> elementTypes;
+          std::string elementType = atomArray.get<std::string>("<xmlattr>.elementType", "");
+          boost::algorithm::split(elementTypes,elementType,boost::algorithm::is_space());
+      
+          std::vector<std::string> x2s;
+          std::string x2 = atomArray.get<std::string>("<xmlattr>.x2", "");
+          boost::algorithm::split(x2s,x2,boost::algorithm::is_space());
+
+          std::vector<std::string> y2s;
+          std::string y2 = atomArray.get<std::string>("<xmlattr>.y2", "");
+          boost::algorithm::split(y2s,y2,boost::algorithm::is_space());
+
+          std::vector<std::string> formalCharges;
+          std::string formalCharge = atomArray.get<std::string>("<xmlattr>.formalCharge", "");
+          boost::algorithm::split(formalCharges,formalCharge,boost::algorithm::is_space());
+
+          std::vector<std::string> radicals;
+          std::string radical = atomArray.get<std::string>("<xmlattr>.radical", "");
+          boost::algorithm::split(radicals,radical,boost::algorithm::is_space());
+
+          std::vector<std::string> mrvAliases;
+          std::string mrvAlias = atomArray.get<std::string>("<xmlattr>.mrvAlias", "");
+          boost::algorithm::split(mrvAliases,mrvAlias,boost::algorithm::is_space());
+
+          std::vector<std::string> mrvStereoGroups;
+          std::string mrvStereoGroup = atomArray.get<std::string>("<xmlattr>.mrvStereoGroup", "");
+          boost::algorithm::split(mrvStereoGroups,mrvStereoGroup,boost::algorithm::is_space());
+
+          std::vector<std::string> mrvMaps;
+          std::string mrvMap = atomArray.get<std::string>("<xmlattr>.mrvMap", "");
+          boost::algorithm::split(mrvMaps,mrvMap,boost::algorithm::is_space());
+
+          std::vector<std::string> sgroupRefs;
+          std::string sgroupRef = atomArray.get<std::string>("<xmlattr>.sgroupRef", "");
+          boost::algorithm::split(sgroupRefs,sgroupRef,boost::algorithm::is_space());
+
+          std::vector<std::string> sgroupAttachmentPoints;
+          std::string sgroupAttachmentPoint = atomArray.get<std::string>("<xmlattr>.sgroupAttachmentPoint", "");
+          boost::algorithm::split(sgroupAttachmentPoints,sgroupAttachmentPoint,boost::algorithm::is_space());
+
+          if (atomID == "" ||elementType == "" || x2 == "" || y2 == ""
+                  ||  elementTypes.size() != atomCount || x2s.size() != atomCount || y2s.size() != atomCount )
+            throw FileParseException("Expected id, elementType. x2 and y2 arrays for an atomArray definition in MRV file, and the counts of each must the same");
+
+          if (formalCharge != "" && formalCharges.size() != atomCount)
+            throw FileParseException("formalCharges, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
+
+          if (radical != "" && radicals.size() != atomCount)
+            throw FileParseException("radicals, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
+
+          if (mrvAlias != "" && mrvAliases.size() != atomCount)
+            throw FileParseException("mrvAliases, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
+
+          if (mrvStereoGroup != ""  && mrvStereoGroups.size() != atomCount)
+            throw FileParseException("mrvStereoGroups, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
+
+          if (mrvMap != "" && mrvMaps.size() != atomCount)
+            throw FileParseException("mrvMaps, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
+
+          if (sgroupRef != ""  && sgroupRefs.size() != atomCount)
+            throw FileParseException("sgroupRefs, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
+
+          if (sgroupAttachmentPoint != ""  && sgroupAttachmentPoints.size() != atomCount)
+            throw FileParseException("sgroupAttachmentPoint, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
+
+          for (size_t i = 0 ; i < atomCount ; ++i)
+          {
+            MarvinAtom *mrvAtom = new MarvinAtom();   
+            res->atoms.push_back(mrvAtom);
+
+            mrvAtom->id = atomIds[i];
+            
+            if (!getCleanDouble(x2s[i], mrvAtom->x2) || !getCleanDouble(y2s[i], mrvAtom->y2))
+              throw FileParseException("The values x2 and y2 must be large floats in MRV file");        
+
+            if (formalCharge != "")
+            {
+              if (!getCleanInt(formalCharges[i], mrvAtom->formalCharge) )
+                  throw FileParseException("The value for formalCharge must be an integer in MRV file"); 
+            }
+            else
+              mrvAtom->formalCharge = 0;
+           
+            if (radical != "")
+            {
+              mrvAtom->radical = radicals[i];
+              if (!boost::algorithm::contains(marvinRadicalVals, std::vector<std::string>{mrvAtom->radical} ))
+              {
+                std::ostringstream err;
+                err << "The value for radical must be one of " << boost::algorithm::join(marvinRadicalVals,", ") << " in MRV file";
+                throw FileParseException(err.str()); 
+              }
+            }
+            else 
+              mrvAtom->radical = "";
+
+            if (mrvAlias != "")
+              mrvAtom->mrvAlias = mrvAliases[i];
+            else
+              mrvAtom->mrvAlias = "";
+            
+            if (mrvStereoGroup != "")
+              mrvAtom->mrvStereoGroup = mrvStereoGroups[i];
+            else
+              mrvAtom->mrvStereoGroup = "";       
+            
+            if (mrvMap != "")
+            {
+              if (!getCleanInt(mrvMap, mrvAtom->mrvMap) || mrvAtom->mrvMap <=0)
+                  throw FileParseException("The value for mrvMap must be an non-=negative integer in MRV file"); 
+            }
+            else
+              mrvAtom->mrvMap = 0;       
+
+            if (sgroupRef != "")
+              mrvAtom->sgroupRef = sgroupRefs[i];
+            else
+              mrvAtom->sgroupRef = "";
+            
+            if (role== "SuperatomSgroup" && sgroupAttachmentPoint != "")
+            {
+               mrvAtom->sgroupAttachmentPoint = sgroupAttachmentPoints[i];
+            }
+            else
+              mrvAtom->sgroupAttachmentPoint = "";
+          }
         }
       }
 
-      // Use the throwing version of get to find the debug filename.
-      // If the path cannot be resolved, an exception is thrown.
-      // m_file = tree.get<std::string>("debug.filename");
+        // get bonds if this is NOT a role == "SruSgroup"
 
-      // Use the default-value version of get to find the debug level.
-      // Note that the default value is used to deduce the target type.
-      // m_level = tree.get("debug.level", 0);
+      if (role != "SruSgroup")
+      {
+        BOOST_FOREACH(
+            boost::property_tree::ptree::value_type &v, molTree.get_child("bondArray"))
+        {
+          MarvinBond *mrvBond = new MarvinBond();   
+          res->bonds.push_back(mrvBond);
 
-      // Use get_child to find the node containing the modules, and iterate over
-      // its children. If the path cannot be resolved, get_child throws.
-      // A C++11 for-range loop would also work.
-      // BOOST_FOREACH (pt::ptree::value_type &v, tree.get_child("debug.modules"))
-      // {
-      //   // The data function is used to access the data stored in a node.
-      //   m_modules.insert(v.second.data());
-      // }
+          mrvBond->id = v.second.get<std::string>("<xmlattr>.id", "");
+          if (mrvBond->id == ""  )
+            throw FileParseException("Expected id for an bond definition in MRV file");
+          
+         
+          std::string atomRefs2 = v.second.get<std::string>("<xmlattr>.atomRefs2", "");
 
-      // qqq this.xml = WebMolKit.XML.parseXML(this.cml);
-      // if (this.xml == null)
-      //  throw new Error('Unable to read CML document, XML parsing error.');
+          std::vector<std::string> atomRefs2s;
+          boost::algorithm::split(atomRefs2s,atomRefs2,boost::algorithm::is_space());
+          mrvBond->atomRefs2[0] =  atomRefs2s[0];
+          mrvBond->atomRefs2[1] =  atomRefs2s[1];
+          if (atomRefs2s.size() != 2 
+              || !boost::algorithm::contains(res->atoms, std::vector<std::string>{mrvBond->atomRefs2[0]}, MarvinMol::atomRefInAtoms )
+              || !boost::algorithm::contains(res->atoms, std::vector<std::string>{mrvBond->atomRefs2[1]}, MarvinMol::atomRefInAtoms ) )
+            throw FileParseException("atomRefs2 must contain two atom refs that must appear in the atoms array in MRV file");
 
-      //     const heads : Element[] = [];
-      //     this.recursiveHeadFind(heads, this.xml.documentElement);
 
-      //     // look for text labels
-      //     for (const head of heads)
-      //     {
-      //       if (head.tagName == 'MTextBox')
-      //       {
-      //         this.extractTextBox(head);
-      //       }
-      //     }
+          mrvBond->order = v.second.get<std::string>("<xmlattr>.order", "");
+          if (!boost::algorithm::contains(marvinBondOrders, std::vector<std::string>{mrvBond->order} ))
+          {
+            std::ostringstream err;
+            err << "Expected one of  " << boost::algorithm::join(marvinBondOrders,", ") << " for order for an bond definition in MRV file";
+            throw FileParseException(err.str());
+          }
 
-      //     // if there are any reaction units, parse the first one and call it complete
-      //     for (const head of heads)
-      //     {
-      //       if (head.tagName == 'reaction')
-      //       {
-      //         this.parseReaction(head);
+          mrvBond->bondStereo = v.second.get<std::string>("bondStereo", "");
+          if (mrvBond->bondStereo != "" &&  boost::algorithm::to_lower_copy(mrvBond->bondStereo) != "w" && boost::algorithm::to_lower_copy(mrvBond->bondStereo) != "h")
+              throw FileParseException("The value for bondStereo must be \"h\" or \"w\" in MRV file");
 
-      //         this.plusSigns = [];
-      //         for (const head of heads)
-      //         {
-      //           if (head.tagName == 'MReactionSign')
-      //           {
-      //             this.extractPlusSign(head);
-      //           }
-      //         }
-      //         this.postProcessPluses();
+        
+        }
 
-      //         return;
-      //       }
-      //     }
+      }
 
-      //     // read all of the molecule(s) into a single object
-      //     for (const head of heads)
-      //     {
-      //       const frag = this.parseMolecule(head);
-      //       if (this.mol)
-      //       {
-      //         this.mol.append(frag);
-      //       }
-      //       else
-      //       {
-      //         this.mol = frag;
-      //       }
-      //     }
+      if (role== "SuperatomSgroup")
+      {
 
-      //     if (!this.mol)
-      //       throw new Error('No molecules or reactions found.');
+        // see if there is an AttachmentPointArray
+        bool found;
+        
+        try 
+        {
+          BOOST_FOREACH(
+              boost::property_tree::ptree::value_type &v, molTree.get_child("AttachmentPointArray"))
+          {
+            break;
+          }
+          found = true;
+
+        }
+        catch(const std::exception& e)
+        {
+           found = false;
+        }
+
+        if (found)
+        {
+          BOOST_FOREACH(
+              boost::property_tree::ptree::value_type &v, molTree.get_child("AttachmentPointArray"))
+          {
+            MarvinAttachmentPoint *marvinAttachmentPoint = new MarvinAttachmentPoint();   
+            ((MarvinSuperatomSgroup *)res)->attachmentPoints.push_back(marvinAttachmentPoint);
+
+            marvinAttachmentPoint->atom = v.second.get<std::string>("<xmlattr>.atom", "");
+
+
+            marvinAttachmentPoint->order = v.second.get<std::string>("<xmlattr>.order", "");
+            marvinAttachmentPoint->bond = v.second.get<std::string>("<xmlattr>.bond", "");
+            if (marvinAttachmentPoint->atom == "" || marvinAttachmentPoint->order == "" || marvinAttachmentPoint->bond == ""  )
+                throw FileParseException("Expected atom, order and bond,  for an AttachmentPoint definition in MRV file");
+
+            // atom must be found in the atoms vector
+
+            if (!boost::algorithm::contains(res->atoms, std::vector<std::string>{marvinAttachmentPoint->atom}, MarvinMol::atomRefInAtoms ))
+              throw FileParseException("Atom specification for an AttachmentPoint definition must be in the parent's atom array in MRV file");
+
+            // bond must be found in the  bonds vector
+
+            if (!boost::algorithm::contains(parentMol->bonds, std::vector<std::string>{marvinAttachmentPoint->bond}, bondRefInBonds ))
+              throw FileParseException("Bond specification for an AttachmentPoint definition must be in the bond array in MRV file");
+
+          }
+        }
+      }
+
+      if (parentMol == NULL)  // is this is a parent type mol - it has no parent
+      {
+          BOOST_FOREACH(
+              boost::property_tree::ptree::value_type &v, molTree)
+          {
+            if(v.first == "molecule")
+            {
+               MarvinMolBase *subMol = (MarvinSuperatomSgroup *)parseMarvinMolecule(v.second, (MarvinMol *)res);
+
+              if (subMol->role() == "SuperatomSgroup")
+                  ((MarvinMol *)res)->superatomSgroups.push_back((MarvinSuperatomSgroup *)subMol);
+              else if (subMol->role() == "SruSgroup")
+                  ((MarvinMol *)res)->sruSgroups.push_back((MarvinSruSgroup *)subMol);
+              else
+                  throw FileParseException("Unexpected role while parsing sub-molecues in MRV file");
+            }
+
+          }
+      }
+
+      return res;
+    };
+
+
+    ChemicalReaction *parseReaction(boost::property_tree::ptree rxnTree, boost::property_tree::ptree documentTree)
+    {
+      ChemicalReaction *res = new ChemicalReaction();
+
+      MarvinReaction *marvinReaction= parseMarvinReaction(rxnTree, documentTree);
+      printf("%s\n", marvinReaction->toString().c_str());
+      marvinReaction->convertSuperAtoms();
+      printf("%s\n", marvinReaction->toString().c_str());
+      delete marvinReaction;
+      return res;
     }
 
-      // public
-      //   getMolfile() : string
-      //   {
-      //     return new WebMolKit.MDLMOLWriter(this.mol).write();
-      //   }
 
-      // public
-      //   isReaction() : boolean
-      //   {
-      //     return this.reactants != null && this.agents != null && this.products != null;
-      //   }
-
-      // public
-      //   getRXNfile() : string
-      //   {
-      //     if (!this.isReaction())
-      //       throw new Error('Source content is not a reaction.');
-      //     const pad = (v
-      //                  : number) = >
-      //     {
-      //       const str = v.toString();
-      //       return ' '.repeat(3 - str.length) + str;
-      //     };
-      //     let rxn = '$RXN\n\nRXNfile\n\n' + pad(this.reactants.length) + pad(this.products.length) + pad(this.agents.length) + '\n';
-      //     for (const mol of this.reactants)
-      //     {
-      //       rxn += '$MOL\n' + new WebMolKit.MDLMOLWriter(mol).write() + '\n';
-      //     }
-      //     for (const mol of this.products)
-      //     {
-      //       rxn += '$MOL\n' + new WebMolKit.MDLMOLWriter(mol).write() + '\n';
-      //     }
-      //     for (const mol of this.agents)
-      //     {
-      //       rxn += '$MOL\n' + new WebMolKit.MDLMOLWriter(mol).write() + '\n';
-      //     }
-      //     return rxn;
-      //   }
-
-      // private
-      //   recursiveHeadFind(heads
-      //                     : Element[], parent
-      //                     : Element) : void
-      //   {
-      //     for (const child of WebMolKit.XML.childElements(parent))
-      //     {
-      //       if ([ 'molecule', 'reaction', 'MTextBox', 'MReactionSign' ].includes(child.tagName))
-      //       {
-      //         heads.push(child);
-      //       }
-      //       else
-      //       {
-      //         this.recursiveHeadFind(heads, child);
-      //       }
-      //     }
-      //   }
-
-      //   // extracts a single molecule from the element; for CML sources containing just a molecule, this is the primary workhorse; it
-      //   // also gets called from the datasheet-extracting methods
-      // private
-      //   parseMolecule(elMol
-      //                 : Element, attpoint
-      //                 : string[] = null) : WebMolKit.Molecule
-      //   {
-      //     const mol = new WebMolKit.Molecule();
-      //     const atomID : string[] = [];
-      //     const sgroupID : string[] = [];
-
-      //     // scan for atoms first
-      //     for (const elAtomArray of WebMolKit.XML.findChildElements(elMol, 'atomArray'))
-      //     {
-      //       this.extractAtomOrArray(elAtomArray, mol, atomID, sgroupID, attpoint);
-      //       for (const elAtom of WebMolKit.XML.findChildElements(elAtomArray, 'atom'))
-      //       {
-      //         this.extractAtomOrArray(elAtom, mol, atomID, sgroupID, attpoint);
-      //       }
-      //     }
-
-      //     // scan for bonds (best to do it separately, since they refer to atoms by ID)
-      //     for (const elBondArray of WebMolKit.XML.findChildElements(elMol, 'bondArray'))
-      //     {
-      //       for (const elBond of WebMolKit.XML.findChildElements(elBondArray, 'bond'))
-      //       {
-      //         this.extractBond(elBond, mol, atomID);
-      //       }
-      //     }
-
-      //     // scan for sub-molecules that can be converted into abbreviations
-      //     for (const elSubMol of WebMolKit.XML.findChildElements(elMol, 'molecule'))
-      //     {
-      //       const role = elSubMol.getAttribute('role');
-      //       if (role == 'SuperatomSgroup')
-      //       {
-      //         const sgID = elSubMol.getAttribute('id');
-      //         if (!sgID)
-      //           continue;
-      //         const headAtom = sgroupID.indexOf(sgID) + 1;
-      //         if (headAtom > 0)
-      //           this.affixAbbreviation(elSubMol, mol, headAtom);
-      //       }
-      //       else if (role == 'SruSgroup')
-      //       {
-      //         const atomList = safeAttr(elSubMol, 'atomRefs').split(' ').map((aid) = > atomID.indexOf(aid) + 1);
-      //         if (atomList.some((atom) = > atom == 0))
-      //           continue;
-      //         const unit = new WebMolKit.PolymerBlockUnit(atomList);
-      //         const connect = elSubMol.getAttribute('connect');
-      //         if (connect == 'ht')
-      //         {
-      //           unit.connect = WebMolKit.PolymerBlockConnectivity.HeadToTail;
-      //         }
-      //         else if (connect == 'hh')
-      //         {
-      //           unit.connect = WebMolKit.PolymerBlockConnectivity.HeadToHead;
-      //         }
-      //         else if (connect == 'eu')
-      //         {
-      //           unit.connect = WebMolKit.PolymerBlockConnectivity.Random;
-      //         }
-      //         new WebMolKit.PolymerBlock(mol).createUnit(unit);
-      //       }
-      //       else if (role == 'MultipleSgroup')
-      //       {
-      //         /*
-      //           ignoring for now: there's a story for implementing this; it needs to be stored using an intermediate form of
-      //           "polymer" representation with the # of units retained; exporting this to & from Ketcher is easy enough, but
-      //           going to Molfile format requires actual expansion of the atoms, then annotation of which ones were the original,
-      //           which is a bit more tricky
-
-      //         const atomList = safeAttr(elSubMol, 'atomRefs').split(' ').map((aid) => atomID.indexOf(aid) + 1);
-      //         const count = parseInt(safeAttr(elSubMol, 'title'));
-      //         const WITHIN_REASON = 30; // duplicating atoms, don't want to do anything crazy
-      //         for (let n = 1; n < count && n < WITHIN_REASON && mol.numAtoms + count < 1000; n++) {
-      //           this.replicateMultiBlock(mol, atomList);
-      //         }
-      //         */
-      //       }
-      //     }
-
-      //     return mol;
-      //   }
-
-      //   // pulls out the content of an <atomArray> or <atom> node
-      // private
-      //   extractAtomOrArray(elAtom
-      //                      : Element, mol
-      //                      : WebMolKit.Molecule, atomID
-      //                      : string[], sgroupID
-      //                      : string[], attpoint
-      //                      : string[]) : void
-      //   {
-      //     const id = elAtom.getAttribute('atomID') || elAtom.getAttribute('id');
-      //     if (!id)
-      //       return;
-
-      //     const bitsID = id.split(' ');
-      //     const bitsElement = safeAttr(elAtom, 'elementType').split(' ');
-      //     const bitsX = safeAttr(elAtom, 'x2').split(' ');
-      //     const bitsY = safeAttr(elAtom, 'y2').split(' ');
-      //     const bitsCharge = safeAttr(elAtom, 'formalCharge').split(' ');
-      //     const bitsRadical = safeAttr(elAtom, 'radical').split(' ');
-      //     const bitsIsotope = safeAttr(elAtom, 'isotope').split(' ');
-      //     const bitsSGroup = safeAttr(elAtom, 'sgroupRef').split(' ');
-      //     const bitsAttPoint = (safeAttr(elAtom, 'attachmentPoint') || elAtom.getAttribute('sgroupAttachmentPoint') || '').split(' ');
-      //     const bitsMapNum = safeAttr(elAtom, 'mrvMap').split(' ');
-      //     const bitsQuery = safeAttr(elAtom, 'mrvQueryProps').split(' ');
-      //     const bitsAlias = safeAttr(elAtom, 'mrvAlias').split(' ');
-      //     for (let n = 0; n < bitsID.length; n++)
-      //     {
-      //       atomID.push(bitsID[n]);
-      //       sgroupID.push(n < bitsSGroup.length ? bitsSGroup[n] : '');
-      //       const x = Math.round(WebMolKit.safeFloat(bitsX[n]) * 10000) * 0.0001;
-      //       const y = Math.round(WebMolKit.safeFloat(bitsY[n]) * 10000) * 0.0001;
-      //       const a = mol.addAtom(bitsElement[n], x, y);
-      //       if (n < bitsCharge.length)
-      //         mol.setAtomCharge(a, WebMolKit.safeInt(bitsCharge[n]));
-      //       if (bitsRadical[n] == 'monovalent')
-      //       {
-      //         mol.setAtomUnpaired(a, 1);
-      //       }
-      //       else if (bitsRadical[n] == 'divalent' || bitsRadical[n] == 'divalent1')
-      //       {
-      //         mol.setAtomUnpaired(a, 2);
-      //       }
-      //       else if (bitsRadical[n] == 'trivalent4')
-      //       {
-      //         mol.setAtomUnpaired(a, 3);
-      //       }
-      //       else if (bitsRadical[n] == '4')
-      //       {
-      //         mol.setAtomUnpaired(a, 4);
-      //       }
-      //       if (n < bitsIsotope.length)
-      //       {
-      //         const iso = parseInt(bitsIsotope[n]);
-      //         if (iso > 0)
-      //           mol.setAtomIsotope(a, iso);
-      //       }
-      //       if (n < bitsMapNum.length)
-      //       {
-      //         const mapnum = parseInt(bitsMapNum[n]);
-      //         if (mapnum > 0)
-      //           mol.setAtomMapNum(a, mapnum);
-      //       }
-      //       if (n < bitsQuery.length && bitsQuery[n] != null && bitsQuery[n] != '' && bitsQuery[n] != '0')
-      //       {
-      //         mol.setAtomElement(a, 'A');
-      //       }
-      //       if (n < bitsAlias.length && bitsAlias[n] != null && bitsAlias[n] != '' && bitsAlias[n] != '0')
-      //       {
-      //         mol.setAtomElement(a, bitsAlias[n]);
-      //       }
-      //       if (attpoint != null)
-      //         attpoint.push(bitsAttPoint[n]); // (push'd value can be null)
-      //     }
-
-      //     // optionally keep other stuff, since CML has no limits on what can be included
-      //   }
-
-      //   // pulls out the content of a <bondArray> or <bond> node
-      // private
-      //   extractBond(elBond
-      //               : Element, mol
-      //               : WebMolKit.Molecule, atomID
-      //               : string[]) : void
-      //   {
-      //     if (!elBond.hasAttribute('atomRefs2'))
-      //       return;
-
-      //     const aref = elBond.getAttribute('atomRefs2').split(' ');
-      //     const a1 = atomID.indexOf(aref[0]), a2 = atomID.indexOf(aref[1]);
-      //     if (a1 < 0 || a2 < 0)
-      //       return;
-      //     const strOrder = safeAttr(elBond, 'order');
-      //     const order = WebMolKit.safeInt(strOrder) || 0;
-
-      //     const elStereo = WebMolKit.XML.findElement(elBond, 'bondStereo');
-      //     let btype = WebMolKit.Molecule.BONDTYPE_NORMAL;
-      //     if (elStereo != null)
-      //     {
-      //       let stereo = WebMolKit.XML.nodeText(elStereo);
-      //       if (stereo == 'W')
-      //         btype = WebMolKit.Molecule.BONDTYPE_INCLINED;
-      //       else if (stereo == 'H')
-      //         btype = WebMolKit.Molecule.BONDTYPE_DECLINED;
-
-      //       if (elStereo.hasAttribute('dictRef'))
-      //       {
-      //         stereo = elStereo.getAttribute('dictRef');
-      //         if (stereo == 'cml:W')
-      //           btype = WebMolKit.Molecule.BONDTYPE_INCLINED;
-      //         else if (stereo == 'cml:H')
-      //           btype = WebMolKit.Molecule.BONDTYPE_DECLINED;
-      //       }
-      //       if (elStereo.getAttribute('convention') == 'MDL')
-      //       {
-      //         const mdl = WebMolKit.safeInt(elStereo.getAttribute('conventionValue'));
-      //         if (mdl == 1)
-      //           btype = WebMolKit.Molecule.BONDTYPE_INCLINED;
-      //         else if (mdl == 6)
-      //           btype = WebMolKit.Molecule.BONDTYPE_DECLINED;
-      //         else if (mdl == 3 || mdl == 4)
-      //           btype = WebMolKit.Molecule.BONDTYPE_UNKNOWN;
-      //       }
-      //     }
-
-      //     const b = mol.addBond(a1 + 1, a2 + 1, order, btype);
-      //     if (strOrder == 'A')
-      //     {
-      //       WebMolKit.QueryUtil.setQueryBondOrders(mol, b, [-1]);
-      //     }
-      //   }
-
-      //   // links an atom to a child-element that contains an Sgroup molecule; super groups can be defined as MMI-flavour, which
-      //   // is round-trip compatible with the abbreviation mechanism, or ChemAxon-flavour, which is more similar to the MDL approach
-      // private
-      //   affixAbbreviation(elAbbrev
-      //                     : Element, mol
-      //                     : WebMolKit.Molecule, atom
-      //                     : number) : void
-      //   {
-      //     const attpoint : string[] = [];
-      //     const smol : WebMolKit.Molecule = this.parseMolecule(elAbbrev, attpoint);
-      //     if (WebMolKit.MolUtil.isBlank(smol))
-      //       return;
-
-      //     const title = elAbbrev.getAttribute('title');
-      //     if (title)
-      //       mol.setAtomElement(atom, title);
-
-      //     // define the abbreviation, starting with the guide atom; use the special attribute to define its position, if available
-      //     const abv = new WebMolKit.Molecule();
-      //     abv.addAtom(WebMolKit.MolUtil.ABBREV_ATTACHMENT, mol.atomX(atom), mol.atomY(atom));
-      //     abv.append(smol);
-
-      //     for (let n = 0; n < attpoint.length; n++)
-      //     {
-      //       if (attpoint[n] == '1')
-      //         abv.addBond(1, n + 2, 1);
-      //     }
-      //     this.projectAttachmentPoint(abv);
-
-      //     // if no connection to guide atom, this is no good
-      //     let hasConn = false;
-      //     for (let n = 1; n <= abv.numBonds; n++)
-      //     {
-      //       if (abv.bondFrom(n) == 1 || abv.bondTo(n) == 1)
-      //       {
-      //         hasConn = true;
-      //         break;
-      //       }
-      //     }
-      //     if (!hasConn)
-      //     {
-      //       // just create the thing outright, and rotate the first new atom into the old atom's spot, so that it
-      //       // doesn't disrupt the overall process too much
-      //       abv.deleteAtomAndBonds(1);
-      //       const idx = mol.numAtoms + 1;
-      //       mol.append(abv);
-      //       mol.swapAtoms(atom, idx);
-      //       mol.deleteAtomAndBonds(idx);
-      //       return;
-      //     }
-
-      //     if (mol.atomAdjCount(atom) == 1)
-      //       WebMolKit.MolUtil.setAbbrev(mol, atom, abv);
-      //   }
-
-      //   // for an abbreviation, where the alignment atom (#1) has been fabricated on account of there being no data for it,
-      //   // determine a suitable position which is based on projecting outward from the attached atoms
-      // private
-      //   projectAttachmentPoint(mol
-      //                          : WebMolKit.Molecule) : void
-      //   {
-      //     let numProj = 0;
-      //     let projX = 0, projY = 0;
-
-      //     const frag = mol.clone(); // this is without the phony placeholder atom
-      //     frag.deleteAtomAndBonds(1);
-
-      //     for (let n = 2; n <= mol.numAtoms; n++)
-      //     {
-      //       if (mol.findBond(1, n) > 0 && mol.atomAdjCount(n) > 0)
-      //       {
-      //         let ang = WebMolKit.SketchUtil.calculateNewBondAngles(frag, n - 1, 1);
-      //         if (ang == null)
-      //           ang = WebMolKit.SketchUtil.exitVectors(frag, n - 1);
-      //         if (WebMolKit.Vec.len(ang) == 0)
-      //           continue;
-
-      //         let bestScore = 0, bestX = 0, bestY = 0;
-      //         for (let i = 0; i < ang.length; i++)
-      //         {
-      //           const x = mol.atomX(n) + WebMolKit.Molecule.IDEALBOND * Math.cos(ang[i]);
-      //           const y = mol.atomY(n) + WebMolKit.Molecule.IDEALBOND * Math.sin(ang[i]);
-      //           const score = ang.length == 1 ? 0 : WebMolKit.CoordUtil.congestionPoint(frag, x, y);
-      //           if (i == 0 || score < bestScore)
-      //           {
-      //             bestScore = score;
-      //             bestX = x;
-      //             bestY = y;
-      //           }
-      //         }
-      //         numProj++;
-      //         projX += bestX;
-      //         projY += bestY;
-      //       }
-      //     }
-
-      //     if (numProj == 0)
-      //       return;
-      //     if (numProj > 0)
-      //     {
-      //       const inv = 1.0 / numProj;
-      //       projX *= inv;
-      //       projY *= inv;
-      //     }
-      //     mol.setAtomPos(1, projX, projY);
-      //   }
-
-      //   /* partial implementation, which is not quite correct; see comments in calling code
-      //   private replicateMultiBlock(mol: WebMolKit.Molecule, atomList: number[]): void {
-      //     const atomReps: number[] = [];
-      //     for (const i of atomList) {
-      //       const j = mol.addAtom(mol.atomElement(i), mol.atomX(i), mol.atomY(i), mol.atomCharge(i), mol.atomUnpaired(i));
-      //       mol.setAtomHExplicit(j, mol.atomHExplicit(i));
-      //       mol.setAtomIsotope(j, mol.atomIsotope(i));
-      //       mol.setAtomMapNum(j, mol.atomMapNum(i));
-      //       mol.setAtomExtra(j, mol.atomExtra(i));
-      //       atomReps.push(j);
-      //     }
-
-      //     for (let n = 1, num = mol.numBonds; n <= num; n++) {
-      //       let bfr = mol.bondFrom(n), bto = mol.bondTo(n);
-      //       const i = atomList.indexOf(bfr), j = atomList.indexOf(bto);
-      //       if (i < 0 && j < 0) continue;
-      //       if (i >= 0) bfr = atomReps[i];
-      //       if (j >= 0) bto = atomReps[j];
-      //       mol.addBond(bfr, bto, mol.bondOrder(n), mol.bondType(n));
-      //     }
-      //   } */
-
-      // private
-      //   parseReaction(elRxn
-      //                 : Element) : void
-      //   {
-      //     this.mol = new WebMolKit.Molecule();
-      //     this.reactants = [];
-      //     this.agents = [];
-      //     this.products = [];
-
-      //     for (const child of WebMolKit.XML.childElements(elRxn))
-      //     {
-      //       if (child.tagName == 'reactantList')
-      //       {
-      //         this.extractComponents(this.reactants, child);
-      //       }
-      //       else if (child.tagName == 'productList')
-      //       {
-      //         this.extractComponents(this.products, child);
-      //       }
-      //       else if (child.tagName == 'agentList')
-      //       {
-      //         this.extractComponents(this.agents, child);
-      //       }
-      //       else if (child.tagName == 'arrow')
-      //       {
-      //         const arrow : MarvinArrow = {
-      //           x1 : parseFloat(safeAttr(child, 'x1')),
-      //           y1 : parseFloat(safeAttr(child, 'y1')),
-      //           x2 : parseFloat(safeAttr(child, 'x2')),
-      //           y2 : parseFloat(safeAttr(child, 'y2')),
-      //         };
-      //         if (!Number.isNaN(arrow.x1) && !Number.isNaN(arrow.y1) && !Number.isNaN(arrow.x2) && !Number.isNaN(arrow.y2))
-      //         {
-      //           this.arrow = arrow;
-      //         }
-      //       }
-      //     }
-      //   }
-
-      // private
-      //   extractComponents(molList
-      //                     : WebMolKit.Molecule[], elList
-      //                     : Element) : void
-      //   {
-      //     for (const elMol of WebMolKit.XML.findChildElements(elList, 'molecule'))
-      //     {
-      //       const mol = this.parseMolecule(elMol);
-      //       molList.push(mol);
-      //       this.mol.append(mol);
-      //     }
-      //   }
-
-      // private
-      //   extractTextBox(elText
-      //                  : Element) : void
-      //   {
-      //     const elField = WebMolKit.XML.findElement(elText, 'Field');
-      //     if (!elField)
-      //       return;
-      //     const text = WebMolKit.XML.nodeText(elField);
-
-      //     let cx = 0, cy = 0, num = 0;
-      //     for (const child of WebMolKit.XML.findChildElements(elText, 'MPoint'))
-      //     {
-      //       const x = parseFloat(safeAttr(child, 'x'));
-      //       const y = parseFloat(safeAttr(child, 'y'));
-      //       if (Number.isNaN(x) || Number.isNaN(y))
-      //         return;
-      //       cx += x;
-      //       cy += y;
-      //       num++;
-      //     }
-      //     if (num == 0)
-      //       return;
-
-      //     this.textBoxes.push({
-      //       text,
-      //       x : cx / num,
-      //       y : cy / num,
-      //       fontScale : parseFloat(elText.getAttribute('fontScale')),
-      //       halign : elText.getAttribute('halign'),
-      //       valign : elText.getAttribute('valign'),
-      //     });
-      //   }
-
-      // private
-      //   extractPlusSign(elPlus
-      //                   : Element) : void
-      //   {
-      //     let cx = 0, cy = 0, num = 0;
-      //     for (const child of WebMolKit.XML.findChildElements(elPlus, 'MPoint'))
-      //     {
-      //       const x = parseFloat(safeAttr(child, 'x'));
-      //       const y = parseFloat(safeAttr(child, 'y'));
-      //       if (Number.isNaN(x) || Number.isNaN(y))
-      //         return;
-      //       cx += x;
-      //       cy += y;
-      //       num++;
-      //     }
-      //     if (num > 0)
-      //     {
-      //       this.plusSigns.push({x : cx / num, y : cy / num});
-      //     }
-      //   }
-
-      //   // sometimes the provided pluses do not match the reagent/product lists, so it may be necessary to create or delete
-      // private
-      //   postProcessPluses() : void
-      //   {
-      //     const residual = this.plusSigns.slice(0);
-      //     this.plusSigns = [];
-
-      //     const isHorizontal = Math.abs(this.arrow.x2 - this.arrow.x1) > Math.abs(this.arrow.y2 - this.arrow.y1);
-
-      //     const processSide = (molList
-      //                          : WebMolKit.Molecule[]) : void = >
-      //     {
-      //       const cx = molList.map((mol) = > WebMolKit.Vec.sum(WebMolKit.MolUtil.arrayAtomX(mol)) / mol.numAtoms);
-      //       const idx = WebMolKit.Vec.idxSort(cx);
-      //       for (let n = 0; n < idx.length - 1; n++)
-      //       {
-      //         const i1 = idx[n], i2 = idx[n + 1];
-      //         const b1 = molList[i1].boundary(), b2 = molList[i2].boundary();
-      //         const x1 = b1.maxX(), x2 = b2.minX();
-      //         if (x1 > x2)
-      //           continue; // the molecule positions overlap, so no arrow
-      //         let hit = false;
-      //         for (let i = 0; i < residual.length; i++)
-      //         {
-      //           if (residual[i].x >= x1 && residual[i].x <= x2)
-      //           {
-      //             this.plusSigns.push(residual[i]);
-      //             residual.splice(i, 1);
-      //             hit = true;
-      //             break;
-      //           }
-      //         }
-      //         if (!hit)
-      //         {
-      //           const x = 0.5 * (x1 + x2);
-      //           const y = isHorizontal ? 0.5 * (this.arrow.y1 + this.arrow.y2) : 0.25 * (b1.minY() + b1.maxY() + b2.minY() + b2.maxY());
-      //           this.plusSigns.push({x, y});
-      //         }
-      //       }
-      //     };
-
-      //     processSide(this.reactants);
-      //     processSide(this.products);
-      //   }
-
-      // public
-      //   serialize() : string
-      //   {
-      //     const xml = WebMolKit.XML.parseXML(
-      //         '<cml xmlns="http://www.chemaxon.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"' +
-      //         ' version="ChemAxon file format v20.20.0, generated by vunknown"' +
-      //         ' xsi:schemaLocation="http://www.chemaxon.com http://www.chemaxon.com/marvin/schema/mrvSchema_20_20_0.xsd"/>');
-      //     const elDoc = WebMolKit.XML.appendElement(xml.documentElement, 'MDocument');
-      //     const elChem = WebMolKit.XML.appendElement(elDoc, 'MChemicalStruct');
-
-      //     const watermark : Watermark = {
-      //       molID : 0,
-      //       atomID : 0,
-      //       bondID : 0,
-      //       sgroupID : 0,
-      //       objectID : 0,
-      //     };
-
-      //     if (!this.isReaction())
-      //     {
-      //       const elMol = WebMolKit.XML.appendElement(elChem, 'molecule');
-      //       elMol.setAttribute(
-      //           'molID', `m$ { ++watermark.molID }`);
-      //       this.encodeMolecule(elMol, this.mol, watermark);
-      //     }
-      //     else
-      //     {
-      //       const elReaction = WebMolKit.XML.appendElement(elChem, 'reaction');
-
-      //       const sectionMols : [ string, WebMolKit.Molecule[] ][] = [ [ 'reactantList', this.reactants ], [ 'agentList', this.agents ], [ 'productList', this.products ] ];
-      //       for (const[section, molList] of sectionMols)
-      //       {
-      //         const elList = WebMolKit.XML.appendElement(elReaction, section);
-      //         for (const mol of molList)
-      //         {
-      //           const elMol = WebMolKit.XML.appendElement(elList, 'molecule');
-      //           elMol.setAttribute(
-      //               'molID', `m$ { ++watermark.molID }`);
-      //           this.encodeMolecule(elMol, mol, watermark);
-      //         }
-      //       }
-
-      //       const elArrow = WebMolKit.XML.appendElement(elReaction, 'arrow');
-      //       elArrow.setAttribute('type', 'DEFAULT');
-      //       elArrow.setAttribute('x1', this.arrow.x1.toString());
-      //       elArrow.setAttribute('y1', this.arrow.y1.toString());
-      //       elArrow.setAttribute('x2', this.arrow.x2.toString());
-      //       elArrow.setAttribute('y2', this.arrow.y2.toString());
-
-      //       for (const plus of this.plusSigns)
-      //       {
-      //         const elSign = WebMolKit.XML.appendElement(elDoc, 'MReactionSign');
-      //         elSign.setAttribute(
-      //             'id', `o$ { ++watermark.objectID }`);
-      //         for (const[k, v] of[[ 'toptions', 'NOROT' ], [ 'fontScale', '14.0' ], [ 'halign', 'CENTER' ], [ 'valign', 'CENTER' ], [ 'autoSize', 'true' ]])
-      //         {
-      //           elSign.setAttribute(k, v);
-      //         }
-
-      //         const elField = WebMolKit.XML.appendElement(elSign, 'Field');
-      //         elField.setAttribute('name', 'text');
-      //         WebMolKit.XML.appendText(elField, ' {D font=SansSerif,size=18,bold}+ ', true);
-      //         for (const[dx, dy] of[[ -0.25, -0.25 ], [ 0.25, -0.25 ], [ 0.25, 0.25 ], [ -0.25, 0.25 ]])
-      //         {
-      //           const elPoint = WebMolKit.XML.appendElement(elSign, 'MPoint');
-      //           elPoint.setAttribute('x', (plus.x + dx).toString());
-      //           elPoint.setAttribute('y', (plus.y + dy).toString());
-      //         }
-      //       }
-      //     }
-
-      //     for (const box of this.textBoxes)
-      //     {
-      //       const elBox = WebMolKit.XML.appendElement(elDoc, 'MTextBox');
-      //       elBox.setAttribute(
-      //           'id', `o$ { ++watermark.objectID }`);
-      //       elBox.setAttribute('toption', 'NOROT');
-      //       elBox.setAttribute('fontScale', box.fontScale.toString());
-      //       elBox.setAttribute('halign', 'LEFT');
-      //       elBox.setAttribute('valign', 'TOP');
-      //       elBox.setAttribute('autoSize', 'true');
-
-      //       const elField = WebMolKit.XML.appendElement(elBox, 'Field');
-      //       elField.setAttribute('name', 'text');
-      //       WebMolKit.XML.setText(elField, box.text);
-      //       for (let n = 0; n < 4; n++)
-      //       {
-      //         const elPoint = WebMolKit.XML.appendElement(elBox, 'MPoint');
-      //         elPoint.setAttribute('x', box.x.toString());
-      //         elPoint.setAttribute('y', box.y.toString());
-      //       }
-      //     }
-
-      //     return WebMolKit.XML.toString(xml);
-      //   }
-
-      // private
-      //   encodeMolecule(elMol
-      //                  : Element, mol
-      //                  : WebMolKit.Molecule, watermark
-      //                  : Watermark) : string[]
-      //   {
-      //     const elAtomArray = WebMolKit.XML.appendElement(elMol, 'atomArray');
-
-      //     const atomIDList : string[] = [], bondIDList : string[] = [];
-
-      //     const SGIDPFX = 'xSGroupAttachmentPoint';
-      //     const attachments : {sgid : string, atom : number}[] = [];
-
-      //     const polyUnits = new WebMolKit.PolymerBlock(mol).getUnits();
-      //     const polyRef : string[] = [];
-      //     for (let n = 0; n < polyUnits.length; n++)
-      //       polyRef.push(`sg$ { ++watermark.sgroupID }`);
-
-      //     for (let n = 1; n <= mol.numAtoms; n++)
-      //     {
-      //       const id = `a$ { ++watermark.atomID }
-      //       `;
-      //       atomIDList.push(id);
-
-      //       let label = mol.atomElement(n), sgid : string = null, alias : string = null;
-      //       if (WebMolKit.MolUtil.hasAbbrev(mol, n) && mol.atomAdjCount(n) == 1)
-      //       {
-      //         label = 'R';
-      //         sgid = `sg$ { ++watermark.sgroupID }
-      //         `;
-      //         attachments.push({sgid, atom : n});
-      //       }
-      //       else if (mol.atomicNumber(n) == 0 && label != '*' && label != 'R')
-      //       {
-      //         alias = label;
-      //         label = 'C';
-      //       }
-
-      //       const elAtom = WebMolKit.XML.appendElement(elAtomArray, 'atom');
-      //       elAtom.setAttribute('id', id);
-      //       elAtom.setAttribute('elementType', label);
-      //       elAtom.setAttribute('x2', mol.atomX(n).toString());
-      //       elAtom.setAttribute('y2', mol.atomY(n).toString());
-      //       if (mol.atomCharge(n) != 0)
-      //         elAtom.setAttribute('formalCharge', mol.atomCharge(n).toString());
-      //       if (mol.atomUnpaired(n) == 1)
-      //       {
-      //         elAtom.setAttribute('radical', 'monovalent');
-      //       }
-      //       else if (mol.atomUnpaired(n) == 2)
-      //       {
-      //         elAtom.setAttribute('radical', 'divalent1');
-      //       }
-      //       else if (mol.atomUnpaired(n) == 3)
-      //       {
-      //         elAtom.setAttribute('radical', 'trivalent4');
-      //       }
-      //       if (mol.atomIsotope(n) > 0)
-      //       {
-      //         elAtom.setAttribute('isotope', mol.atomIsotope(n).toString());
-      //       }
-      //       if (mol.atomMapNum(n) > 0)
-      //       {
-      //         elAtom.setAttribute('mrvMap', mol.atomMapNum(n).toString());
-      //       }
-      //       if (alias != null)
-      //       {
-      //         elAtom.setAttribute('mrvAlias', alias);
-      //       }
-      //       const refids : string[] = [];
-      //       if (sgid)
-      //         refids.push(sgid);
-      //       for (let i = 0; i < polyUnits.length; i++)
-      //       {
-      //         if (polyUnits[i].atoms.includes(n))
-      //           refids.push(polyRef[i]);
-      //       }
-      //       if (refids.length > 0)
-      //       {
-      //         elAtom.setAttribute('sgroupRef', refids.join(' '));
-      //       }
-      //       if (mol.atomExtra(n).includes(SGIDPFX))
-      //       {
-      //         elAtom.setAttribute('sgroupAttachmentPoint', '1');
-      //       }
-      //     }
-
-      //     const elBondArray = WebMolKit.XML.appendElement(elMol, 'bondArray');
-
-      //     for (let n = 1; n <= mol.numBonds; n++)
-      //     {
-      //       const id = `b$ { ++watermark.bondID }
-      //       `;
-      //       bondIDList.push(id);
-      //       const bfr = mol.bondFrom(n), bto = mol.bondTo(n), order = mol.bondOrder(n), type = mol.bondType(n);
-
-      //       const elBond = WebMolKit.XML.appendElement(elBondArray, 'bond');
-      //       elBond.setAttribute('id', id);
-      //       elBond.setAttribute(
-      //           'atomRefs2', `${atomIDList[bfr - 1]} $ { atomIDList[bto - 1] }`);
-      //       elBond.setAttribute('order', order.toString());
-
-      //       if (type > 0)
-      //       {
-      //         const elStereo = WebMolKit.XML.appendElement(elBond, 'bondStereo');
-      //         elStereo.setAttribute('convention', 'MDL');
-      //         if (type == WebMolKit.Molecule.BONDTYPE_INCLINED)
-      //         {
-      //           elStereo.setAttribute('conventionValue', '1');
-      //         }
-      //         else if (type == WebMolKit.Molecule.BONDTYPE_DECLINED)
-      //         {
-      //           elStereo.setAttribute('conventionValue', '6');
-      //         }
-      //         else if (type == WebMolKit.Molecule.BONDTYPE_UNKNOWN)
-      //         {
-      //           if (order == 1)
-      //           {
-      //             elStereo.setAttribute('conventionValue', '4');
-      //           }
-      //           else if (order == 2)
-      //           {
-      //             elStereo.setAttribute('conventionValue', '3');
-      //           }
-      //         }
-      //       }
-      //     }
-
-      //     for (const attachment of attachments)
-      //     {
-      //       const elSgroup = WebMolKit.XML.appendElement(elMol, 'molecule');
-      //       elSgroup.setAttribute(
-      //           'molID', `m$ { ++watermark.molID }`);
-      //       elSgroup.setAttribute('id', attachment.sgid);
-      //       elSgroup.setAttribute('role', 'SuperatomSgroup');
-      //       elSgroup.setAttribute('title', mol.atomElement(attachment.atom));
-
-      //       const abvmol = WebMolKit.MolUtil.getAbbrev(mol, attachment.atom);
-      //       const sgmol = abvmol.clone();
-      //       for (const a of sgmol.atomAdjList(1))
-      //       {
-      //         sgmol.setAtomExtra(a, [... sgmol.atomExtra(a), SGIDPFX ]);
-      //       }
-      //       sgmol.deleteAtomAndBonds(1);
-      //       const sgAtomList = this.encodeMolecule(elSgroup, sgmol, watermark);
-
-      //       const elAttArray = WebMolKit.XML.appendElement(elSgroup, 'AttachmentPointArray');
-      //       for (const a of abvmol.atomAdjList(1))
-      //       {
-      //         const elAttPoint = WebMolKit.XML.appendElement(elAttArray, 'AttachmentPoint');
-      //         elAttPoint.setAttribute('atom', sgAtomList[a - 2]);
-      //         elAttPoint.setAttribute('order', abvmol.bondOrder(abvmol.findBond(1, a)).toString());
-      //         elAttPoint.setAttribute('bond', bondIDList[mol.atomAdjBonds(attachment.atom)[0] - 1]);
-      //       }
-      //     }
-
-      //     for (let i = 0; i < polyUnits.length; i++)
-      //     {
-      //       const atomRefs = polyUnits[i].atoms.map((a) = > atomIDList[a - 1]);
-
-      //       const elSgroup = WebMolKit.XML.appendElement(elMol, 'molecule');
-      //       elSgroup.setAttribute(
-      //           'molID', `m$ { ++watermark.molID }`);
-      //       elSgroup.setAttribute('id', polyRef[i]);
-      //       elSgroup.setAttribute('role', 'SruSgroup');
-      //       elSgroup.setAttribute('atomRefs', atomRefs.join(' '));
-      //       elSgroup.setAttribute('title', 'n');
-      //       if (polyUnits[i].connect == WebMolKit.PolymerBlockConnectivity.HeadToHead)
-      //       {
-      //         elSgroup.setAttribute('connect', 'hh');
-      //       }
-      //       else if (polyUnits[i].connect == WebMolKit.PolymerBlockConnectivity.Random)
-      //       {
-      //         elSgroup.setAttribute('connect', 'eu');
-      //       }
-      //       else
-      //       {
-      //         elSgroup.setAttribute('connect', 'ht');
-      //       }
-      //       elSgroup.setAttribute('correspondence', '');
-      //       elSgroup.setAttribute('bondList', '');
-      //     }
-      //     return atomIDList;
-      //   }
-      //}
-  };
+    MarvinReaction  *parseMarvinReaction(boost::property_tree::ptree rxnTree, boost::property_tree::ptree documentTree)
+    {
+      MarvinReaction *res = new MarvinReaction();
+
+      BOOST_FOREACH(
+            boost::property_tree::ptree::value_type &v, rxnTree.get_child("reactantList"))
+          res->reactants.push_back((MarvinMol *)parseMarvinMolecule(v.second));
+
+      BOOST_FOREACH(
+            boost::property_tree::ptree::value_type &v, rxnTree.get_child("agentList"))
+          res->agents.push_back((MarvinMol *)parseMarvinMolecule(v.second));
+
+      BOOST_FOREACH(
+            boost::property_tree::ptree::value_type &v, rxnTree.get_child("productList"))
+          res->products.push_back((MarvinMol *)parseMarvinMolecule(v.second));
+
+        // <arrow type="DEFAULT" x1="-11.816189911577812" y1="-10.001443743444021" x2="-8.401759471454618" y2="-10.001443743444021"/>
+        boost::property_tree::ptree arrow = rxnTree.get_child("arrow");
+        res->arrow.type = arrow.get<std::string>("<xmlattr>.type", "");
+       if (!getCleanDouble( arrow.get<std::string>("<xmlattr>.x1", ""), res->arrow.x1)
+            ||!getCleanDouble( arrow.get<std::string>("<xmlattr>.y1", ""), res->arrow.y1)
+            ||!getCleanDouble( arrow.get<std::string>("<xmlattr>.x2", ""), res->arrow.x2)
+            ||!getCleanDouble( arrow.get<std::string>("<xmlattr>.y2", ""), res->arrow.y1))
+          throw FileParseException("Arrow coordinates must all be large floating point numbers in MRV file"); 
+        
+
+     
+        
+      BOOST_FOREACH(
+          boost::property_tree::ptree::value_type &v, documentTree)
+      {
+
+        if (v.first != "MReactionSign")
+          continue;
+        MarvinPlus *marvinPlus = new MarvinPlus();
+        res->pluses.push_back(marvinPlus);  
+        marvinPlus->id =  v.second.get<std::string>("<xmlattr>.id", "");
+        int pointCount = 0;
+        BOOST_FOREACH(
+            boost::property_tree::ptree::value_type &v2, v.second)
+        {
+          if (v2.first == "MPoint")
+          {
+
+            double x;
+            double y; 
+            if (!getCleanDouble( v.second.get<std::string>("<xmlattr>.x", ""),x)
+                || !getCleanDouble( v.second.get<std::string>("<xmlattr>.y", ""),y))
+              throw FileParseException("Plus sign  coordinates must all be large floating point numbers in MRV file"); 
+                
+            switch( pointCount)
+            {
+              case 0:  //  first point - x1 and y1 are set
+                marvinPlus->x1 = x;
+                marvinPlus->y1 = y;
+                break;
+              case 1:   // x2 is set, y1 is checked
+                marvinPlus->x2 = x;
+                if (marvinPlus->y1 != y)
+                  throw FileParseException("Plus sign coordinate Y in 2nd MPoint must be the same as that from the 1st MPoint in MRV file"); 
+                break;
+              case 2:   // y2 is set, x2 is checked
+                marvinPlus->y2 = y;
+                if (marvinPlus->x2 != x)
+                  throw FileParseException("Plus sign coordinate X in 3rd MPoint must be the same as that from the 2nd MPoint in MRV file"); 
+                break;
+              case 3:   // x2 and y2 are checked
+                if (marvinPlus->x1 != x)
+                  throw FileParseException("Plus sign coordinate X in 4th MPoint must be the same as that from the 1st MPoint in MRV file"); 
+
+                if (marvinPlus->y2 != y)
+                  throw FileParseException("Plus sign coordinate Y in 4th MPoint must be the same as that from the 3rd MPoint in MRV file"); 
+                break;
+
+              default:
+                throw FileParseException("Plus sign coordinate must have 4 MPoints in MRV file"); 
+            }
+            ++pointCount;
+          }
+        }
+      }
+
+
+      BOOST_FOREACH(
+            boost::property_tree::ptree::value_type &v, documentTree)
+      {
+        if (v.first != "MTextBox")
+          continue;
+
+        MarvinCondition *marvinCondition = new MarvinCondition();
+        res->conditions.push_back(marvinCondition);  
+        marvinCondition->id =  v.second.get<std::string>("<xmlattr>.id", "");
+        marvinCondition->halign =  v.second.get<std::string>("<xmlattr>.halign", "");
+        marvinCondition->valign =  v.second.get<std::string>("<xmlattr>.valign", "");
+        int fontScale;
+        if (! getCleanInt(v.second.get<std::string>("<xmlattr>.fontScale", ""),  fontScale))
+          throw FileParseException("Condition font scale must be an integersin MRV file"); 
+        marvinCondition->fontScale = fontScale;
+        marvinCondition->text = v.second.get<std::string>("Field", "");
+
+        int pointCount = 0;
+        BOOST_FOREACH(
+            boost::property_tree::ptree::value_type &v2, v.second)
+        {
+          if (v2.first == "MPoint")
+          {
+            int x,y;
+            if (! getCleanInt(v.second.get<std::string>("<xmlattr>.x", ""),  x)
+            ||  ! getCleanInt(v.second.get<std::string>("<xmlattr>.x", ""),  y))
+              throw FileParseException("Condition coordinate must valid integers in MRV file"); 
+           
+            switch( pointCount)
+            {
+              case 0:  //  first point - x1 and y1 are set
+                marvinCondition->x = x;
+                marvinCondition->y = y;
+                break;
+              case 1:   
+              case 2:
+              case 3:   // x and Y are checked - must be the same as point 1
+                 if ( marvinCondition->x != x || marvinCondition->y != y)
+                   throw FileParseException("Condition coordinates must be the same as those from the 1st MPoint in MRV file"); 
+                break;
+
+              default:
+                throw FileParseException("Condition defs must have 4 MPoints in MRV file"); 
+            }
+            ++pointCount;
+          }
+        }
+      }
+  
+      return res;
+    }
+
+    bool isReaction()
+    {
+      return rxn != NULL;
+    }
+
+  };    
 
   //------------------------------------------------
   //
@@ -1087,39 +1866,37 @@ namespace RDKit
   //
   //------------------------------------------------
   
-  RWMol *MrvDataStreamToMol(std::istream *inStream)
+  void *MrvDataStreamParser(std::istream *inStream)
   {
     PRECONDITION(inStream, "no stream");
     std::string tempStr;
-    RWMol *res = NULL;
+    void *res = NULL;
     MarvinCML marvinCML;
 
     marvinCML.parse(*inStream);
 
-    printf("Reactant Count: %lu\n",marvinCML.reactants.size());
-    printf("Agent Count: %lu\n",marvinCML.agents.size());
-    printf("Products Count: %lu\n",marvinCML.products.size());
-
-
-    res = marvinCML.mol;
+    if (marvinCML.isReaction())
+      res = (void *)marvinCML.rxn;
+    else
+      res = (void *)marvinCML.mol;
 
     return res;
   }
 
-  RWMol *MrvDataStreamToMol(std::istream &inStream)
+  void *MrvDataStreamParser(std::istream &inStream)
   {
-    return MrvDataStreamToMol(&inStream);
+    return MrvDataStreamParser(&inStream);
   }
   //------------------------------------------------
   //
   //  Read a molecule from a string
   //
   //------------------------------------------------
-  RWMol *MrvBlockToMol(const std::string &molBlock)
+  void *MrvBlockParser(const std::string &molBlock)
   {
     std::istringstream inStream(molBlock);
     // unsigned int line = 0;
-    return MrvDataStreamToMol(inStream);
+    return MrvDataStreamParser(inStream);
   }
 
   //------------------------------------------------
@@ -1127,7 +1904,7 @@ namespace RDKit
   //  Read a molecule from a file
   //
   //------------------------------------------------
-  RWMol *MrvFileToMol(const std::string &fName)
+  void *MrvFileParser(const std::string &fName)
   {
     std::ifstream inStream(fName.c_str());
     if (!inStream || (inStream.bad()))
@@ -1136,11 +1913,13 @@ namespace RDKit
       errout << "Bad input file " << fName;
       throw BadFileException(errout.str());
     }
-    RWMol *res = nullptr;
+    void *res = nullptr;
     if (!inStream.eof())
     {
-      res = MrvDataStreamToMol(inStream);
+      res = MrvDataStreamParser(inStream);
     }
     return res;
   }
+
+
 }// namespace RDKit

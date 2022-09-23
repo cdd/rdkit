@@ -564,8 +564,6 @@ namespace RDKit
                 throw FileParseException(err.str());
             }
 
-          
-
             delete *attachIter;         
           }
           
@@ -1202,6 +1200,9 @@ namespace RDKit
             (sgroup.*sGroupAddIndexedElement)(marvinMol->getAtomIndex(*atomIter));
 
           sgroup.setProp("LABEL", (*superIter)->title);    
+
+          if (sgroup.getIsValid())
+            addSubstanceGroup(*mol, sgroup);
         }
     
         // now the SruGroups
@@ -1235,6 +1236,9 @@ namespace RDKit
             (sgroup.*sGroupAddIndexedElementBond)(bondIndex);
           }
           sgroup.setProp("LABEL", (*sruIter)->title);
+
+           if (sgroup.getIsValid())
+            addSubstanceGroup(*mol, sgroup);
 
         }
 

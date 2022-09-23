@@ -830,237 +830,257 @@ namespace RDKit
     {
       Atom *res = NULL;
 
-      std::string symb = marvinAtom->elementType;
-      boost::trim(symb);
-      
-      if (symb == "R") 
+      try
       {
-          auto *query = new QueryAtom(0);
-          query->setQuery(makeAtomNullQuery());
-          res = query;
-          // queries have no implicit Hs:
-          res->setNoImplicit(true);
-      } 
-      else if (symb[0] == 'R' && symb >= "R0" && symb <= "R99") 
-      {
-        auto *query = new QueryAtom(0);
-        query->setQuery(makeAtomNullQuery());
-        res = query;
-
-        if ( marvinAtom->isotope == 0)
+        std::string symb = marvinAtom->elementType;
+        boost::trim(symb);
+        
+        if (symb == "R") 
         {
-          std::string rlabel = "";
-          rlabel = symb.substr(1, symb.length() - 1);
-          int rnumber;
+            auto *query = new QueryAtom(0);
+            res = query;
+            query->setQuery(makeAtomNullQuery());
+            // queries have no implicit Hs:
+            res->setNoImplicit(true);
+        } 
+        else if (symb[0] == 'R' && symb >= "R0" && symb <= "R99") 
+        {
+          auto *query = new QueryAtom(0);
+          res = query;
+          query->setQuery(makeAtomNullQuery());
+
+          if ( marvinAtom->isotope == 0)
+          {
+            std::string rlabel = "";
+            rlabel = symb.substr(1, symb.length() - 1);
+            int rnumber;
+            try 
+            {
+              rnumber = boost::lexical_cast<int>(rlabel);
+            } catch (boost::bad_lexical_cast &) {
+              rnumber = -1;
+            }
+            if (rnumber >= 0) 
+            {
+              res->setIsotope(rnumber);
+            }
+          }
+        } 
+      
+        else if (symb.size() <= 2) 
+        {
+          // must be a regular atom
+
+
+          if (symb.size() == 2 &&  symb[1] >= 'A' && symb[1] <= 'Z')
+            symb[1] = static_cast<char>(tolower(symb[1]));
+          res = new Atom();
+        
           try 
           {
-            rnumber = boost::lexical_cast<int>(rlabel);
-          } catch (boost::bad_lexical_cast &) {
-            rnumber = -1;
-          }
-          if (rnumber >= 0) 
+            res->setAtomicNum(PeriodicTable::getTable()->getAtomicNumber(symb));
+          } 
+          catch (const Invar::Invariant &e) 
           {
-            res->setIsotope(rnumber);
+            delete res;
+            throw FileParseException(e.what());
           }
         }
-      } 
-     
-      else if (symb.size() <= 2) 
-      {
-        // must be a regular atom
+        else
+          throw FileParseException("Unrecognized atom type in MRV file");
 
+  
+        //res->setPos(marvinAtom.x2,marvinAtom->y2,0.0);
+        
+        if (marvinAtom->formalCharge != 0) 
+          res->setFormalCharge(marvinAtom->formalCharge);
 
-        if (symb.size() == 2 &&  symb[1] >= 'A' && symb[1] <= 'Z')
-          symb[1] = static_cast<char>(tolower(symb[1]));
-        res = new Atom();
-       
-        try 
+      
+        if (marvinAtom->isotope != 0)
         {
-          res->setAtomicNum(PeriodicTable::getTable()->getAtomicNumber(symb));
-        } 
-        catch (const Invar::Invariant &e) 
-        {
-          delete res;
-          throw FileParseException(e.what());
+          res->setIsotope(marvinAtom->isotope);
+          res->setProp(common_properties::_hasMassQuery, true);
         }
-      }
-      else
-        throw FileParseException("Unrecognized atom type in MRV file");
 
- 
-      //res->setPos(marvinAtom.x2,marvinAtom->y2,0.0);
+        //  we no not get parity (chirality) frommarvin file
+        //res->setProp(common_properties::molParity, parity);
+        //res->setProp(common_properties::molStereoCare, stereoCare);
+        
+        // total valence is not parsed from marvin file
+        //res->setProp(common_properties::molTotValence, totValence);
       
-      if (marvinAtom->formalCharge != 0) 
-        res->setFormalCharge(marvinAtom->formalCharge);
+        // rxnRole is not parsed from marvin file
+        //res->setProp(common_properties::molRxnRole, rxnRole);
+        //res->setProp(common_properties::molRxnComponent, rxnComponent);
+        
+        if (marvinAtom->mrvMap != 0)
+          res->setProp(common_properties::molAtomMapNumber, marvinAtom->mrvMap);
 
-    
-      if (marvinAtom->isotope != 0)
+        // not set
+        //res->setProp(common_properties::molInversionFlag, inversionFlag);
+        // res->setProp("molExactChangeFlag", exactChangeFlag);
+        
+        return res;
+      }
+      catch(const std::exception& e)
       {
-        res->setIsotope(marvinAtom->isotope);
-        res->setProp(common_properties::_hasMassQuery, true);
+        delete res;
+        throw;
       }
-
-      //  we no not get parity (chirality) frommarvin file
-      //res->setProp(common_properties::molParity, parity);
-      //res->setProp(common_properties::molStereoCare, stereoCare);
-      
-      // total valence is not parsed from marvin file
-      //res->setProp(common_properties::molTotValence, totValence);
-     
-      // rxnRole is not parsed from marvin file
-      //res->setProp(common_properties::molRxnRole, rxnRole);
-      //res->setProp(common_properties::molRxnComponent, rxnComponent);
-      
-      if (marvinAtom->mrvMap != 0)
-        res->setProp(common_properties::molAtomMapNumber, marvinAtom->mrvMap);
-
-      // not set
-      //res->setProp(common_properties::molInversionFlag, inversionFlag);
-      // res->setProp("molExactChangeFlag", exactChangeFlag);
-      
-      return res;
     }
 
     void molBondFromMarvinBond(MarvinBond *marvinBond, MarvinMol *marvinMol, RWMol *mol, bool &chiralityPossible)
     {  
       unsigned int bType, stereo;
-
-      int idx1 = marvinMol->getAtomIndex(marvinBond->atomRefs2[0]);
-      int idx2 = marvinMol->getAtomIndex(marvinBond->atomRefs2[1]);
-
-      Bond::BondType type;
       Bond *bond = nullptr;
 
-      // if there is a query type, that takes precidence over the bond type
-      std::string temp = boost::algorithm::to_upper_copy(marvinBond->queryType);
-      if (temp != "")
+      try
       {
-        if (temp == "SD")
+      
+      
+
+        int idx1 = marvinMol->getAtomIndex(marvinBond->atomRefs2[0]);
+        int idx2 = marvinMol->getAtomIndex(marvinBond->atomRefs2[1]);
+
+        Bond::BondType type;
+
+        // if there is a query type, that takes precidence over the bond type
+        std::string temp = boost::algorithm::to_upper_copy(marvinBond->queryType);
+        if (temp != "")
         {
-            bType = 5;
-            type = Bond::UNSPECIFIED;
-            bond = new QueryBond;
-            bond->setQuery(makeSingleOrDoubleBondQuery());
+          if (temp == "SD")
+          {
+              bType = 5;
+              type = Bond::UNSPECIFIED;
+              bond = new QueryBond;
+              bond->setQuery(makeSingleOrDoubleBondQuery());
+          }
+          else if (temp == "SA")
+          {
+              bType = 6;
+              type = Bond::UNSPECIFIED;
+              bond = new QueryBond;
+              bond->setQuery(makeSingleOrAromaticBondQuery());
+          }
+          else if (temp == "DA")
+          {
+              bType = 6;
+              type = Bond::UNSPECIFIED;
+              bond = new QueryBond;
+              bond->setQuery(makeDoubleOrAromaticBondQuery());
+          }
+          else
+          {
+              std::ostringstream err;
+              err      << "unrecognized query bond type " << marvinBond->queryType << " in MRV File ";
+              throw FileParseException(err.str());
+          } 
         }
-        else if (temp == "SA")
+        else   // if no query type, the bond order takes over
         {
-            bType = 6;
-            type = Bond::UNSPECIFIED;
-            bond = new QueryBond;
-            bond->setQuery(makeSingleOrAromaticBondQuery());
+          temp = boost::algorithm::to_upper_copy(marvinBond->order);
+          if (temp == "1")
+          {
+              type = Bond::SINGLE;
+              bond = new Bond;
+              bType = 1;
+          }
+          else if (temp == "2")
+          {
+              type = Bond::DOUBLE;
+              bond = new Bond;
+              bType = 2;
+          }
+          else if (temp == "3")
+          {
+              type = Bond::TRIPLE;
+              bond = new Bond;
+              bType = 3;
+          }
+          else if (temp == "A")
+          {
+              bType = 4;
+              type = Bond::AROMATIC;
+              bond = new Bond;
+          }
+          else
+          {
+              std::ostringstream err;
+              err      << "unrecognized bond type " << marvinBond->order << " in MRV File ";
+              throw FileParseException(err.str());
+          } 
+        }      
+
+
+        bond->setBeginAtomIdx(idx1);
+        bond->setEndAtomIdx(idx2);
+        bond->setBondType(type);
+        bond->setProp(common_properties::_MolFileBondType, bType);
+        
+        temp = boost::algorithm::to_lower_copy(marvinBond->bondStereo);
+        if (temp == "")  
+        {         
+          bond->setBondDir(Bond::NONE);
+            stereo = 0;
         }
-        else if (temp == "DA")
-        {
-            bType = 6;
-            type = Bond::UNSPECIFIED;
-            bond = new QueryBond;
-            bond->setQuery(makeDoubleOrAromaticBondQuery());
+        else if (temp == "w")  
+        {         
+            bond->setBondDir(Bond::BEGINWEDGE);
+            chiralityPossible = true;
+            stereo = 1;
+        } else if (temp == "h")  
+        {         
+            stereo = 6;
+            chiralityPossible = true;
+            bond->setBondDir(Bond::BEGINDASH);
         }
         else
         {
             std::ostringstream err;
-            err      << "unrecognized query bond type " << marvinBond->queryType << " in MRV File ";
+            err      << "unrecognized bond stereo " << marvinBond->bondStereo << " in MRV File ";
             throw FileParseException(err.str());
-        } 
-      }
-      else   // if no query type, the bond order takes over
-      {
-        temp = boost::algorithm::to_upper_copy(marvinBond->order);
-        if (temp == "1")
-        {
-            type = Bond::SINGLE;
-            bond = new Bond;
-            bType = 1;
         }
-        else if (temp == "2")
-        {
-            type = Bond::DOUBLE;
-            bond = new Bond;
-            bType = 2;
-        }
-        else if (temp == "3")
-        {
-            type = Bond::TRIPLE;
-            bond = new Bond;
-            bType = 3;
-        }
-        else if (temp == "A")
-        {
-            bType = 4;
-            type = Bond::AROMATIC;
-            bond = new Bond;
-        }
-        else
-        {
-            std::ostringstream err;
-            err      << "unrecognized bond type " << marvinBond->order << " in MRV File ";
-            throw FileParseException(err.str());
-        } 
-      }      
-
-
-      bond->setBeginAtomIdx(idx1);
-      bond->setEndAtomIdx(idx2);
-      bond->setBondType(type);
-      bond->setProp(common_properties::_MolFileBondType, bType);
+        
+        bond->setProp(common_properties::_MolFileBondStereo, stereo);
       
-      temp = boost::algorithm::to_lower_copy(marvinBond->bondStereo);
-      if (temp == "")  
-      {         
-        bond->setBondDir(Bond::NONE);
-          stereo = 0;
-      }
-      else if (temp == "w")  
-      {         
-          bond->setBondDir(Bond::BEGINWEDGE);
-           chiralityPossible = true;
-          stereo = 1;
-      } else if (temp == "h")  
-      {         
-          stereo = 6;
-          chiralityPossible = true;
-          bond->setBondDir(Bond::BEGINDASH);
-      }
-      else
-      {
-          std::ostringstream err;
-          err      << "unrecognized bond stereo " << marvinBond->bondStereo << " in MRV File ";
-          throw FileParseException(err.str());
-      }
-      
-      bond->setProp(common_properties::_MolFileBondStereo, stereo);
-    
-      // if we got an aromatic bond set the flag on the bond and the connected
-      // atoms
-      if (bond->getBondType() == Bond::AROMATIC) 
-        bond->setIsAromatic(true);
+        // if we got an aromatic bond set the flag on the bond and the connected
+        // atoms
+        if (bond->getBondType() == Bond::AROMATIC) 
+          bond->setIsAromatic(true);
 
-      // v2k has no way to set stereoCare on bonds, so set the property if both
-      // the beginning and end atoms have it set:
-      int care1 = 0;
-      int care2 = 0;
-      if (!bond->hasProp(common_properties::molStereoCare) &&
-          mol->getAtomWithIdx(bond->getBeginAtomIdx())
-              ->getPropIfPresent(common_properties::molStereoCare, care1) &&
-          mol->getAtomWithIdx(bond->getEndAtomIdx())
-              ->getPropIfPresent(common_properties::molStereoCare, care2)) {
-        if (care1 && care2) {
-          bond->setProp(common_properties::molStereoCare, 1);
+        // v2k has no way to set stereoCare on bonds, so set the property if both
+        // the beginning and end atoms have it set:
+        int care1 = 0;
+        int care2 = 0;
+        if (!bond->hasProp(common_properties::molStereoCare) &&
+            mol->getAtomWithIdx(bond->getBeginAtomIdx())
+                ->getPropIfPresent(common_properties::molStereoCare, care1) &&
+            mol->getAtomWithIdx(bond->getEndAtomIdx())
+                ->getPropIfPresent(common_properties::molStereoCare, care2)) {
+          if (care1 && care2) {
+            bond->setProp(common_properties::molStereoCare, 1);
+          }
         }
+        mol->addBond(bond, true);
       }
-      mol->addBond(bond, true);
-      //mol->setBondBookmark(bond, marvinMol->getBondIndex(marvinBond->id));
+      catch(const std::exception& e)
+      {
+       delete bond;
+       throw;
+      }
     }   
  
     RWMol *parseMolecule(MarvinMol *marvinMol, bool sanitize=true)
     {
       
       std::vector<MarvinStereoGroup *> stereoGroups;
+      Conformer *conf = NULL;
+      RWMol *mol = NULL;
 
       try
       {
 
-        RWMol *mol = new RWMol();
+        mol = new RWMol();
 
         mol->setProp(common_properties::_Name, marvinMol->molID);
         mol->setProp("_MolFileComments", "Generated by RDKit");
@@ -1070,7 +1090,7 @@ namespace RDKit
         unsigned int i;
         std::vector<MarvinAtom *>::const_iterator atomIter;
 
-        auto conf = new Conformer(marvinMol->atoms.size());
+        conf = new Conformer(marvinMol->atoms.size());
         conf->set3D(false);
 
         for (i = 0, atomIter = marvinMol->atoms.begin() ; atomIter != marvinMol->atoms.end();  ++i, ++atomIter)
@@ -1127,8 +1147,11 @@ namespace RDKit
                                             return arg->groupNumber ==groupNumber && arg->groupType == groupType; });
             if (groupIter != stereoGroups.end())
                 marvinStereoGroup = *groupIter;
-            else  
+            else 
+            {
               marvinStereoGroup = new MarvinStereoGroup(groupType, groupNumber);
+              stereoGroups.push_back(marvinStereoGroup);
+            }
 
             // add this atom to the group
 
@@ -1154,7 +1177,7 @@ namespace RDKit
         {
           std::vector<Atom *> atoms;
           for (std::vector<unsigned int>::const_iterator it = (*groupIter)->atoms.begin() ;  it != (*groupIter)->atoms.end();  ++it)
-            atoms.push_back(mol->getAtomWithIdx(*it - 1));
+            atoms.push_back(mol->getAtomWithIdx(*it));
 
           groups.emplace_back((*groupIter)->groupType, std::move(atoms));
           if (!groups.empty()) 
@@ -1286,6 +1309,8 @@ namespace RDKit
       {
         delete mol;
 
+        delete conf;
+
         for (std::vector<MarvinStereoGroup *>::iterator it = stereoGroups.begin() ; it != stereoGroups.end(); ++it)
           delete *it;
         
@@ -1329,477 +1354,490 @@ namespace RDKit
     MarvinMolBase *parseMarvinMolecule(boost::property_tree::ptree molTree, MarvinMol *parentMol=NULL)  // parent is for sub-mols
     {
 
-      MarvinMolBase *res;
+      MarvinMolBase *res=NULL;
 
-      std::string molID = molTree.get<std::string>("<xmlattr>.molID", "");
-
-      if (molID == "")
-        throw FileParseException("Expected a molID in MRV file");
+      try
+      {
+     
       
-      std::string role = "";
 
-      if (parentMol == NULL)\
-      {
-        res = new MarvinMol();
-      } 
-      else // is is a sub-mol - used for super atoms and sruGroups
-      {
-        role = molTree.get<std::string>("<xmlattr>.role", "");
-        if (role == "")
-          throw FileParseException("Expected a role for a sub-molecule in MRV file");
+        std::string molID = molTree.get<std::string>("<xmlattr>.molID", "");
 
-       
-        if (role == "SuperatomSgroup")
+        if (molID == "")
+          throw FileParseException("Expected a molID in MRV file");
+        
+        std::string role = "";
+
+        if (parentMol == NULL)\
         {
-            MarvinSuperatomSgroup *marvinSuperatomSgroup = new MarvinSuperatomSgroup();
-            res = marvinSuperatomSgroup;  
-
-            marvinSuperatomSgroup->id = molTree.get<std::string>("<xmlattr>.id", "");
-
-            marvinSuperatomSgroup->title = molTree.get<std::string>("<xmlattr>.title", "");
-            if (marvinSuperatomSgroup->title == "")
-              throw FileParseException("Expected  title for a SuperatomSgroup definition in MRV file");
-          
+          res = new MarvinMol();
         } 
-        else if (role == "SruSgroup")
+        else // is is a sub-mol - used for super atoms and sruGroups
         {
-          //      <molecule molID="m2" id="sg1" role="SruSgroup" atomRefs="a1 a3 a4" title="n" connect="ht" correspondence="" bondList=""/>
-          //      <molecule molID="m3" id="sg2" role="SruSgroup" atomRefs="a5 a6 a7 a8" title="n" connect="hh" correspondence="" bondList=""/>
-          //      <molecule molID="m4" id="sg3" role="SruSgroup" atomRefs="a10 a11" title="n" connect="eu" correspondence="" bondList=""/></molecule>
-
-          MarvinSruSgroup *marvinSruSgroup = new MarvinSruSgroup();
-          res = marvinSruSgroup;
-         
-          marvinSruSgroup->id = molTree.get<std::string>("<xmlattr>.id", "");
-
-          std::string atomRefsStr = molTree.get<std::string>("<xmlattr>.atomRefs", "");
-          if (atomRefsStr == "")
-            throw FileParseException("Expected  atomRefs for a SruSgroup definition in MRV file");
-          boost::algorithm::split(marvinSruSgroup->atomRefs, atomRefsStr, boost::algorithm::is_space());
-          for (std::vector<std::string>::const_iterator it = marvinSruSgroup->atomRefs.begin() ;  it != marvinSruSgroup->atomRefs.end(); ++it)
-            if (!boost::algorithm::contains(parentMol->atoms, std::vector<std::string>{*it}, MarvinMol::atomRefInAtoms ))
-              throw FileParseException("All of the AtomRefs in the sruSgroup must in the parent molecule");
-
-          marvinSruSgroup->title = molTree.get<std::string>("<xmlattr>.title", "");
-          if (marvinSruSgroup->title == "")
-            throw FileParseException("Expected  title for a SruSgroup definition in MRV file");
-
-          marvinSruSgroup->connect = molTree.get<std::string>("<xmlattr>.connect", "");
-          if (!boost::algorithm::contains(sruSgroupConnectChoices,std::vector<std::string>{marvinSruSgroup->connect}))
-          {
-            std::ostringstream err;
-            err << "Expected  a connect  string of \"" << boost::algorithm::join(sruSgroupConnectChoices, ", ") << "\" for a SruSgroup definition in MRV file";
-            throw FileParseException(err.str());
-          }
-
-          marvinSruSgroup->correspondence = molTree.get<std::string>("<xmlattr>.correspondence", "");
-
-          std::string bondListStr = molTree.get<std::string>("<xmlattr>.bondList", "");
-          if (bondListStr != "")
-          {
-            boost::algorithm::split(marvinSruSgroup->bondList, bondListStr, boost::algorithm::is_space());
-            for (std::vector<std::string>::const_iterator it = marvinSruSgroup->bondList.begin() ;  it != marvinSruSgroup->bondList.end(); ++it)
-              if (!boost::algorithm::contains(parentMol->bonds, std::vector<std::string>{*it}, MarvinMol::bondRefInBonds ))
-                throw FileParseException("All of the BondList entries in the sruSgroup must in the parent molecule");
-          }
-        }
-        else if (role == "MultipleSgroup")
-        {
-          throw FileParseException("MultipleSgroup in not yet implemented in MRV file");
-        }
-        else
-          throw FileParseException("Unexpected role " + role + " in MRV file");
-
-      }
-      
-      res->molID = molID;
-
-    // get atoms if this is NOT a role == "SruSgroup"
-
-      if (role != "SruSgroup")
-      {
-        boost::property_tree::ptree atomArray = molTree.get_child("atomArray");
-
-        // there are two types of atom arrays:
-        // <atomArray atomID="a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11" elementType="C C C C C C Cl C N O O" formalCharge="0 0 0 0 0 0 0 0 1 0 -1" lonePair="0 0 0 0 0 0 3 0 0 2 3" x2="-4.3334 -5.6670 -5.6670 -4.3334 -2.9997 -2.9997 -4.3335 -1.6660 -7.0007 -1.6660 -0.3323" y2="1.7693 0.9993 -0.5409 -1.3109 -0.5409 0.9993 3.3093 -1.3109 -1.3109 -2.8509 -0.5410"></atomArray>
-        //  AND
-        // <atomArray>
-        //       <atom id="a1" elementType="C" x2="-9.4583" y2="1.9358" mrvStereoGroup="and1"/>
-        //       <atom id="a2" elementType="C" x2="-10.7921" y2="1.1658"/>
-        //       <atom id="a3" elementType="C" x2="-10.7921" y2="-0.3744"/>
-        //       <atom id="a8" elementType="O" x2="-12.1257" y2="-1.1444" lonePair="2"/>
-        //   </atomArray>
-        
-        // See which one we have
+          role = molTree.get<std::string>("<xmlattr>.role", "");
+          if (role == "")
+            throw FileParseException("Expected a role for a sub-molecule in MRV file");
 
         
-        std::string atomID = atomArray.get<std::string>("<xmlattr>.atomID", "");
-        if (atomID == "")
-        {
-           // long form - each atom on a line
-
-          BOOST_FOREACH(
-              boost::property_tree::ptree::value_type &v, molTree.get_child("atomArray"))
+          if (role == "SuperatomSgroup")
           {
-            MarvinAtom *mrvAtom = new MarvinAtom();   
-            res->atoms.push_back(mrvAtom);
+              MarvinSuperatomSgroup *marvinSuperatomSgroup = new MarvinSuperatomSgroup();
+              res = marvinSuperatomSgroup;  
 
-            mrvAtom->id = v.second.get<std::string>("<xmlattr>.id", "");
-            mrvAtom->elementType = v.second.get<std::string>("<xmlattr>.elementType", "");
-            std::string x2 = v.second.get<std::string>("<xmlattr>.x2", "");
-            std::string y2 = v.second.get<std::string>("<xmlattr>.y2", "");
-            if (mrvAtom->id == "" || mrvAtom->elementType == "" || x2 == "" || y2 == "" )
-                throw FileParseException("Expected id, elementType. x2 and y2 for an atom definition in MRV file");
+              marvinSuperatomSgroup->id = molTree.get<std::string>("<xmlattr>.id", "");
 
-            // x2 and y2 are doubles
-
-            if (!getCleanDouble(x2, mrvAtom->x2) || !getCleanDouble(y2, mrvAtom->y2))
-                throw FileParseException("The values x2 and y2 must be large floats in MRV file");        
-
-            std::string formalCharge = v.second.get<std::string>("<xmlattr>.formalCharge", "");
-            if (formalCharge != "")
-            {
-              if (!getCleanInt(formalCharge, mrvAtom->formalCharge) )
-                  throw FileParseException("The value for formalCharge must be an integer in MRV file"); 
-            }
-            else
-              mrvAtom->formalCharge = 0;
+              marvinSuperatomSgroup->title = molTree.get<std::string>("<xmlattr>.title", "");
+              if (marvinSuperatomSgroup->title == "")
+                throw FileParseException("Expected  title for a SuperatomSgroup definition in MRV file");
             
+          } 
+          else if (role == "SruSgroup")
+          {
+            //      <molecule molID="m2" id="sg1" role="SruSgroup" atomRefs="a1 a3 a4" title="n" connect="ht" correspondence="" bondList=""/>
+            //      <molecule molID="m3" id="sg2" role="SruSgroup" atomRefs="a5 a6 a7 a8" title="n" connect="hh" correspondence="" bondList=""/>
+            //      <molecule molID="m4" id="sg3" role="SruSgroup" atomRefs="a10 a11" title="n" connect="eu" correspondence="" bondList=""/></molecule>
 
-            mrvAtom->radical = v.second.get<std::string>("<xmlattr>.radical", "");
-            if (mrvAtom->radical != "")
-            {
-              if (!boost::algorithm::contains(marvinRadicalVals, std::vector<std::string>{mrvAtom->radical} ))
-              {
-                std::ostringstream err;
-                err << "The value for radical must be one of " << boost::algorithm::join(marvinRadicalVals,", ") << " in MRV file";
-                throw FileParseException(err.str()); 
-              }
-            }
-            else 
-              mrvAtom->radical = "";
-
-            std::string isotopeStr = v.second.get<std::string>("<xmlattr>.isotope", "");
-            if (isotopeStr != "")
-            {
-              if (!getCleanInt(isotopeStr, mrvAtom->isotope) || mrvAtom->isotope <=0)
-              {
-                std::ostringstream err;
-                err << "The value for isotope must be a positive number in MRV file";
-                throw FileParseException(err.str()); 
-              }
-            }
-
-            else 
-              mrvAtom->isotope = 0;
-
-            mrvAtom->mrvAlias = v.second.get<std::string>("<xmlattr>.mrvAlias", "");
-
-            mrvAtom->mrvStereoGroup = v.second.get<std::string>("<xmlattr>.mrvStereoGroup", "");
-
-            std::string mrvMap = v.second.get<std::string>("<xmlattr>.mrvMap", "");
-            if (mrvMap != "")
-            {
-              if (!getCleanInt(mrvMap, mrvAtom->mrvMap) || mrvAtom->mrvMap <=0)
-                  throw FileParseException("The value for mrvMap must be an non-=negative integer in MRV file"); 
-            }
-            else
-              mrvAtom->mrvMap = 0;
-
-            mrvAtom->sgroupRef = v.second.get<std::string>("<xmlattr>.sgroupRef", "");
-
-            if (role== "SuperatomSgroup")
-            {
-              mrvAtom->sgroupAttachmentPoint = v.second.get<std::string>("<xmlattr>.sgroupAttachmentPoint", "");
-
-              //atom->setProp(common_properties::molAttachPoint, ival);
-            }
-
+            MarvinSruSgroup *marvinSruSgroup = new MarvinSruSgroup();
+            res = marvinSruSgroup;
           
-          }
-        }
-        else  // single line form of atoms
-        {
-          // <atomArray atomID="a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11" elementType="C C C C C C Cl C N O O" formalCharge="0 0 0 0 0 0 0 0 1 0 -1" lonePair="0 0 0 0 0 0 3 0 0 2 3" x2="-4.3334 -5.6670 -5.6670 -4.3334 -2.9997 -2.9997 -4.3335 -1.6660 -7.0007 -1.6660 -0.3323" y2="1.7693 0.9993 -0.5409 -1.3109 -0.5409 0.9993 3.3093 -1.3109 -1.3109 -2.8509 -0.5410"></atomArray>
-          
-          std::vector<std::string> atomIds;
-          boost::algorithm::split(atomIds,atomID,boost::algorithm::is_space());
-          size_t atomCount = atomIds.size();
+            marvinSruSgroup->id = molTree.get<std::string>("<xmlattr>.id", "");
 
-          std::vector<std::string> elementTypes;
-          std::string elementType = atomArray.get<std::string>("<xmlattr>.elementType", "");
-          boost::algorithm::split(elementTypes,elementType,boost::algorithm::is_space());
-      
-          std::vector<std::string> x2s;
-          std::string x2 = atomArray.get<std::string>("<xmlattr>.x2", "");
-          boost::algorithm::split(x2s,x2,boost::algorithm::is_space());
+            std::string atomRefsStr = molTree.get<std::string>("<xmlattr>.atomRefs", "");
+            if (atomRefsStr == "")
+              throw FileParseException("Expected  atomRefs for a SruSgroup definition in MRV file");
+            boost::algorithm::split(marvinSruSgroup->atomRefs, atomRefsStr, boost::algorithm::is_space());
+            for (std::vector<std::string>::const_iterator it = marvinSruSgroup->atomRefs.begin() ;  it != marvinSruSgroup->atomRefs.end(); ++it)
+              if (!boost::algorithm::contains(parentMol->atoms, std::vector<std::string>{*it}, MarvinMol::atomRefInAtoms ))
+                throw FileParseException("All of the AtomRefs in the sruSgroup must in the parent molecule");
 
-          std::vector<std::string> y2s;
-          std::string y2 = atomArray.get<std::string>("<xmlattr>.y2", "");
-          boost::algorithm::split(y2s,y2,boost::algorithm::is_space());
+            marvinSruSgroup->title = molTree.get<std::string>("<xmlattr>.title", "");
+            if (marvinSruSgroup->title == "")
+              throw FileParseException("Expected  title for a SruSgroup definition in MRV file");
 
-          std::vector<std::string> formalCharges;
-          std::string formalCharge = atomArray.get<std::string>("<xmlattr>.formalCharge", "");
-          boost::algorithm::split(formalCharges,formalCharge,boost::algorithm::is_space());
-
-          std::vector<std::string> isotopes;
-          std::string isotope = atomArray.get<std::string>("<xmlattr>.isotope", "");
-          boost::algorithm::split(isotopes,isotope,boost::algorithm::is_space());
-
-          std::vector<std::string> radicals;
-          std::string radical = atomArray.get<std::string>("<xmlattr>.radical", "");
-          boost::algorithm::split(radicals,radical,boost::algorithm::is_space());
-
-          std::vector<std::string> mrvAliases;
-          std::string mrvAlias = atomArray.get<std::string>("<xmlattr>.mrvAlias", "");
-          boost::algorithm::split(mrvAliases,mrvAlias,boost::algorithm::is_space());
-
-          std::vector<std::string> mrvStereoGroups;
-          std::string mrvStereoGroup = atomArray.get<std::string>("<xmlattr>.mrvStereoGroup", "");
-          boost::algorithm::split(mrvStereoGroups,mrvStereoGroup,boost::algorithm::is_space());
-
-          std::vector<std::string> mrvMaps;
-          std::string mrvMap = atomArray.get<std::string>("<xmlattr>.mrvMap", "");
-          boost::algorithm::split(mrvMaps,mrvMap,boost::algorithm::is_space());
-
-          std::vector<std::string> sgroupRefs;
-          std::string sgroupRef = atomArray.get<std::string>("<xmlattr>.sgroupRef", "");
-          boost::algorithm::split(sgroupRefs,sgroupRef,boost::algorithm::is_space());
-
-          std::vector<std::string> sgroupAttachmentPoints;
-          std::string sgroupAttachmentPoint = atomArray.get<std::string>("<xmlattr>.sgroupAttachmentPoint", "");
-          boost::algorithm::split(sgroupAttachmentPoints,sgroupAttachmentPoint,boost::algorithm::is_space());
-
-          if (atomID == "" ||elementType == "" || x2 == "" || y2 == ""
-                  ||  elementTypes.size() != atomCount || x2s.size() != atomCount || y2s.size() != atomCount )
-            throw FileParseException("Expected id, elementType. x2 and y2 arrays for an atomArray definition in MRV file, and the counts of each must the same");
-
-          if (formalCharge != "" && formalCharges.size() != atomCount)
-            throw FileParseException("formalCharges, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-          if (radical != "" && radicals.size() != atomCount)
-            throw FileParseException("radicals, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
- 
-          if (isotope != "" && isotopes.size() != atomCount)
-            throw FileParseException("isotopes, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-          if (mrvAlias != "" && mrvAliases.size() != atomCount)
-            throw FileParseException("mrvAliases, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-          if (mrvStereoGroup != ""  && mrvStereoGroups.size() != atomCount)
-            throw FileParseException("mrvStereoGroups, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-          if (mrvMap != "" && mrvMaps.size() != atomCount)
-            throw FileParseException("mrvMaps, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-          if (sgroupRef != ""  && sgroupRefs.size() != atomCount)
-            throw FileParseException("sgroupRefs, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-          if (sgroupAttachmentPoint != ""  && sgroupAttachmentPoints.size() != atomCount)
-            throw FileParseException("sgroupAttachmentPoint, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-          for (size_t i = 0 ; i < atomCount ; ++i)
-          {
-            MarvinAtom *mrvAtom = new MarvinAtom();   
-            res->atoms.push_back(mrvAtom);
-
-            mrvAtom->id = atomIds[i];
-
-            mrvAtom->elementType = elementTypes[i];
-            
-            if (!getCleanDouble(x2s[i], mrvAtom->x2) || !getCleanDouble(y2s[i], mrvAtom->y2))
-              throw FileParseException("The values x2 and y2 must be large floats in MRV file");        
-
-            if (formalCharge != "")
-            {
-              if (!getCleanInt(formalCharges[i], mrvAtom->formalCharge) )
-                  throw FileParseException("The value for formalCharge must be an integer in MRV file"); 
-            }
-            else
-              mrvAtom->formalCharge = 0;
-
-            if (isotope != "")
-            {
-              if (!getCleanInt(isotopes[i], mrvAtom->isotope) )
-                  throw FileParseException("The value for formalCharge must be an integer in MRV file"); 
-            }
-            else
-              mrvAtom->isotope = 0;
-           
-           
-            if (radical != "")
-            {
-              mrvAtom->radical = radicals[i];
-              if (!boost::algorithm::contains(marvinRadicalVals, std::vector<std::string>{mrvAtom->radical} ))
-              {
-                std::ostringstream err;
-                err << "The value for radical must be one of " << boost::algorithm::join(marvinRadicalVals,", ") << " in MRV file";
-                throw FileParseException(err.str()); 
-              }
-            }
-            else 
-              mrvAtom->radical = "";
-
-            if (mrvAlias != "")
-              mrvAtom->mrvAlias = mrvAliases[i];
-            else
-              mrvAtom->mrvAlias = "";
-            
-            if (mrvStereoGroup != "")
-              mrvAtom->mrvStereoGroup = mrvStereoGroups[i];
-            else
-              mrvAtom->mrvStereoGroup = "";       
-            
-            if (mrvMap != "")
-            {
-              if (!getCleanInt(mrvMap, mrvAtom->mrvMap) || mrvAtom->mrvMap <=0)
-                  throw FileParseException("The value for mrvMap must be an non-=negative integer in MRV file"); 
-            }
-            else
-              mrvAtom->mrvMap = 0;       
-
-            if (sgroupRef != "")
-              mrvAtom->sgroupRef = sgroupRefs[i];
-            else
-              mrvAtom->sgroupRef = "";
-            
-            if (role== "SuperatomSgroup" && sgroupAttachmentPoint != "")
-            {
-               mrvAtom->sgroupAttachmentPoint = sgroupAttachmentPoints[i];
-            }
-            else
-              mrvAtom->sgroupAttachmentPoint = "";
-          }
-        }
-      }
-
-        // get bonds if this is NOT a role == "SruSgroup"
-
-      if (role != "SruSgroup")
-      {
-        BOOST_FOREACH(
-            boost::property_tree::ptree::value_type &v, molTree.get_child("bondArray"))
-        {
-          MarvinBond *mrvBond = new MarvinBond();   
-          res->bonds.push_back(mrvBond);
-
-          mrvBond->id = v.second.get<std::string>("<xmlattr>.id", "");
-          if (mrvBond->id == ""  )
-            throw FileParseException("Expected id for an bond definition in MRV file");
-          
-         
-          std::string atomRefs2 = v.second.get<std::string>("<xmlattr>.atomRefs2", "");
-
-          std::vector<std::string> atomRefs2s;
-          boost::algorithm::split(atomRefs2s,atomRefs2,boost::algorithm::is_space());
-          mrvBond->atomRefs2[0] =  atomRefs2s[0];
-          mrvBond->atomRefs2[1] =  atomRefs2s[1];
-          if (atomRefs2s.size() != 2 
-              || !boost::algorithm::contains(res->atoms, std::vector<std::string>{mrvBond->atomRefs2[0]}, MarvinMol::atomRefInAtoms )
-              || !boost::algorithm::contains(res->atoms, std::vector<std::string>{mrvBond->atomRefs2[1]}, MarvinMol::atomRefInAtoms ) )
-            throw FileParseException("atomRefs2 must contain two atom refs that must appear in the atoms array in MRV file");
-
-
-          mrvBond->order = v.second.get<std::string>("<xmlattr>.order", "");
-          if (!boost::algorithm::contains(marvinBondOrders, std::vector<std::string>{mrvBond->order} ))
-          {
-            std::ostringstream err;
-            err << "Expected one of  " << boost::algorithm::join(marvinBondOrders,", ") << " for order for an bond definition in MRV file";
-            throw FileParseException(err.str());
-          }
-
-          mrvBond->queryType = v.second.get<std::string>("<xmlattr>.queryType", "");
-          if (mrvBond->queryType != "")
-          {
-            if (!boost::algorithm::contains(marvinQueryBondsTypes, std::vector<std::string>{mrvBond->queryType} ))
+            marvinSruSgroup->connect = molTree.get<std::string>("<xmlattr>.connect", "");
+            if (!boost::algorithm::contains(sruSgroupConnectChoices,std::vector<std::string>{marvinSruSgroup->connect}))
             {
               std::ostringstream err;
-              err << "Expected one of  " << boost::algorithm::join(marvinQueryBondsTypes,", ") << " for queryType for an bond definition in MRV file";
+              err << "Expected  a connect  string of \"" << boost::algorithm::join(sruSgroupConnectChoices, ", ") << "\" for a SruSgroup definition in MRV file";
               throw FileParseException(err.str());
             }
-          }
 
-          mrvBond->bondStereo = v.second.get<std::string>("bondStereo", "");
-          if (mrvBond->bondStereo != "" &&  boost::algorithm::to_lower_copy(mrvBond->bondStereo) != "w" && boost::algorithm::to_lower_copy(mrvBond->bondStereo) != "h")
-              throw FileParseException("The value for bondStereo must be \"h\" or \"w\" in MRV file");
+            marvinSruSgroup->correspondence = molTree.get<std::string>("<xmlattr>.correspondence", "");
 
-        
-        }
-
-      }
-
-      if (role== "SuperatomSgroup")
-      {
-
-        // see if there is an AttachmentPointArray
-        bool found;
-        
-        try 
-        {
-          BOOST_FOREACH(
-              boost::property_tree::ptree::value_type &v, molTree.get_child("AttachmentPointArray"))
-          {
-            break;
-          }
-          found = true;
-
-        }
-        catch(const std::exception& e)
-        {
-           found = false;
-        }
-
-        if (found)
-        {
-          BOOST_FOREACH(
-              boost::property_tree::ptree::value_type &v, molTree.get_child("AttachmentPointArray"))
-          {
-            MarvinAttachmentPoint *marvinAttachmentPoint = new MarvinAttachmentPoint();   
-            ((MarvinSuperatomSgroup *)res)->attachmentPoints.push_back(marvinAttachmentPoint);
-
-            marvinAttachmentPoint->atom = v.second.get<std::string>("<xmlattr>.atom", "");
-
-
-            marvinAttachmentPoint->order = v.second.get<std::string>("<xmlattr>.order", "");
-            marvinAttachmentPoint->bond = v.second.get<std::string>("<xmlattr>.bond", "");
-            if (marvinAttachmentPoint->atom == "" || marvinAttachmentPoint->order == "" || marvinAttachmentPoint->bond == ""  )
-                throw FileParseException("Expected atom, order and bond,  for an AttachmentPoint definition in MRV file");
-
-            // atom must be found in the atoms vector
-
-            if (!boost::algorithm::contains(res->atoms, std::vector<std::string>{marvinAttachmentPoint->atom}, MarvinMol::atomRefInAtoms ))
-              throw FileParseException("Atom specification for an AttachmentPoint definition must be in the parent's atom array in MRV file");
-
-            // bond must be found in the  bonds vector
-
-            if (!boost::algorithm::contains(parentMol->bonds, std::vector<std::string>{marvinAttachmentPoint->bond}, MarvinMol::bondRefInBonds ))
-              throw FileParseException("Bond specification for an AttachmentPoint definition must be in the bond array in MRV file");
-
-          }
-        }
-      }
-
-      if (parentMol == NULL)  // is this is a parent type mol - it has no parent
-      {
-          BOOST_FOREACH(
-              boost::property_tree::ptree::value_type &v, molTree)
-          {
-            if(v.first == "molecule")
+            std::string bondListStr = molTree.get<std::string>("<xmlattr>.bondList", "");
+            if (bondListStr != "")
             {
-               MarvinMolBase *subMol = (MarvinSuperatomSgroup *)parseMarvinMolecule(v.second, (MarvinMol *)res);
+              boost::algorithm::split(marvinSruSgroup->bondList, bondListStr, boost::algorithm::is_space());
+              for (std::vector<std::string>::const_iterator it = marvinSruSgroup->bondList.begin() ;  it != marvinSruSgroup->bondList.end(); ++it)
+                if (!boost::algorithm::contains(parentMol->bonds, std::vector<std::string>{*it}, MarvinMol::bondRefInBonds ))
+                  throw FileParseException("All of the BondList entries in the sruSgroup must in the parent molecule");
+            }
+          }
+          else if (role == "MultipleSgroup")
+          {
+            throw FileParseException("MultipleSgroup in not yet implemented in MRV file");
+          }
+          else
+            throw FileParseException("Unexpected role " + role + " in MRV file");
 
-              if (subMol->role() == "SuperatomSgroup")
-                  ((MarvinMol *)res)->superatomSgroups.push_back((MarvinSuperatomSgroup *)subMol);
-              else if (subMol->role() == "SruSgroup")
-                  ((MarvinMol *)res)->sruSgroups.push_back((MarvinSruSgroup *)subMol);
+        }
+        
+        res->molID = molID;
+
+      // get atoms if this is NOT a role == "SruSgroup"
+
+        if (role != "SruSgroup")
+        {
+          boost::property_tree::ptree atomArray = molTree.get_child("atomArray");
+
+          // there are two types of atom arrays:
+          // <atomArray atomID="a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11" elementType="C C C C C C Cl C N O O" formalCharge="0 0 0 0 0 0 0 0 1 0 -1" lonePair="0 0 0 0 0 0 3 0 0 2 3" x2="-4.3334 -5.6670 -5.6670 -4.3334 -2.9997 -2.9997 -4.3335 -1.6660 -7.0007 -1.6660 -0.3323" y2="1.7693 0.9993 -0.5409 -1.3109 -0.5409 0.9993 3.3093 -1.3109 -1.3109 -2.8509 -0.5410"></atomArray>
+          //  AND
+          // <atomArray>
+          //       <atom id="a1" elementType="C" x2="-9.4583" y2="1.9358" mrvStereoGroup="and1"/>
+          //       <atom id="a2" elementType="C" x2="-10.7921" y2="1.1658"/>
+          //       <atom id="a3" elementType="C" x2="-10.7921" y2="-0.3744"/>
+          //       <atom id="a8" elementType="O" x2="-12.1257" y2="-1.1444" lonePair="2"/>
+          //   </atomArray>
+          
+          // See which one we have
+
+          
+          std::string atomID = atomArray.get<std::string>("<xmlattr>.atomID", "");
+          if (atomID == "")
+          {
+            // long form - each atom on a line
+
+            BOOST_FOREACH(
+                boost::property_tree::ptree::value_type &v, molTree.get_child("atomArray"))
+            {
+              MarvinAtom *mrvAtom = new MarvinAtom();   
+              res->atoms.push_back(mrvAtom);
+
+              mrvAtom->id = v.second.get<std::string>("<xmlattr>.id", "");
+              mrvAtom->elementType = v.second.get<std::string>("<xmlattr>.elementType", "");
+              std::string x2 = v.second.get<std::string>("<xmlattr>.x2", "");
+              std::string y2 = v.second.get<std::string>("<xmlattr>.y2", "");
+              if (mrvAtom->id == "" || mrvAtom->elementType == "" || x2 == "" || y2 == "" )
+                  throw FileParseException("Expected id, elementType. x2 and y2 for an atom definition in MRV file");
+
+              // x2 and y2 are doubles
+
+              if (!getCleanDouble(x2, mrvAtom->x2) || !getCleanDouble(y2, mrvAtom->y2))
+                  throw FileParseException("The values x2 and y2 must be large floats in MRV file");        
+
+              std::string formalCharge = v.second.get<std::string>("<xmlattr>.formalCharge", "");
+              if (formalCharge != "")
+              {
+                if (!getCleanInt(formalCharge, mrvAtom->formalCharge) )
+                    throw FileParseException("The value for formalCharge must be an integer in MRV file"); 
+              }
               else
-                  throw FileParseException("Unexpected role while parsing sub-molecues in MRV file");
+                mrvAtom->formalCharge = 0;
+              
+
+              mrvAtom->radical = v.second.get<std::string>("<xmlattr>.radical", "");
+              if (mrvAtom->radical != "")
+              {
+                if (!boost::algorithm::contains(marvinRadicalVals, std::vector<std::string>{mrvAtom->radical} ))
+                {
+                  std::ostringstream err;
+                  err << "The value for radical must be one of " << boost::algorithm::join(marvinRadicalVals,", ") << " in MRV file";
+                  throw FileParseException(err.str()); 
+                }
+              }
+              else 
+                mrvAtom->radical = "";
+
+              std::string isotopeStr = v.second.get<std::string>("<xmlattr>.isotope", "");
+              if (isotopeStr != "")
+              {
+                if (!getCleanInt(isotopeStr, mrvAtom->isotope) || mrvAtom->isotope <=0)
+                {
+                  std::ostringstream err;
+                  err << "The value for isotope must be a positive number in MRV file";
+                  throw FileParseException(err.str()); 
+                }
+              }
+
+              else 
+                mrvAtom->isotope = 0;
+
+              mrvAtom->mrvAlias = v.second.get<std::string>("<xmlattr>.mrvAlias", "");
+
+              mrvAtom->mrvStereoGroup = v.second.get<std::string>("<xmlattr>.mrvStereoGroup", "");
+
+              std::string mrvMap = v.second.get<std::string>("<xmlattr>.mrvMap", "");
+              if (mrvMap != "")
+              {
+                if (!getCleanInt(mrvMap, mrvAtom->mrvMap) || mrvAtom->mrvMap <=0)
+                    throw FileParseException("The value for mrvMap must be an non-=negative integer in MRV file"); 
+              }
+              else
+                mrvAtom->mrvMap = 0;
+
+              mrvAtom->sgroupRef = v.second.get<std::string>("<xmlattr>.sgroupRef", "");
+
+              if (role== "SuperatomSgroup")
+              {
+                mrvAtom->sgroupAttachmentPoint = v.second.get<std::string>("<xmlattr>.sgroupAttachmentPoint", "");
+
+                //atom->setProp(common_properties::molAttachPoint, ival);
+              }
+
+            
+            }
+          }
+          else  // single line form of atoms
+          {
+            // <atomArray atomID="a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11" elementType="C C C C C C Cl C N O O" formalCharge="0 0 0 0 0 0 0 0 1 0 -1" lonePair="0 0 0 0 0 0 3 0 0 2 3" x2="-4.3334 -5.6670 -5.6670 -4.3334 -2.9997 -2.9997 -4.3335 -1.6660 -7.0007 -1.6660 -0.3323" y2="1.7693 0.9993 -0.5409 -1.3109 -0.5409 0.9993 3.3093 -1.3109 -1.3109 -2.8509 -0.5410"></atomArray>
+            
+            std::vector<std::string> atomIds;
+            boost::algorithm::split(atomIds,atomID,boost::algorithm::is_space());
+            size_t atomCount = atomIds.size();
+
+            std::vector<std::string> elementTypes;
+            std::string elementType = atomArray.get<std::string>("<xmlattr>.elementType", "");
+            boost::algorithm::split(elementTypes,elementType,boost::algorithm::is_space());
+        
+            std::vector<std::string> x2s;
+            std::string x2 = atomArray.get<std::string>("<xmlattr>.x2", "");
+            boost::algorithm::split(x2s,x2,boost::algorithm::is_space());
+
+            std::vector<std::string> y2s;
+            std::string y2 = atomArray.get<std::string>("<xmlattr>.y2", "");
+            boost::algorithm::split(y2s,y2,boost::algorithm::is_space());
+
+            std::vector<std::string> formalCharges;
+            std::string formalCharge = atomArray.get<std::string>("<xmlattr>.formalCharge", "");
+            boost::algorithm::split(formalCharges,formalCharge,boost::algorithm::is_space());
+
+            std::vector<std::string> isotopes;
+            std::string isotope = atomArray.get<std::string>("<xmlattr>.isotope", "");
+            boost::algorithm::split(isotopes,isotope,boost::algorithm::is_space());
+
+            std::vector<std::string> radicals;
+            std::string radical = atomArray.get<std::string>("<xmlattr>.radical", "");
+            boost::algorithm::split(radicals,radical,boost::algorithm::is_space());
+
+            std::vector<std::string> mrvAliases;
+            std::string mrvAlias = atomArray.get<std::string>("<xmlattr>.mrvAlias", "");
+            boost::algorithm::split(mrvAliases,mrvAlias,boost::algorithm::is_space());
+
+            std::vector<std::string> mrvStereoGroups;
+            std::string mrvStereoGroup = atomArray.get<std::string>("<xmlattr>.mrvStereoGroup", "");
+            boost::algorithm::split(mrvStereoGroups,mrvStereoGroup,boost::algorithm::is_space());
+
+            std::vector<std::string> mrvMaps;
+            std::string mrvMap = atomArray.get<std::string>("<xmlattr>.mrvMap", "");
+            boost::algorithm::split(mrvMaps,mrvMap,boost::algorithm::is_space());
+
+            std::vector<std::string> sgroupRefs;
+            std::string sgroupRef = atomArray.get<std::string>("<xmlattr>.sgroupRef", "");
+            boost::algorithm::split(sgroupRefs,sgroupRef,boost::algorithm::is_space());
+
+            std::vector<std::string> sgroupAttachmentPoints;
+            std::string sgroupAttachmentPoint = atomArray.get<std::string>("<xmlattr>.sgroupAttachmentPoint", "");
+            boost::algorithm::split(sgroupAttachmentPoints,sgroupAttachmentPoint,boost::algorithm::is_space());
+
+            if (atomID == "" ||elementType == "" || x2 == "" || y2 == ""
+                    ||  elementTypes.size() != atomCount || x2s.size() != atomCount || y2s.size() != atomCount )
+              throw FileParseException("Expected id, elementType. x2 and y2 arrays for an atomArray definition in MRV file, and the counts of each must the same");
+
+            if (formalCharge != "" && formalCharges.size() != atomCount)
+              throw FileParseException("formalCharges, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
+
+            if (radical != "" && radicals.size() != atomCount)
+              throw FileParseException("radicals, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
+  
+            if (isotope != "" && isotopes.size() != atomCount)
+              throw FileParseException("isotopes, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
+
+            if (mrvAlias != "" && mrvAliases.size() != atomCount)
+              throw FileParseException("mrvAliases, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
+
+            if (mrvStereoGroup != ""  && mrvStereoGroups.size() != atomCount)
+              throw FileParseException("mrvStereoGroups, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
+
+            if (mrvMap != "" && mrvMaps.size() != atomCount)
+              throw FileParseException("mrvMaps, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
+
+            if (sgroupRef != ""  && sgroupRefs.size() != atomCount)
+              throw FileParseException("sgroupRefs, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
+
+            if (sgroupAttachmentPoint != ""  && sgroupAttachmentPoints.size() != atomCount)
+              throw FileParseException("sgroupAttachmentPoint, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
+
+            for (size_t i = 0 ; i < atomCount ; ++i)
+            {
+              MarvinAtom *mrvAtom = new MarvinAtom();   
+              res->atoms.push_back(mrvAtom);
+
+              mrvAtom->id = atomIds[i];
+
+              mrvAtom->elementType = elementTypes[i];
+              
+              if (!getCleanDouble(x2s[i], mrvAtom->x2) || !getCleanDouble(y2s[i], mrvAtom->y2))
+                throw FileParseException("The values x2 and y2 must be large floats in MRV file");        
+
+              if (formalCharge != "")
+              {
+                if (!getCleanInt(formalCharges[i], mrvAtom->formalCharge) )
+                    throw FileParseException("The value for formalCharge must be an integer in MRV file"); 
+              }
+              else
+                mrvAtom->formalCharge = 0;
+
+              if (isotope != "")
+              {
+                if (!getCleanInt(isotopes[i], mrvAtom->isotope) )
+                    throw FileParseException("The value for formalCharge must be an integer in MRV file"); 
+              }
+              else
+                mrvAtom->isotope = 0;
+            
+            
+              if (radical != "")
+              {
+                mrvAtom->radical = radicals[i];
+                if (!boost::algorithm::contains(marvinRadicalVals, std::vector<std::string>{mrvAtom->radical} ))
+                {
+                  std::ostringstream err;
+                  err << "The value for radical must be one of " << boost::algorithm::join(marvinRadicalVals,", ") << " in MRV file";
+                  throw FileParseException(err.str()); 
+                }
+              }
+              else 
+                mrvAtom->radical = "";
+
+              if (mrvAlias != "")
+                mrvAtom->mrvAlias = mrvAliases[i];
+              else
+                mrvAtom->mrvAlias = "";
+              
+              if (mrvStereoGroup != "")
+                mrvAtom->mrvStereoGroup = mrvStereoGroups[i];
+              else
+                mrvAtom->mrvStereoGroup = "";       
+              
+              if (mrvMap != "")
+              {
+                if (!getCleanInt(mrvMap, mrvAtom->mrvMap) || mrvAtom->mrvMap <=0)
+                    throw FileParseException("The value for mrvMap must be an non-=negative integer in MRV file"); 
+              }
+              else
+                mrvAtom->mrvMap = 0;       
+
+              if (sgroupRef != "")
+                mrvAtom->sgroupRef = sgroupRefs[i];
+              else
+                mrvAtom->sgroupRef = "";
+              
+              if (role== "SuperatomSgroup" && sgroupAttachmentPoint != "")
+              {
+                mrvAtom->sgroupAttachmentPoint = sgroupAttachmentPoints[i];
+              }
+              else
+                mrvAtom->sgroupAttachmentPoint = "";
+            }
+          }
+        }
+
+          // get bonds if this is NOT a role == "SruSgroup"
+
+        if (role != "SruSgroup")
+        {
+          BOOST_FOREACH(
+              boost::property_tree::ptree::value_type &v, molTree.get_child("bondArray"))
+          {
+            MarvinBond *mrvBond = new MarvinBond();   
+            res->bonds.push_back(mrvBond);
+
+            mrvBond->id = v.second.get<std::string>("<xmlattr>.id", "");
+            if (mrvBond->id == ""  )
+              throw FileParseException("Expected id for an bond definition in MRV file");
+            
+          
+            std::string atomRefs2 = v.second.get<std::string>("<xmlattr>.atomRefs2", "");
+
+            std::vector<std::string> atomRefs2s;
+            boost::algorithm::split(atomRefs2s,atomRefs2,boost::algorithm::is_space());
+            mrvBond->atomRefs2[0] =  atomRefs2s[0];
+            mrvBond->atomRefs2[1] =  atomRefs2s[1];
+            if (atomRefs2s.size() != 2 
+                || !boost::algorithm::contains(res->atoms, std::vector<std::string>{mrvBond->atomRefs2[0]}, MarvinMol::atomRefInAtoms )
+                || !boost::algorithm::contains(res->atoms, std::vector<std::string>{mrvBond->atomRefs2[1]}, MarvinMol::atomRefInAtoms ) )
+              throw FileParseException("atomRefs2 must contain two atom refs that must appear in the atoms array in MRV file");
+
+
+            mrvBond->order = v.second.get<std::string>("<xmlattr>.order", "");
+            if (!boost::algorithm::contains(marvinBondOrders, std::vector<std::string>{mrvBond->order} ))
+            {
+              std::ostringstream err;
+              err << "Expected one of  " << boost::algorithm::join(marvinBondOrders,", ") << " for order for an bond definition in MRV file";
+              throw FileParseException(err.str());
             }
 
-          }
-      }
+            mrvBond->queryType = v.second.get<std::string>("<xmlattr>.queryType", "");
+            if (mrvBond->queryType != "")
+            {
+              if (!boost::algorithm::contains(marvinQueryBondsTypes, std::vector<std::string>{mrvBond->queryType} ))
+              {
+                std::ostringstream err;
+                err << "Expected one of  " << boost::algorithm::join(marvinQueryBondsTypes,", ") << " for queryType for an bond definition in MRV file";
+                throw FileParseException(err.str());
+              }
+            }
 
-      return res;
+            mrvBond->bondStereo = v.second.get<std::string>("bondStereo", "");
+            if (mrvBond->bondStereo != "" &&  boost::algorithm::to_lower_copy(mrvBond->bondStereo) != "w" && boost::algorithm::to_lower_copy(mrvBond->bondStereo) != "h")
+                throw FileParseException("The value for bondStereo must be \"h\" or \"w\" in MRV file");
+
+          
+          }
+
+        }
+
+        if (role== "SuperatomSgroup")
+        {
+
+          // see if there is an AttachmentPointArray
+          bool found;
+          
+          try 
+          {
+            BOOST_FOREACH(
+                boost::property_tree::ptree::value_type &v, molTree.get_child("AttachmentPointArray"))
+            {
+              break;
+            }
+            found = true;
+
+          }
+          catch(const std::exception& e)
+          {
+            found = false;
+          }
+
+          if (found)
+          {
+            BOOST_FOREACH(
+                boost::property_tree::ptree::value_type &v, molTree.get_child("AttachmentPointArray"))
+            {
+              MarvinAttachmentPoint *marvinAttachmentPoint = new MarvinAttachmentPoint();   
+              ((MarvinSuperatomSgroup *)res)->attachmentPoints.push_back(marvinAttachmentPoint);
+
+              marvinAttachmentPoint->atom = v.second.get<std::string>("<xmlattr>.atom", "");
+
+
+              marvinAttachmentPoint->order = v.second.get<std::string>("<xmlattr>.order", "");
+              marvinAttachmentPoint->bond = v.second.get<std::string>("<xmlattr>.bond", "");
+              if (marvinAttachmentPoint->atom == "" || marvinAttachmentPoint->order == "" || marvinAttachmentPoint->bond == ""  )
+                  throw FileParseException("Expected atom, order and bond,  for an AttachmentPoint definition in MRV file");
+
+              // atom must be found in the atoms vector
+
+              if (!boost::algorithm::contains(res->atoms, std::vector<std::string>{marvinAttachmentPoint->atom}, MarvinMol::atomRefInAtoms ))
+                throw FileParseException("Atom specification for an AttachmentPoint definition must be in the parent's atom array in MRV file");
+
+              // bond must be found in the  bonds vector
+
+              if (!boost::algorithm::contains(parentMol->bonds, std::vector<std::string>{marvinAttachmentPoint->bond}, MarvinMol::bondRefInBonds ))
+                throw FileParseException("Bond specification for an AttachmentPoint definition must be in the bond array in MRV file");
+
+            }
+          }
+        }
+
+        if (parentMol == NULL)  // is this is a parent type mol - it has no parent
+        {
+            BOOST_FOREACH(
+                boost::property_tree::ptree::value_type &v, molTree)
+            {
+              if(v.first == "molecule")
+              {
+                MarvinMolBase *subMol = (MarvinSuperatomSgroup *)parseMarvinMolecule(v.second, (MarvinMol *)res);
+
+                if (subMol->role() == "SuperatomSgroup")
+                    ((MarvinMol *)res)->superatomSgroups.push_back((MarvinSuperatomSgroup *)subMol);
+                else if (subMol->role() == "SruSgroup")
+                    ((MarvinMol *)res)->sruSgroups.push_back((MarvinSruSgroup *)subMol);
+                else
+                    throw FileParseException("Unexpected role while parsing sub-molecues in MRV file");
+              }
+
+            }
+        }
+
+        return res;
+         
+      }
+      catch(const std::exception& e)
+      {
+        delete res;
+
+        throw;
+      }
     };
 
     ChemicalReaction *parseReaction(boost::property_tree::ptree rxnTree, boost::property_tree::ptree documentTree)
@@ -1807,6 +1845,7 @@ namespace RDKit
       ChemicalReaction *rxn = NULL;
       MarvinReaction *marvinReaction = NULL;
       RWMol *mol = NULL;
+      
       try
       {
 
@@ -1825,7 +1864,7 @@ namespace RDKit
           mol = parseMolecule((*molIter) , true);
           ROMol *roMol = new ROMol(*mol);
 
-          rxn->addReactantTemplate(ROMOL_SPTR(roMol));
+          rxn->addReactantTemplate(ROMOL_SPTR(roMol));   //roMol  now owned by rxn;
         }
 
        // get each agent
@@ -1835,7 +1874,7 @@ namespace RDKit
           mol = parseMolecule((*molIter) , true);
           ROMol *roMol = new ROMol(*mol);
 
-          rxn->addAgentTemplate(ROMOL_SPTR(roMol));
+          rxn->addAgentTemplate(ROMOL_SPTR(roMol)); //roMol  now owned by rxn;
         }
 
         // get each product
@@ -1845,7 +1884,7 @@ namespace RDKit
           mol = parseMolecule((*molIter) , true);
           ROMol *roMol = new ROMol(*mol);
 
-          rxn->addProductTemplate(ROMOL_SPTR(roMol));
+          rxn->addProductTemplate(ROMOL_SPTR(roMol)); //roMol  now owned by rxn;
         }
 
         // convert atoms to queries:
@@ -1889,138 +1928,147 @@ namespace RDKit
     {
       MarvinReaction *res = new MarvinReaction();
 
-      BOOST_FOREACH(
-            boost::property_tree::ptree::value_type &v, rxnTree.get_child("reactantList"))
-          res->reactants.push_back((MarvinMol *)parseMarvinMolecule(v.second));
-
-      BOOST_FOREACH(
-            boost::property_tree::ptree::value_type &v, rxnTree.get_child("agentList"))
-          res->agents.push_back((MarvinMol *)parseMarvinMolecule(v.second));
-
-      BOOST_FOREACH(
-            boost::property_tree::ptree::value_type &v, rxnTree.get_child("productList"))
-          res->products.push_back((MarvinMol *)parseMarvinMolecule(v.second));
-
-        // <arrow type="DEFAULT" x1="-11.816189911577812" y1="-10.001443743444021" x2="-8.401759471454618" y2="-10.001443743444021"/>
-        boost::property_tree::ptree arrow = rxnTree.get_child("arrow");
-        res->arrow.type = arrow.get<std::string>("<xmlattr>.type", "");
-       if (!getCleanDouble( arrow.get<std::string>("<xmlattr>.x1", ""), res->arrow.x1)
-            ||!getCleanDouble( arrow.get<std::string>("<xmlattr>.y1", ""), res->arrow.y1)
-            ||!getCleanDouble( arrow.get<std::string>("<xmlattr>.x2", ""), res->arrow.x2)
-            ||!getCleanDouble( arrow.get<std::string>("<xmlattr>.y2", ""), res->arrow.y1))
-          throw FileParseException("Arrow coordinates must all be large floating point numbers in MRV file"); 
-        
-
-     
-        
-      BOOST_FOREACH(
-          boost::property_tree::ptree::value_type &v, documentTree)
+      try
       {
+       
+      
 
-        if (v.first != "MReactionSign")
-          continue;
-        MarvinPlus *marvinPlus = new MarvinPlus();
-        res->pluses.push_back(marvinPlus);  
-        marvinPlus->id =  v.second.get<std::string>("<xmlattr>.id", "");
-        int pointCount = 0;
         BOOST_FOREACH(
-            boost::property_tree::ptree::value_type &v2, v.second)
-        {
-          if (v2.first == "MPoint")
-          {
+              boost::property_tree::ptree::value_type &v, rxnTree.get_child("reactantList"))
+            res->reactants.push_back((MarvinMol *)parseMarvinMolecule(v.second));
 
-            double x;
-            double y; 
-            if (!getCleanDouble( v.second.get<std::string>("<xmlattr>.x", ""),x)
-                || !getCleanDouble( v.second.get<std::string>("<xmlattr>.y", ""),y))
-              throw FileParseException("Plus sign  coordinates must all be large floating point numbers in MRV file"); 
-                
-            switch( pointCount)
-            {
-              case 0:  //  first point - x1 and y1 are set
-                marvinPlus->x1 = x;
-                marvinPlus->y1 = y;
-                break;
-              case 1:   // x2 is set, y1 is checked
-                marvinPlus->x2 = x;
-                if (marvinPlus->y1 != y)
-                  throw FileParseException("Plus sign coordinate Y in 2nd MPoint must be the same as that from the 1st MPoint in MRV file"); 
-                break;
-              case 2:   // y2 is set, x2 is checked
-                marvinPlus->y2 = y;
-                if (marvinPlus->x2 != x)
-                  throw FileParseException("Plus sign coordinate X in 3rd MPoint must be the same as that from the 2nd MPoint in MRV file"); 
-                break;
-              case 3:   // x2 and y2 are checked
-                if (marvinPlus->x1 != x)
-                  throw FileParseException("Plus sign coordinate X in 4th MPoint must be the same as that from the 1st MPoint in MRV file"); 
+        BOOST_FOREACH(
+              boost::property_tree::ptree::value_type &v, rxnTree.get_child("agentList"))
+            res->agents.push_back((MarvinMol *)parseMarvinMolecule(v.second));
 
-                if (marvinPlus->y2 != y)
-                  throw FileParseException("Plus sign coordinate Y in 4th MPoint must be the same as that from the 3rd MPoint in MRV file"); 
-                break;
+        BOOST_FOREACH(
+              boost::property_tree::ptree::value_type &v, rxnTree.get_child("productList"))
+            res->products.push_back((MarvinMol *)parseMarvinMolecule(v.second));
 
-              default:
-                throw FileParseException("Plus sign coordinate must have 4 MPoints in MRV file"); 
-            }
-            ++pointCount;
-          }
-        }
-      }
+          // <arrow type="DEFAULT" x1="-11.816189911577812" y1="-10.001443743444021" x2="-8.401759471454618" y2="-10.001443743444021"/>
+          boost::property_tree::ptree arrow = rxnTree.get_child("arrow");
+          res->arrow.type = arrow.get<std::string>("<xmlattr>.type", "");
+        if (!getCleanDouble( arrow.get<std::string>("<xmlattr>.x1", ""), res->arrow.x1)
+              ||!getCleanDouble( arrow.get<std::string>("<xmlattr>.y1", ""), res->arrow.y1)
+              ||!getCleanDouble( arrow.get<std::string>("<xmlattr>.x2", ""), res->arrow.x2)
+              ||!getCleanDouble( arrow.get<std::string>("<xmlattr>.y2", ""), res->arrow.y1))
+            throw FileParseException("Arrow coordinates must all be large floating point numbers in MRV file"); 
+          
 
-
-      BOOST_FOREACH(
+      
+          
+        BOOST_FOREACH(
             boost::property_tree::ptree::value_type &v, documentTree)
-      {
-        if (v.first != "MTextBox")
-          continue;
-
-        MarvinCondition *marvinCondition = new MarvinCondition();
-        res->conditions.push_back(marvinCondition);  
-        marvinCondition->id =  v.second.get<std::string>("<xmlattr>.id", "");
-        marvinCondition->halign =  v.second.get<std::string>("<xmlattr>.halign", "");
-        marvinCondition->valign =  v.second.get<std::string>("<xmlattr>.valign", "");
-        int fontScale;
-        if (! getCleanInt(v.second.get<std::string>("<xmlattr>.fontScale", ""),  fontScale))
-          throw FileParseException("Condition font scale must be an integersin MRV file"); 
-        marvinCondition->fontScale = fontScale;
-        marvinCondition->text = v.second.get<std::string>("Field", "");
-
-        int pointCount = 0;
-        BOOST_FOREACH(
-            boost::property_tree::ptree::value_type &v2, v.second)
         {
-          if (v2.first == "MPoint")
-          {
-            int x,y;
-            if (! getCleanInt(v.second.get<std::string>("<xmlattr>.x", ""),  x)
-            ||  ! getCleanInt(v.second.get<std::string>("<xmlattr>.x", ""),  y))
-              throw FileParseException("Condition coordinate must valid integers in MRV file"); 
-           
-            switch( pointCount)
-            {
-              case 0:  //  first point - x1 and y1 are set
-                marvinCondition->x = x;
-                marvinCondition->y = y;
-                break;
-              case 1:   
-              case 2:
-              case 3:   // x and Y are checked - must be the same as point 1
-                 if ( marvinCondition->x != x || marvinCondition->y != y)
-                   throw FileParseException("Condition coordinates must be the same as those from the 1st MPoint in MRV file"); 
-                break;
 
-              default:
-                throw FileParseException("Condition defs must have 4 MPoints in MRV file"); 
+          if (v.first != "MReactionSign")
+            continue;
+          MarvinPlus *marvinPlus = new MarvinPlus();
+          res->pluses.push_back(marvinPlus);  
+          marvinPlus->id =  v.second.get<std::string>("<xmlattr>.id", "");
+          int pointCount = 0;
+          BOOST_FOREACH(
+              boost::property_tree::ptree::value_type &v2, v.second)
+          {
+            if (v2.first == "MPoint")
+            {
+
+              double x;
+              double y; 
+              if (!getCleanDouble( v.second.get<std::string>("<xmlattr>.x", ""),x)
+                  || !getCleanDouble( v.second.get<std::string>("<xmlattr>.y", ""),y))
+                throw FileParseException("Plus sign  coordinates must all be large floating point numbers in MRV file"); 
+                  
+              switch( pointCount)
+              {
+                case 0:  //  first point - x1 and y1 are set
+                  marvinPlus->x1 = x;
+                  marvinPlus->y1 = y;
+                  break;
+                case 1:   // x2 is set, y1 is checked
+                  marvinPlus->x2 = x;
+                  if (marvinPlus->y1 != y)
+                    throw FileParseException("Plus sign coordinate Y in 2nd MPoint must be the same as that from the 1st MPoint in MRV file"); 
+                  break;
+                case 2:   // y2 is set, x2 is checked
+                  marvinPlus->y2 = y;
+                  if (marvinPlus->x2 != x)
+                    throw FileParseException("Plus sign coordinate X in 3rd MPoint must be the same as that from the 2nd MPoint in MRV file"); 
+                  break;
+                case 3:   // x2 and y2 are checked
+                  if (marvinPlus->x1 != x)
+                    throw FileParseException("Plus sign coordinate X in 4th MPoint must be the same as that from the 1st MPoint in MRV file"); 
+
+                  if (marvinPlus->y2 != y)
+                    throw FileParseException("Plus sign coordinate Y in 4th MPoint must be the same as that from the 3rd MPoint in MRV file"); 
+                  break;
+
+                default:
+                  throw FileParseException("Plus sign coordinate must have 4 MPoints in MRV file"); 
+              }
+              ++pointCount;
             }
-            ++pointCount;
           }
         }
-      }
-  
-      return res;
-    }
 
+
+        BOOST_FOREACH(
+              boost::property_tree::ptree::value_type &v, documentTree)
+        {
+          if (v.first != "MTextBox")
+            continue;
+
+          MarvinCondition *marvinCondition = new MarvinCondition();
+          res->conditions.push_back(marvinCondition);  
+          marvinCondition->id =  v.second.get<std::string>("<xmlattr>.id", "");
+          marvinCondition->halign =  v.second.get<std::string>("<xmlattr>.halign", "");
+          marvinCondition->valign =  v.second.get<std::string>("<xmlattr>.valign", "");
+          int fontScale;
+          if (! getCleanInt(v.second.get<std::string>("<xmlattr>.fontScale", ""),  fontScale))
+            throw FileParseException("Condition font scale must be an integersin MRV file"); 
+          marvinCondition->fontScale = fontScale;
+          marvinCondition->text = v.second.get<std::string>("Field", "");
+
+          int pointCount = 0;
+          BOOST_FOREACH(
+              boost::property_tree::ptree::value_type &v2, v.second)
+          {
+            if (v2.first == "MPoint")
+            {
+              int x,y;
+              if (! getCleanInt(v.second.get<std::string>("<xmlattr>.x", ""),  x)
+              ||  ! getCleanInt(v.second.get<std::string>("<xmlattr>.x", ""),  y))
+                throw FileParseException("Condition coordinate must valid integers in MRV file"); 
+            
+              switch( pointCount)
+              {
+                case 0:  //  first point - x1 and y1 are set
+                  marvinCondition->x = x;
+                  marvinCondition->y = y;
+                  break;
+                case 1:   
+                case 2:
+                case 3:   // x and Y are checked - must be the same as point 1
+                  if ( marvinCondition->x != x || marvinCondition->y != y)
+                    throw FileParseException("Condition coordinates must be the same as those from the 1st MPoint in MRV file"); 
+                  break;
+
+                default:
+                  throw FileParseException("Condition defs must have 4 MPoints in MRV file"); 
+              }
+              ++pointCount;
+            }
+          }
+        }
     
+        return res;
+      }
+      catch(const std::exception& e)
+      {
+        delete res;
+
+        throw;
+      }
   };    
 
   //------------------------------------------------

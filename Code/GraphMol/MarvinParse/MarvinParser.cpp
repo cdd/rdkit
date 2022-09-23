@@ -12,55 +12,30 @@
 
 
 #include <string>
-#include <set>
 #include <exception>
 #include <iostream>
 #include <fstream>
-#include <typeinfo>
-#include <exception>
-#include <charconv>
-#include <locale>
-#include <cstdlib>
-#include <cstdio>
-#include <string_view>
 #include <vector>
-#include <algorithm>
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/foreach.hpp>
-#include <RDGeneral/BoostStartInclude.h>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
-#include <boost/tokenizer.hpp>
-//#include <boost/algorithm/string/trim.hpp>
 #include <boost/format.hpp>
 #include <RDGeneral/BoostEndInclude.h>
-#include <sstream>
-
 
 #include <GraphMol/FileParsers/FileParsers.h>
-#include <GraphMol/FileParsers/FileParserUtils.h>
 #include <GraphMol/FileParsers/MolSGroupParsing.h>
 #include <GraphMol/FileParsers/MolFileStereochem.h>
 #include "MarvinParser.h"
 
 
-#include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/RDKitQueries.h>
 #include <GraphMol/StereoGroup.h>
 #include <GraphMol/SubstanceGroup.h>
-#include <RDGeneral/StreamOps.h>
-#include <RDGeneral/RDLog.h>
-#include <GraphMol/ROMol.h>
 
-#include <GraphMol/QueryOps.h>
-#include <GraphMol/ChemReactions/Reaction.h>
-#include <GraphMol/ChemReactions/ReactionParser.h>
-#include <GraphMol/ChemReactions/ReactionUtils.h>
 #include "MarvinParser.h"
-
-
 
 #include <RDGeneral/StreamOps.h>
 #include <RDGeneral/FileParseException.h>
@@ -2101,7 +2076,7 @@ namespace RDKit
   //  Read a molecule from a string
   //
   //------------------------------------------------
-  void *MrvBlockParser(const std::string &molmrvText, bool &isReaction)
+  void *MrvStringParser(const std::string &molmrvText, bool &isReaction)
   {
     std::istringstream inStream(molmrvText);
     // unsigned int line = 0;
@@ -2110,7 +2085,7 @@ namespace RDKit
 
   //------------------------------------------------
   //
-  //  Read a molecule from a file
+  //  Read a RWMOL from a file
   //
   //------------------------------------------------
   void *MrvFileParser(const std::string &fName, bool &isReaction)
@@ -2130,5 +2105,118 @@ namespace RDKit
     return res;
   }
 
+  //------------------------------------------------
+  //
+  //  Read a RWMol from a stream 
+  //
+  //------------------------------------------------
+  RWMol *MrvMolDataStreamParser(std::istream *inStream)
+  {
+  
+    void *res = NULL;
+    
+    bool isReaction;
+    res = MrvDataStreamParser(inStream, isReaction);
+    if (isReaction)
+        throw FileParseException("The file parsed as a reaction, not a molecule"); 
 
+    return (RWMol *)res;
+  }
+  //------------------------------------------------
+  //
+  //  Read a RWMol from a stream reference
+  //
+  //------------------------------------------------
+  RWMol *MrvMolDataStreamParser(std::istream &inStream)
+  {
+    return MrvMolDataStreamParser(&inStream);
+  }
+  //------------------------------------------------
+  //
+  //  Read a RWMol from a string
+  //
+  //------------------------------------------------
+  RWMol *MrvMolStringParser(const std::string &molmrvText)
+  {
+    std::istringstream inStream(molmrvText);
+    // unsigned int line = 0;
+    return MrvMolDataStreamParser(inStream);
+  }
+
+  //------------------------------------------------
+  //
+  //  Read an RWMol from a file
+  //
+  //------------------------------------------------
+  RWMol *MrvMolFileParser(const std::string &fName)
+  {
+    std::ifstream inStream(fName.c_str());
+    if (!inStream || (inStream.bad()))
+    {
+      std::ostringstream errout;
+      errout << "Bad input file " << fName;
+      throw BadFileException(errout.str());
+    }
+    RWMol *res = nullptr;
+    if (!inStream.eof())
+      res = MrvMolDataStreamParser(inStream);
+    return res;
+  }
+
+  //------------------------------------------------
+  //
+  //  Read a ChemicalReaction from a stream 
+  //
+  //------------------------------------------------
+  ChemicalReaction *MrvRxnDataStreamParser(std::istream *inStream)
+  {
+  
+    void *res = NULL;
+    
+    bool isReaction;
+    res = MrvDataStreamParser(inStream, isReaction);
+    if (isReaction)
+        throw FileParseException("The file parsed as a reaction, not a molecule"); 
+
+    return (ChemicalReaction *)res;
+  }
+
+  //------------------------------------------------
+  //
+  //  Read a ChemicalReaction from a stream reference
+  //
+  //------------------------------------------------
+  ChemicalReaction *MrvRxnDataStreamParser(std::istream &inStream)
+  {
+    return MrvRxnDataStreamParser(&inStream);
+  }
+  //------------------------------------------------
+  //
+  //  Read a ChemicalReaction from a string
+  //
+  //------------------------------------------------
+  ChemicalReaction *MrvRxnStringParser(const std::string &molmrvText)
+  {
+    std::istringstream inStream(molmrvText);
+    // unsigned int line = 0;
+    return MrvRxnDataStreamParser(inStream);
+  }
+
+  //------------------------------------------------
+  //
+  //  Read a ChemicalReaction from a file
+  //
+  //------------------------------------------------
+  ChemicalReaction *MrvRxnFileParser(const std::string &fName)
+  {
+    std::ifstream inStream(fName.c_str());
+    if (!inStream || (inStream.bad()))
+    {
+      std::ostringstream errout;
+      errout << "Bad input file " << fName;
+      throw BadFileException(errout.str());
+    }
+    ChemicalReaction *res = MrvRxnDataStreamParser(inStream);
+    return res;
+  }
 }// namespace RDKit

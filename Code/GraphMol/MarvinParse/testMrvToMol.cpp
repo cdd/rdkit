@@ -7,31 +7,15 @@
 //  of the RDKit source tree.
 //
 
-#include <RDGeneral/test.h>
 #include <RDGeneral/RDLog.h>
 #include <GraphMol/RDKitBase.h>
-#include <GraphMol/Canon.h>
-#include <GraphMol/MonomerInfo.h>
-#include <GraphMol/MolPickler.h>
 #include <GraphMol/FileParsers/FileParsers.h>
 #include <GraphMol/FileParsers/SequenceParsers.h>
 #include <GraphMol/FileParsers/SequenceWriters.h>
 #include <GraphMol/FileParsers/MolFileStereochem.h>
 #include "MarvinParser.h"
-#include <GraphMol/SmilesParse/SmilesParse.h>
-#include <GraphMol/SmilesParse/SmilesWrite.h>
-#include <GraphMol/SmilesParse/SmartsWrite.h>
-#include <GraphMol/Substruct/SubstructMatch.h>
-#include <GraphMol/FileParsers/ProximityBonds.h>
-#include <RDGeneral/FileParseException.h>
-#include <RDGeneral/BadFileException.h>
-#include <RDGeneral/LocaleSwitcher.h>
-#include <GraphMol/FileParsers/MolWriters.h>
-#include <clocale>
-#include <cstdlib>
 
 
-#include <GraphMol/QueryOps.h>
 #include <GraphMol/ChemReactions/Reaction.h>
 #include <GraphMol/ChemReactions/ReactionParser.h>
 

@@ -7,20 +7,15 @@
 //  which is included in the file license.txt, found at the root
 //  of the RDKit source tree.
 //
-#include <RDGeneral/export.h>
+
 #ifndef RD_MARVINPARSER_H
 #define RD_MARVINPARSER_H
 
-#include <RDGeneral/types.h>
 #include <GraphMol/RDKitBase.h>
+#include <GraphMol/ChemReactions/Reaction.h>
 
 #include <string>
-#include <string_view>
 #include <iostream>
-#include <vector>
-#include <exception>
-
-#include <boost/shared_ptr.hpp>
 
 namespace RDKit {
 
@@ -29,6 +24,19 @@ RDKIT_FILEPARSERS_EXPORT void *MrvFileParser(const std::string &fname, bool &isR
 RDKIT_FILEPARSERS_EXPORT void *MrvDataStreamParser(std::istream *inStream);
 RDKIT_FILEPARSERS_EXPORT void *MrvDataStreamParser(std::istream &inStream);
 RDKIT_FILEPARSERS_EXPORT void *MrvBlockParser(const std::string &molBlock);
+
+ 
+RDKIT_FILEPARSERS_EXPORT RWMol *MrvMolDataStreamParser(std::istream *inStream);
+RDKIT_FILEPARSERS_EXPORT RWMol *MrvMolDataStreamParser(std::istream &inStream);
+RDKIT_FILEPARSERS_EXPORT RWMol *MrvMolStringParser(const std::string &molmrvText);
+RDKIT_FILEPARSERS_EXPORT RWMol *MrvMolFileParser(const std::string &fName);
+
+ 
+RDKIT_FILEPARSERS_EXPORT ChemicalReaction *MrvRxnDataStreamParser(std::istream *inStream) ;
+RDKIT_FILEPARSERS_EXPORT ChemicalReaction *MrvRxnDataStreamParser(std::istream &inStream) ;
+RDKIT_FILEPARSERS_EXPORT ChemicalReaction *MrvRxnStringParser(const std::string &molmrvText);
+RDKIT_FILEPARSERS_EXPORT ChemicalReaction *MrvRxnFileParser(const std::string &fName);
+
 
 
 

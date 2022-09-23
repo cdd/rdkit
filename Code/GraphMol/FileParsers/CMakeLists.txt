@@ -50,7 +50,7 @@ rdkit_library(FileParsers
               TDTMolSupplier.cpp TDTWriter.cpp
               TplFileParser.cpp TplFileWriter.cpp
               PDBParser.cpp PDBWriter.cpp PDBSupplier.cpp
-              CMLWriter.cpp XYZFileWriter.cpp MrvParser.cpp
+              CMLWriter.cpp XYZFileWriter.cpp
               ${maesupplier}
               ProximityBonds.cpp
               SequenceParsers.cpp SequenceWriters.cpp
@@ -94,9 +94,6 @@ rdkit_test(testMolWriter testMolWriter.cpp LINK_LIBRARIES FileParsers )
 
 rdkit_test(testTplParser testTpls.cpp LINK_LIBRARIES FileParsers )
 
-rdkit_test(testMol2ToMol testMol2ToMol.cpp LINK_LIBRARIES FileParsers )
-
-rdkit_test(testMrvToMol testMrvToMol.cpp LINK_LIBRARIES FileParsers )
 
 rdkit_test(testSequence testSequence.cpp LINK_LIBRARIES FileParsers )
 

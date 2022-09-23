@@ -39,10 +39,12 @@
 #include <sstream>
 
 
-#include "FileParsers.h"
-#include "FileParserUtils.h"
-#include "MolSGroupParsing.h"
-#include "MolFileStereochem.h"
+#include <GraphMol/FileParsers/FileParsers.h>
+#include <GraphMol/FileParsers/FileParserUtils.h>
+#include <GraphMol/FileParsers/MolSGroupParsing.h>
+#include <GraphMol/FileParsers/MolFileStereochem.h>
+#include "MarvinParser.h"
+
 
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/RDKitQueries.h>
@@ -50,10 +52,14 @@
 #include <GraphMol/SubstanceGroup.h>
 #include <RDGeneral/StreamOps.h>
 #include <RDGeneral/RDLog.h>
+#include <GraphMol/ROMol.h>
 
 #include <GraphMol/QueryOps.h>
 #include <GraphMol/ChemReactions/Reaction.h>
 #include <GraphMol/ChemReactions/ReactionParser.h>
+#include <GraphMol/ChemReactions/ReactionUtils.h>
+#include "MarvinParser.h"
+
 
 
 #include <RDGeneral/StreamOps.h>
@@ -61,7 +67,7 @@
 #include <RDGeneral/BadFileException.h>
 #include <RDGeneral/LocaleSwitcher.h>
 
-//#include "ReactionUtils.h"
+
 
 
 #ifdef RDKIT_USE_BOOST_REGEX
@@ -96,7 +102,8 @@ namespace RDKit
       ChemicalReaction *rxn;
 
     const std::vector<std::string> sruSgroupConnectChoices  { "hh","ht","eu"};
-    const std::vector<std::string> marvinBondOrders  { "1","2","3","A","SD","SA","DA"};
+    const std::vector<std::string> marvinBondOrders  { "1","2","3","A"};
+    const std::vector<std::string> marvinQueryBondsTypes  {"SD","SA","DA"};
     const std::vector<std::string> marvinRadicalVals  {"monovalent",   "divalent1", "trivalent4", "4"};
     
 
@@ -289,6 +296,7 @@ namespace RDKit
       std::string atomRefs2[2];
       std::string order;
       std::string bondStereo;
+      std::string queryType;
 
       bool isEqual(const MarvinAtom& other) const
       {
@@ -307,11 +315,16 @@ namespace RDKit
         std::ostringstream out;
         
         out << "<bond id=\"" << id << "\" atomRefs2=\"" << atomRefs2[0] << " " << atomRefs2[1] << "\" order=\"" << order << "\"";
+       
+
+        if (queryType != "")
+          out << " queryType=\"" << queryType << "\"";
+        
+
         if (bondStereo != "")
           out << "><bondStereo>" << bondStereo << "</bondStereo></bond>";
         else
-          out << "/>";
-          
+          out << "/>";          
         return out.str();
       }
     };
@@ -465,8 +478,12 @@ namespace RDKit
         return std::string("Parent");
       } 
 
-
       static bool atomRefInAtoms(MarvinAtom *a, std::string b )
+      { 
+        return a->id == b; 
+      }
+
+      static bool bondRefInBonds(MarvinBond *a, std::string b )
       { 
         return a->id == b; 
       }
@@ -574,7 +591,7 @@ namespace RDKit
 
       int getBondIndex(std::string id)
       {
-        auto bondIter = find_if(bonds.begin(), bonds.end(), [id](const MarvinAtom *arg) { return arg->id == id; });
+        auto bondIter = find_if(bonds.begin(), bonds.end(), [id](const MarvinBond *arg) { return arg->id == id; });
         if (bondIter != bonds.end())
               return bondIter - bonds.begin();
           else 
@@ -707,13 +724,13 @@ namespace RDKit
     {
       public:
 
-      StereoGroupType grouptype;  // one of ABS AND OR
+      StereoGroupType groupType;  // one of ABS AND OR
       int groupNumber;
-      std::vector<int> atoms;
+      std::vector<unsigned int> atoms;
 
       MarvinStereoGroup(StereoGroupType grouptypeInit, int groupNumberInit )
       {
-        grouptype = grouptypeInit;
+        groupType = grouptypeInit;
         groupNumber = groupNumberInit;
       }
     };
@@ -721,10 +738,10 @@ namespace RDKit
 
     public:
  
-    //this routine does the work of parsing.  It returns either an RDMol * or a ChemicalStructure *
+    //this routine does the work of parsing.  It returns either an RWMol * or a ChemicalStructure *
     // either way it is cast to a void *
 
-    void parse(std::istream &is)
+    void *parse(std::istream &is, bool &isReaction)
     {
       // Create empty property tree object
       using boost::property_tree::ptree;
@@ -750,8 +767,8 @@ namespace RDKit
       if (molFlag)
       {
         mol = (RWMol *) parseMolecule(molOrRxn, true);
-       
-        return;
+        isReaction = false;
+        return (void *)mol;
       }
       
       try
@@ -764,12 +781,11 @@ namespace RDKit
       }
 
       rxn = parseReaction(molOrRxn, tree.get_child("cml.MDocument.MChemicalStruct.reaction")); 
-      
-      return;
+      isReaction = true;
+      return (void *)rxn;
     }
 
  
-
     bool getCleanDouble(std::string strToParse, double &outDouble)
     {
      
@@ -808,11 +824,7 @@ namespace RDKit
 
     }
    
-    static bool bondRefInBonds(MarvinBond *a, std::string b )
-    { 
-      return a->id == b; 
-    }
-
+   
 
     Atom *molAtomFromMarvinAtom(MarvinAtom *marvinAtom)
     {
@@ -853,12 +865,14 @@ namespace RDKit
         }
       } 
      
-      else if (symb.size() == 2 && symb[1] >= 'A' && symb[1] <= 'Z') 
+      else if (symb.size() <= 2) 
       {
         // must be a regular atom
 
+
+        if (symb.size() == 2 &&  symb[1] >= 'A' && symb[1] <= 'Z')
+          symb[1] = static_cast<char>(tolower(symb[1]));
         res = new Atom();
-        symb[1] = static_cast<char>(tolower(symb[1]));
        
         try 
         {
@@ -916,59 +930,73 @@ namespace RDKit
 
       Bond::BondType type;
       Bond *bond = nullptr;
-      std::string temp = boost::algorithm::to_lower_copy(marvinBond->order);
-      if (temp == "1")
+
+      // if there is a query type, that takes precidence over the bond type
+      std::string temp = boost::algorithm::to_upper_copy(marvinBond->queryType);
+      if (temp != "")
       {
-          type = Bond::SINGLE;
-          bond = new Bond;
-          bType = 1;
+        if (temp == "SD")
+        {
+            bType = 5;
+            type = Bond::UNSPECIFIED;
+            bond = new QueryBond;
+            bond->setQuery(makeSingleOrDoubleBondQuery());
+        }
+        else if (temp == "SA")
+        {
+            bType = 6;
+            type = Bond::UNSPECIFIED;
+            bond = new QueryBond;
+            bond->setQuery(makeSingleOrAromaticBondQuery());
+        }
+        else if (temp == "DA")
+        {
+            bType = 6;
+            type = Bond::UNSPECIFIED;
+            bond = new QueryBond;
+            bond->setQuery(makeDoubleOrAromaticBondQuery());
+        }
+        else
+        {
+            std::ostringstream err;
+            err      << "unrecognized query bond type " << marvinBond->queryType << " in MRV File ";
+            throw FileParseException(err.str());
+        } 
       }
-      else if (temp == "2")
+      else   // if no query type, the bond order takes over
       {
-          type = Bond::DOUBLE;
-          bond = new Bond;
-          bType = 2;
-      }
-      else if (temp == "3")
-      {
-          type = Bond::TRIPLE;
-          bond = new Bond;
-          bType = 3;
-      }
-      else if (temp == "A")
-      {
-          bType = 4;
-          type = Bond::AROMATIC;
-          bond = new Bond;
-      }
-      else if (temp == "SD")
-      {
-          bType = 5;
-          type = Bond::UNSPECIFIED;
-          bond = new QueryBond;
-          bond->setQuery(makeSingleOrDoubleBondQuery());
-      }
-      else if (temp == "SA")
-      {
-          bType = 6;
-          type = Bond::UNSPECIFIED;
-          bond = new QueryBond;
-          bond->setQuery(makeSingleOrAromaticBondQuery());
-      }
-      else if (temp == "DA")
-      {
-          bType = 6;
-          type = Bond::UNSPECIFIED;
-          bond = new QueryBond;
-          bond->setQuery(makeDoubleOrAromaticBondQuery());
-      }
-      else
-      {
-          std::ostringstream err;
-          err      << "unrecognized bond type " << marvinBond->order << " in MRV File ";
-          throw FileParseException(err.str());
-      }
-        
+        temp = boost::algorithm::to_upper_copy(marvinBond->order);
+        if (temp == "1")
+        {
+            type = Bond::SINGLE;
+            bond = new Bond;
+            bType = 1;
+        }
+        else if (temp == "2")
+        {
+            type = Bond::DOUBLE;
+            bond = new Bond;
+            bType = 2;
+        }
+        else if (temp == "3")
+        {
+            type = Bond::TRIPLE;
+            bond = new Bond;
+            bType = 3;
+        }
+        else if (temp == "A")
+        {
+            bType = 4;
+            type = Bond::AROMATIC;
+            bond = new Bond;
+        }
+        else
+        {
+            std::ostringstream err;
+            err      << "unrecognized bond type " << marvinBond->order << " in MRV File ";
+            throw FileParseException(err.str());
+        } 
+      }      
 
 
       bond->setBeginAtomIdx(idx1);
@@ -1021,41 +1049,36 @@ namespace RDKit
         }
       }
       mol->addBond(bond, true);
-      mol->setBondBookmark(bond, marvinMol->getBondIndex(marvinBond->id));
+      //mol->setBondBookmark(bond, marvinMol->getBondIndex(marvinBond->id));
     }   
-
-    RWMol *parseMolecule(boost::property_tree::ptree molTree, bool sanitize=true)
+ 
+    RWMol *parseMolecule(MarvinMol *marvinMol, bool sanitize=true)
     {
+      
+      std::vector<MarvinStereoGroup *> stereoGroups;
+
       try
       {
-      
-      
+
         RWMol *mol = new RWMol();
-
-        MarvinMol *marvinMol = (MarvinMol *)parseMarvinMolecule(molTree);
-        printf("%s\n", marvinMol->generateMolString().c_str());
-        marvinMol->convertSuperAtoms();
-        printf("%s\n", marvinMol->generateMolString().c_str());
-
-
-
 
         mol->setProp(common_properties::_Name, marvinMol->molID);
         mol->setProp("_MolFileComments", "Generated by RDKit");
 
         // set the atoms
-
-        
-        std::vector<MarvinStereoGroup *> stereoGroups;
+      
         unsigned int i;
         std::vector<MarvinAtom *>::const_iterator atomIter;
+
+        auto conf = new Conformer(marvinMol->atoms.size());
+        conf->set3D(false);
+
         for (i = 0, atomIter = marvinMol->atoms.begin() ; atomIter != marvinMol->atoms.end();  ++i, ++atomIter)
         {
         
           
           Atom *atom = molAtomFromMarvinAtom(*atomIter);
           unsigned int aid = mol->addAtom(atom, false, true);
-          auto conf = new Conformer(marvinMol->atoms.size());
 
           RDGeom::Point3D pos;
           pos.x = (*atomIter)->x2;
@@ -1063,7 +1086,7 @@ namespace RDKit
           pos.z = 0.0;
           
           conf->setAtomPos(aid, pos);
-          mol->setAtomBookmark(atom, i+1);
+          //mol->setAtomBookmark(atom, i+1);
 
 
           //also collect the stereo groups here
@@ -1078,19 +1101,19 @@ namespace RDKit
             if (boost::starts_with(temp, "abs"))
             {
               groupType  = RDKit::StereoGroupType::STEREO_ABSOLUTE;
-              if (! getCleanInt(temp.substring(3), groupNumber))
+              if (! getCleanInt(temp.substr(3), groupNumber))
                  throw FileParseException("Group Number must be an integer in a stereo group in a MRV file"); 
             }
             else if (boost::starts_with(temp, "and"))
             {
               groupType  = RDKit::StereoGroupType::STEREO_AND;
-              if (! getCleanInt(temp.substring(3),groupNumber))
+              if (! getCleanInt(temp.substr(3),groupNumber))
                  throw FileParseException("Group Number must be an integer in a stereo group in a MRV file"); 
             }
             else if (boost::starts_with(temp, "or"))
             {
               groupType  = RDKit::StereoGroupType::STEREO_OR;
-              if (! getCleanInt(temp.substring(2), groupNumber))
+              if (! getCleanInt(temp.substr(2), groupNumber))
                  throw FileParseException("Group Number must be an integer in a stereo group in a MRV file"); 
             }
             else
@@ -1101,7 +1124,7 @@ namespace RDKit
 
             MarvinStereoGroup *marvinStereoGroup;
             auto groupIter = find_if(stereoGroups.begin(), stereoGroups.end(), [groupType, groupNumber](const MarvinStereoGroup *arg) { 
-                                            return arg->groupNumer ==groupNumber && arg.groupType == groupType; });
+                                            return arg->groupNumber ==groupNumber && arg->groupType == groupType; });
             if (groupIter != stereoGroups.end())
                 marvinStereoGroup = *groupIter;
             else  
@@ -1109,27 +1132,34 @@ namespace RDKit
 
             // add this atom to the group
 
-            marvinStereoGroup.atoms.push_back(marvinMol->getAtomIndex((*atomIter)->molID))
+            marvinStereoGroup->atoms.push_back((unsigned int)marvinMol->getAtomIndex((*atomIter)->id));
           }
-      }
- 
+        }
+        mol->addConformer(conf, true);
 
-      // set the bonds
+
+        // set the bonds
 
         std::vector<MarvinBond *>::const_iterator bondIter;
         bool chiralityPossible = false;
 
         for (i = 0, bondIter = marvinMol->bonds.begin() ; bondIter != marvinMol->bonds.end();  ++i, ++bondIter)
-          molBondFromMarvinBond(*bondIter, marvinMol, mol, chiralityPossible)
+          molBondFromMarvinBond(*bondIter, marvinMol, mol, chiralityPossible);
           
         //  add the stereo groups
 
         std::vector<StereoGroup> groups;
-        for (std::vector<MarvinStereoGroup *>::const_iterator groupIter = stereoGroups.begin() ; groupIter != stereoGroups.end() ; ++groupIter)
-          groups.emplace_back(groupIter->groupType, std::move(groupIter->atoms));
-        if (!groups.empty()) 
-          mol->setStereoGroups(std::move(groups));
 
+        for (std::vector<MarvinStereoGroup *>::const_iterator groupIter = stereoGroups.begin() ; groupIter != stereoGroups.end() ; ++groupIter)
+        {
+          std::vector<Atom *> atoms;
+          for (std::vector<unsigned int>::const_iterator it = (*groupIter)->atoms.begin() ;  it != (*groupIter)->atoms.end();  ++it)
+            atoms.push_back(mol->getAtomWithIdx(*it - 1));
+
+          groups.emplace_back((*groupIter)->groupType, std::move(atoms));
+          if (!groups.empty()) 
+            mol->setStereoGroups(std::move(groups));
+        }
         // add the super atoms records
 
         int sequenceId;
@@ -1139,13 +1169,16 @@ namespace RDKit
           std::string typ = "SUP";         
           SubstanceGroup sgroup = SubstanceGroup(mol, typ);
           sgroup.setProp<unsigned int>("index", sequenceId);
- 
-          void (SubstanceGroup::*sGroupAddIndexedElement)(const int) = nullptr;
-          sGroupAddIndexedElement = &SubstanceGroup::addAtomWithBookmark;
 
-          std::vector<int>::const_iterator atomIter;
+          //void (SubstanceGroup::*sGroupAddIndexedElement)(const int) = nullptr;
+          void (SubstanceGroup::*sGroupAddIndexedElement)(const unsigned int) = nullptr;
+          //sGroupAddIndexedElement = &SubstanceGroup::addAtomWithBookmark;
+          sGroupAddIndexedElement = &SubstanceGroup::addAtomWithIdx;
+
+
+          std::vector<std::string>::const_iterator atomIter;
           for (atomIter = (*superIter)->atoms.begin(); atomIter != (*superIter)->atoms.end(); ++atomIter)
-            (sgroup.*sGroupAddIndexedElement)(*atomIter);
+            (sgroup.*sGroupAddIndexedElement)(marvinMol->getAtomIndex(*atomIter));
 
           sgroup.setProp("LABEL", (*superIter)->title);    
         }
@@ -1153,28 +1186,37 @@ namespace RDKit
         // now the SruGroups
 
         // note: sequence continues counting from the loop above
-        for ( std::vector<MarvinSruSgroup *>::iterator sruIter = marvinMol->sruSgroups.begin() ; sruIter != marvinMol->sruSgroups->superInfos.end() ; ++sruIter, ++sequenceId)
+        for ( std::vector<MarvinSruSgroup *>::iterator sruIter = marvinMol->sruSgroups.begin() ; sruIter != marvinMol->sruSgroups.end() ; ++sruIter, ++sequenceId)
         {
           std::string typ = "SRU";         
           SubstanceGroup sgroup = SubstanceGroup(mol, typ);
           sgroup.setProp<unsigned int>("index", sequenceId);
- 
+
           sgroup.setProp("CONNECT", (*sruIter)->connect);
 
-          void (SubstanceGroup::*sGroupAddIndexedElement)(const int) = nullptr;
-          sGroupAddIndexedElement = &SubstanceGroup::addAtomWithBookmark;
+          //void (SubstanceGroup::*sGroupAddIndexedElement)(const int) = nullptr;
+          void (SubstanceGroup::*sGroupAddIndexedElement)(const unsigned int) = nullptr;
+          //sGroupAddIndexedElement = &SubstanceGroup::addAtomWithBookmark;
+          sGroupAddIndexedElement = &SubstanceGroup::addAtomWithIdx;
 
-          std:vector<std::string>::const_iterator atomIter;
+          //void (SubstanceGroup::*sGroupAddIndexedElementBond)(const int) = nullptr;
+          void (SubstanceGroup::*sGroupAddIndexedElementBond)(const unsigned int) = nullptr;
+          //sGroupAddIndexedElementBond = &SubstanceGroup::addBondWithBookmark;
+          sGroupAddIndexedElementBond = &SubstanceGroup::addAtomWithIdx;
+
+          std::vector<std::string>::const_iterator atomIter;
           for (atomIter = (*sruIter)->atomRefs.begin(); atomIter != (*sruIter)->atomRefs.end(); ++atomIter)
           {
-            int atomIndex = marvinMol->getAtomIndex((*atomIter)) + 1;
+            //int atomIndex = marvinMol->getAtomIndex((*atomIter)) + 1;
+            int atomIndex = marvinMol->getAtomIndex((*atomIter));
             (sgroup.*sGroupAddIndexedElement)(atomIndex);
           }
-          std:vector<std::string>::const_iterator bondIter;
+          std::vector<std::string>::const_iterator bondIter;
           for (bondIter = (*sruIter)->bondList.begin(); bondIter != (*sruIter)->bondList.end(); ++bondIter)
           {
-            int bondINdex = marvinMol->getBondIndex((*bondIter)) + 1;
-            (sgroup.*sGroupAddIndexedElement)(atomIndex);
+            //int bondIndex = marvinMol->getBondIndex((*bondIter)) + 1;
+            int bondIndex = marvinMol->getBondIndex((*bondIter));
+            (sgroup.*sGroupAddIndexedElementBond)(bondIndex);
           }
           sgroup.setProp("LABEL", (*sruIter)->title);
 
@@ -1197,32 +1239,24 @@ namespace RDKit
         // sign that chirality ever existed and makes us sad... so first
         // perceive chirality, then remove the Hs and sanitize.
         //
-        const Conformer &conf = mol->getConformer();
+
         if (chiralityPossible) 
-          DetectAtomStereoChemistry(*mol, &conf);
+          DetectAtomStereoChemistry(*mol, conf);
 
         if (sanitize) 
         {
-          try {
-            if (removeHs) {
-              MolOps::removeHs(*res, false, false);
-            } else {
-              MolOps::sanitizeMol(*res);
-            }
-            // now that atom stereochem has been perceived, the wedging
-            // information is no longer needed, so we clear
-            // single bond dir flags:
-            ClearSingleBondDirFlags(*res);
+          
+          MolOps::removeHs(*mol, false, false);
+          // now that atom stereochem has been perceived, the wedging
+          // information is no longer needed, so we clear
+          // single bond dir flags:
+          ClearSingleBondDirFlags(*mol);
 
-            // unlike DetectAtomStereoChemistry we call detectBondStereochemistry
-            // here after sanitization because we need the ring information:
-            MolOps::detectBondStereochemistry(*res);
-          } catch (...) {
-            delete res;
-            res = nullptr;
-            throw;
-          }
-          MolOps::assignStereochemistry(*res, true, true, true);
+          // unlike DetectAtomStereoChemistry we call detectBondStereochemistry
+          // here after sanitization because we need the ring information:
+          MolOps::detectBondStereochemistry(*mol);
+          
+          MolOps::assignStereochemistry(*mol, true, true, true);
         } 
         else 
         {
@@ -1231,30 +1265,63 @@ namespace RDKit
           // now that atom stereochem has been perceived, the wedging
           // information is no longer needed, so we clear
           // single bond dir flags:
-          ClearSingleBondDirFlags(*res);
-          MolOps::detectBondStereochemistry(*res);
+          ClearSingleBondDirFlags(*mol);
+          MolOps::detectBondStereochemistry(*mol);
         }
 
-        if (res->hasProp(common_properties::_NeedsQueryScan)) {
-          res->clearProp(common_properties::_NeedsQueryScan);
-          QueryOps::completeMolQueries(res);
+        if (mol->hasProp(common_properties::_NeedsQueryScan)) {
+          mol->clearProp(common_properties::_NeedsQueryScan);
+          QueryOps::completeMolQueries(mol);
         }
 
         // clean up
 
-        for (vector<MarvinStereoGroups>::iterator it = stereoGroups.begin() ; it != stereoGroups.end())
+        for (std::vector<MarvinStereoGroup *>::iterator it = stereoGroups.begin() ; it != stereoGroups.end(); ++it)
           delete *it;
       
-        delete marvinMol;
         return mol;
+      }
+
+      catch(const std::exception& e)
+      {
+        delete mol;
+
+        for (std::vector<MarvinStereoGroup *>::iterator it = stereoGroups.begin() ; it != stereoGroups.end(); ++it)
+          delete *it;
+        
+        throw;
+      }
+    }
+
+
+    RWMol *parseMolecule(boost::property_tree::ptree molTree, bool sanitize=true)
+    {
+      MarvinMol *marvinMol = NULL;
+
+      try
+      {
+
+
+        marvinMol = (MarvinMol *)parseMarvinMolecule(molTree);
+        printf("%s\n", marvinMol->generateMolString().c_str());
+        marvinMol->convertSuperAtoms();
+        printf("%s\n", marvinMol->generateMolString().c_str());
+
+
+
+        RWMol* mol = parseMolecule(marvinMol , sanitize);
+
+        delete marvinMol;
+
+        return mol;
+
       }
       catch(const std::exception& e)
       {
         delete mol;
+
         delete marvinMol;
-        for (vector<MarvinStereoGroups>::iterator it = stereoGroups.begin() ; it != stereoGroups.end())
-          delete *it;
-        
+       
         throw;
       }
     }
@@ -1287,10 +1354,10 @@ namespace RDKit
             MarvinSuperatomSgroup *marvinSuperatomSgroup = new MarvinSuperatomSgroup();
             res = marvinSuperatomSgroup;  
 
-            marvinSuperatomSgroup.id = molTree.get<std::string>("<xmlattr>.id", "");
+            marvinSuperatomSgroup->id = molTree.get<std::string>("<xmlattr>.id", "");
 
-            marvinSuperatomSgroup.title = molTree.get<std::string>("<xmlattr>.title", "");
-            if (marvinSuperatomsgroup.title == "")
+            marvinSuperatomSgroup->title = molTree.get<std::string>("<xmlattr>.title", "");
+            if (marvinSuperatomSgroup->title == "")
               throw FileParseException("Expected  title for a SuperatomSgroup definition in MRV file");
           
         } 
@@ -1303,36 +1370,36 @@ namespace RDKit
           MarvinSruSgroup *marvinSruSgroup = new MarvinSruSgroup();
           res = marvinSruSgroup;
          
-          marvinSr.id = molTree.get<std::string>("<xmlattr>.id", "");
+          marvinSruSgroup->id = molTree.get<std::string>("<xmlattr>.id", "");
 
           std::string atomRefsStr = molTree.get<std::string>("<xmlattr>.atomRefs", "");
           if (atomRefsStr == "")
             throw FileParseException("Expected  atomRefs for a SruSgroup definition in MRV file");
-          boost::algorithm::split(marvinSruSgroup.atomRefs, atomRefsStr, boost::algorithm::is_space());
-          for (std::vector<std::string>::const_iterator it = marvinSruSgroup.atomRefs.begin() ;  it != marvinSruSgroup.atomRefs.end(); ++it)
+          boost::algorithm::split(marvinSruSgroup->atomRefs, atomRefsStr, boost::algorithm::is_space());
+          for (std::vector<std::string>::const_iterator it = marvinSruSgroup->atomRefs.begin() ;  it != marvinSruSgroup->atomRefs.end(); ++it)
             if (!boost::algorithm::contains(parentMol->atoms, std::vector<std::string>{*it}, MarvinMol::atomRefInAtoms ))
               throw FileParseException("All of the AtomRefs in the sruSgroup must in the parent molecule");
 
-          marvinSrusgroup.title = molTree.get<std::string>("<xmlattr>.title", "");
-          if (marvinSrusgroup.title == "")
+          marvinSruSgroup->title = molTree.get<std::string>("<xmlattr>.title", "");
+          if (marvinSruSgroup->title == "")
             throw FileParseException("Expected  title for a SruSgroup definition in MRV file");
 
-          marvinSrusgroup.connect = molTree.get<std::string>("<xmlattr>.connect", "");
-          if (!boost::algorithm::contains(sruSgroupConnectChoices,std::vector<std::string>{marvinSrusgroup.connect}))
+          marvinSruSgroup->connect = molTree.get<std::string>("<xmlattr>.connect", "");
+          if (!boost::algorithm::contains(sruSgroupConnectChoices,std::vector<std::string>{marvinSruSgroup->connect}))
           {
             std::ostringstream err;
             err << "Expected  a connect  string of \"" << boost::algorithm::join(sruSgroupConnectChoices, ", ") << "\" for a SruSgroup definition in MRV file";
             throw FileParseException(err.str());
           }
 
-          marvinSrusgroup.correspondence = molTree.get<std::string>("<xmlattr>.correspondence", "");
+          marvinSruSgroup->correspondence = molTree.get<std::string>("<xmlattr>.correspondence", "");
 
           std::string bondListStr = molTree.get<std::string>("<xmlattr>.bondList", "");
           if (bondListStr != "")
           {
-            boost::algorithm::split(marvinSrusgroup.bondList, bondListStr, boost::algorithm::is_space());
-            for (std::vector<std::string>::const_iterator it = marvinSrusgroup.bondList.begin() ;  it != marvinSrusgroup.bondList.end(); ++it)
-              if (!boost::algorithm::contains(parentMol->bopnds, std::vector<std::string>{*it}, MarvinMol::bondRefInBonds ))
+            boost::algorithm::split(marvinSruSgroup->bondList, bondListStr, boost::algorithm::is_space());
+            for (std::vector<std::string>::const_iterator it = marvinSruSgroup->bondList.begin() ;  it != marvinSruSgroup->bondList.end(); ++it)
+              if (!boost::algorithm::contains(parentMol->bonds, std::vector<std::string>{*it}, MarvinMol::bondRefInBonds ))
                 throw FileParseException("All of the BondList entries in the sruSgroup must in the parent molecule");
           }
         }
@@ -1409,8 +1476,10 @@ namespace RDKit
                 throw FileParseException(err.str()); 
               }
             }
+            else 
+              mrvAtom->radical = "";
 
-            std::string isotopeStr = v.second.get<std::string>("<xmlattr>.radical", "");
+            std::string isotopeStr = v.second.get<std::string>("<xmlattr>.isotope", "");
             if (isotopeStr != "")
             {
               if (!getCleanInt(isotopeStr, mrvAtom->isotope) || mrvAtom->isotope <=0)
@@ -1422,7 +1491,7 @@ namespace RDKit
             }
 
             else 
-              mrvAtom->radical = "";
+              mrvAtom->isotope = 0;
 
             mrvAtom->mrvAlias = v.second.get<std::string>("<xmlattr>.mrvAlias", "");
 
@@ -1473,6 +1542,10 @@ namespace RDKit
           std::string formalCharge = atomArray.get<std::string>("<xmlattr>.formalCharge", "");
           boost::algorithm::split(formalCharges,formalCharge,boost::algorithm::is_space());
 
+          std::vector<std::string> isotopes;
+          std::string isotope = atomArray.get<std::string>("<xmlattr>.isotope", "");
+          boost::algorithm::split(isotopes,isotope,boost::algorithm::is_space());
+
           std::vector<std::string> radicals;
           std::string radical = atomArray.get<std::string>("<xmlattr>.radical", "");
           boost::algorithm::split(radicals,radical,boost::algorithm::is_space());
@@ -1506,6 +1579,9 @@ namespace RDKit
 
           if (radical != "" && radicals.size() != atomCount)
             throw FileParseException("radicals, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
+ 
+          if (isotope != "" && isotopes.size() != atomCount)
+            throw FileParseException("isotopes, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
 
           if (mrvAlias != "" && mrvAliases.size() != atomCount)
             throw FileParseException("mrvAliases, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
@@ -1528,6 +1604,8 @@ namespace RDKit
             res->atoms.push_back(mrvAtom);
 
             mrvAtom->id = atomIds[i];
+
+            mrvAtom->elementType = elementTypes[i];
             
             if (!getCleanDouble(x2s[i], mrvAtom->x2) || !getCleanDouble(y2s[i], mrvAtom->y2))
               throw FileParseException("The values x2 and y2 must be large floats in MRV file");        
@@ -1539,6 +1617,15 @@ namespace RDKit
             }
             else
               mrvAtom->formalCharge = 0;
+
+            if (isotope != "")
+            {
+              if (!getCleanInt(isotopes[i], mrvAtom->isotope) )
+                  throw FileParseException("The value for formalCharge must be an integer in MRV file"); 
+            }
+            else
+              mrvAtom->isotope = 0;
+           
            
             if (radical != "")
             {
@@ -1621,6 +1708,17 @@ namespace RDKit
             throw FileParseException(err.str());
           }
 
+          mrvBond->queryType = v.second.get<std::string>("<xmlattr>.queryType", "");
+          if (mrvBond->queryType != "")
+          {
+            if (!boost::algorithm::contains(marvinQueryBondsTypes, std::vector<std::string>{mrvBond->queryType} ))
+            {
+              std::ostringstream err;
+              err << "Expected one of  " << boost::algorithm::join(marvinQueryBondsTypes,", ") << " for queryType for an bond definition in MRV file";
+              throw FileParseException(err.str());
+            }
+          }
+
           mrvBond->bondStereo = v.second.get<std::string>("bondStereo", "");
           if (mrvBond->bondStereo != "" &&  boost::algorithm::to_lower_copy(mrvBond->bondStereo) != "w" && boost::algorithm::to_lower_copy(mrvBond->bondStereo) != "h")
               throw FileParseException("The value for bondStereo must be \"h\" or \"w\" in MRV file");
@@ -1674,7 +1772,7 @@ namespace RDKit
 
             // bond must be found in the  bonds vector
 
-            if (!boost::algorithm::contains(parentMol->bonds, std::vector<std::string>{marvinAttachmentPoint->bond}, bondRefInBonds ))
+            if (!boost::algorithm::contains(parentMol->bonds, std::vector<std::string>{marvinAttachmentPoint->bond}, MarvinMol::bondRefInBonds ))
               throw FileParseException("Bond specification for an AttachmentPoint definition must be in the bond array in MRV file");
 
           }
@@ -1704,17 +1802,86 @@ namespace RDKit
       return res;
     };
 
-
     ChemicalReaction *parseReaction(boost::property_tree::ptree rxnTree, boost::property_tree::ptree documentTree)
     {
-      ChemicalReaction *res = new ChemicalReaction();
+      ChemicalReaction *rxn = NULL;
+      MarvinReaction *marvinReaction = NULL;
+      RWMol *mol = NULL;
+      try
+      {
 
-      MarvinReaction *marvinReaction= parseMarvinReaction(rxnTree, documentTree);
-      printf("%s\n", marvinReaction->toString().c_str());
-      marvinReaction->convertSuperAtoms();
-      printf("%s\n", marvinReaction->toString().c_str());
-      delete marvinReaction;
-      return res;
+        rxn = new ChemicalReaction();
+
+        marvinReaction= parseMarvinReaction(rxnTree, documentTree);
+        printf("%s\n", marvinReaction->toString().c_str());
+        marvinReaction->convertSuperAtoms();
+        printf("%s\n", marvinReaction->toString().c_str());
+
+        // get each reactant
+
+        std::vector<MarvinMol *>::iterator molIter;
+        for (molIter = marvinReaction->reactants.begin(); molIter != marvinReaction->reactants.end(); ++molIter)
+        {
+          mol = parseMolecule((*molIter) , true);
+          ROMol *roMol = new ROMol(*mol);
+
+          rxn->addReactantTemplate(ROMOL_SPTR(roMol));
+        }
+
+       // get each agent
+
+        for (molIter = marvinReaction->agents.begin(); molIter != marvinReaction->agents.end(); ++molIter)
+        {
+          mol = parseMolecule((*molIter) , true);
+          ROMol *roMol = new ROMol(*mol);
+
+          rxn->addAgentTemplate(ROMOL_SPTR(roMol));
+        }
+
+        // get each product
+
+        for (molIter = marvinReaction->products.begin(); molIter != marvinReaction->products.end(); ++molIter)
+        {
+          mol = parseMolecule((*molIter) , true);
+          ROMol *roMol = new ROMol(*mol);
+
+          rxn->addProductTemplate(ROMOL_SPTR(roMol));
+        }
+
+        // convert atoms to queries:
+        for (MOL_SPTR_VECT::const_iterator iter = rxn->beginReactantTemplates();
+            iter != rxn->endReactantTemplates(); ++iter) {
+          // to write the mol block, we need ring information:
+          for (ROMol::AtomIterator atomIt = (*iter)->beginAtoms();
+              atomIt != (*iter)->endAtoms(); ++atomIt) {
+            QueryOps::replaceAtomWithQueryAtom((RWMol *)iter->get(), (*atomIt));
+          }
+        }
+        for (MOL_SPTR_VECT::const_iterator iter = rxn->beginProductTemplates();
+            iter != rxn->endProductTemplates(); ++iter) {
+          // to write the mol block, we need ring information:
+          for (ROMol::AtomIterator atomIt = (*iter)->beginAtoms();
+              atomIt != (*iter)->endAtoms(); ++atomIt) {
+            QueryOps::replaceAtomWithQueryAtom((RWMol *)iter->get(), (*atomIt));
+          }
+        }
+        //updateProductsStereochem(rxn);
+
+        // RXN-based reactions do not have implicit properties
+        //rxn->setImplicitPropertiesFlag(false);
+
+
+        delete marvinReaction;
+        return rxn;
+      }
+      catch(const std::exception& e)
+      {
+        delete marvinReaction;
+        delete rxn;
+
+        throw;
+
+      } 
     }
 
 
@@ -1853,11 +2020,7 @@ namespace RDKit
       return res;
     }
 
-    bool isReaction()
-    {
-      return rxn != NULL;
-    }
-
+    
   };    
 
   //------------------------------------------------
@@ -1866,37 +2029,37 @@ namespace RDKit
   //
   //------------------------------------------------
   
-  void *MrvDataStreamParser(std::istream *inStream)
+  void *MrvDataStreamParser(std::istream *inStream, bool &isReaction)
   {
     PRECONDITION(inStream, "no stream");
     std::string tempStr;
     void *res = NULL;
     MarvinCML marvinCML;
 
-    marvinCML.parse(*inStream);
+    res = marvinCML.parse(*inStream, isReaction);
 
-    if (marvinCML.isReaction())
-      res = (void *)marvinCML.rxn;
-    else
-      res = (void *)marvinCML.mol;
+    // if (marvinCML.isReaction())
+    //   res = (void *)marvinCML.rxn;
+    // else
+    //   res = (void *)marvinCML.mol;
 
     return res;
   }
 
-  void *MrvDataStreamParser(std::istream &inStream)
+  void *MrvDataStreamParser(std::istream &inStream, bool &isReaction)
   {
-    return MrvDataStreamParser(&inStream);
+    return MrvDataStreamParser(&inStream, isReaction);
   }
   //------------------------------------------------
   //
   //  Read a molecule from a string
   //
   //------------------------------------------------
-  void *MrvBlockParser(const std::string &molBlock)
+  void *MrvBlockParser(const std::string &molmrvText, bool &isReaction)
   {
-    std::istringstream inStream(molBlock);
+    std::istringstream inStream(molmrvText);
     // unsigned int line = 0;
-    return MrvDataStreamParser(inStream);
+    return MrvDataStreamParser(inStream, isReaction);
   }
 
   //------------------------------------------------
@@ -1904,7 +2067,7 @@ namespace RDKit
   //  Read a molecule from a file
   //
   //------------------------------------------------
-  void *MrvFileParser(const std::string &fName)
+  void *MrvFileParser(const std::string &fName, bool &isReaction)
   {
     std::ifstream inStream(fName.c_str());
     if (!inStream || (inStream.bad()))
@@ -1916,7 +2079,7 @@ namespace RDKit
     void *res = nullptr;
     if (!inStream.eof())
     {
-      res = MrvDataStreamParser(inStream);
+      res = MrvDataStreamParser(inStream,  isReaction);
     }
     return res;
   }

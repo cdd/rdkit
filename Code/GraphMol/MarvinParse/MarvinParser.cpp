@@ -1193,9 +1193,7 @@ namespace RDKit
           SubstanceGroup sgroup = SubstanceGroup(mol, typ);
           sgroup.setProp<unsigned int>("index", sequenceId);
 
-          //void (SubstanceGroup::*sGroupAddIndexedElement)(const int) = nullptr;
           void (SubstanceGroup::*sGroupAddIndexedElement)(const unsigned int) = nullptr;
-          //sGroupAddIndexedElement = &SubstanceGroup::addAtomWithBookmark;
           sGroupAddIndexedElement = &SubstanceGroup::addAtomWithIdx;
 
 
@@ -1217,20 +1215,15 @@ namespace RDKit
 
           sgroup.setProp("CONNECT", (*sruIter)->connect);
 
-          //void (SubstanceGroup::*sGroupAddIndexedElement)(const int) = nullptr;
           void (SubstanceGroup::*sGroupAddIndexedElement)(const unsigned int) = nullptr;
-          //sGroupAddIndexedElement = &SubstanceGroup::addAtomWithBookmark;
           sGroupAddIndexedElement = &SubstanceGroup::addAtomWithIdx;
 
-          //void (SubstanceGroup::*sGroupAddIndexedElementBond)(const int) = nullptr;
           void (SubstanceGroup::*sGroupAddIndexedElementBond)(const unsigned int) = nullptr;
-          //sGroupAddIndexedElementBond = &SubstanceGroup::addBondWithBookmark;
-          sGroupAddIndexedElementBond = &SubstanceGroup::addAtomWithIdx;
+          sGroupAddIndexedElementBond = &SubstanceGroup::addBondWithIdx;
 
           std::vector<std::string>::const_iterator atomIter;
           for (atomIter = (*sruIter)->atomRefs.begin(); atomIter != (*sruIter)->atomRefs.end(); ++atomIter)
           {
-            //int atomIndex = marvinMol->getAtomIndex((*atomIter)) + 1;
             int atomIndex = marvinMol->getAtomIndex((*atomIter));
             (sgroup.*sGroupAddIndexedElement)(atomIndex);
           }
@@ -2069,6 +2062,7 @@ namespace RDKit
 
         throw;
       }
+    }
   };    
 
   //------------------------------------------------

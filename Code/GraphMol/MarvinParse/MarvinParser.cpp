@@ -1132,6 +1132,7 @@ namespace RDKit
           }
         }
         mol->addConformer(conf, true);
+        conf = NULL;  // conf now owned by mol
 
 
         // set the bonds
@@ -1235,8 +1236,9 @@ namespace RDKit
         // perceive chirality, then remove the Hs and sanitize.
         //
 
+        const Conformer &conf2 = mol->getConformer();
         if (chiralityPossible) 
-          DetectAtomStereoChemistry(*mol, conf);
+          DetectAtomStereoChemistry(*mol, &conf2);
 
         if (sanitize) 
         {
@@ -1300,9 +1302,9 @@ namespace RDKit
 
 
         marvinMol = (MarvinMol *)parseMarvinMolecule(molTree);
-        printf("%s\n", marvinMol->generateMolString().c_str());
+        //printf("%s\n", marvinMol->generateMolString().c_str());
         marvinMol->convertSuperAtoms();
-        printf("%s\n", marvinMol->generateMolString().c_str());
+        //printf("%s\n", marvinMol->generateMolString().c_str());
 
 
 
@@ -1824,9 +1826,9 @@ namespace RDKit
         rxn = new ChemicalReaction();
 
         marvinReaction= parseMarvinReaction(rxnTree, documentTree);
-        printf("%s\n", marvinReaction->toString().c_str());
+        //printf("%s\n", marvinReaction->toString().c_str());
         marvinReaction->convertSuperAtoms();
-        printf("%s\n", marvinReaction->toString().c_str());
+        //printf("%s\n", marvinReaction->toString().c_str());
 
         // get each reactant
 
@@ -1835,6 +1837,7 @@ namespace RDKit
         {
           mol = parseMolecule((*molIter) , true);
           ROMol *roMol = new ROMol(*mol);
+          delete mol;
 
           rxn->addReactantTemplate(ROMOL_SPTR(roMol));   //roMol  now owned by rxn;
         }
@@ -1845,7 +1848,8 @@ namespace RDKit
         {
           mol = parseMolecule((*molIter) , true);
           ROMol *roMol = new ROMol(*mol);
-
+          delete mol;
+          
           rxn->addAgentTemplate(ROMOL_SPTR(roMol)); //roMol  now owned by rxn;
         }
 
@@ -1855,6 +1859,7 @@ namespace RDKit
         {
           mol = parseMolecule((*molIter) , true);
           ROMol *roMol = new ROMol(*mol);
+          delete mol;
 
           rxn->addProductTemplate(ROMOL_SPTR(roMol)); //roMol  now owned by rxn;
         }
@@ -2175,7 +2180,7 @@ namespace RDKit
     
     bool isReaction;
     res = MrvDataStreamParser(inStream, isReaction);
-    if (isReaction)
+    if (!isReaction)
         throw FileParseException("The file parsed as a reaction, not a molecule"); 
 
     return (ChemicalReaction *)res;

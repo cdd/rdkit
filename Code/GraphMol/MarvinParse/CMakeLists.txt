@@ -43,17 +43,6 @@ rdkit_library(MarvinParser
 target_compile_definitions(MarvinParser PRIVATE RDKIT_MARVINPARSER_BUILD)
 
 rdkit_headers(MarvinParser.h
-              FileParsers.h
-              FileParserUtils.h
-              MolFileStereochem.h
-              MolSupplier.h
-              MolWriters.h
-              SequenceParsers.h SequenceWriters.h
-              GeneralFileReader.h
-							MultithreadedMolSupplier.h
-							MultithreadedSmilesMolSupplier.h
-							MultithreadedSDMolSupplier.h
-              PNGParser.h
               DEST GraphMol/MarvinParser)
 
 rdkit_test(testMrvToMol testMrvToMol.cpp

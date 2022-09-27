@@ -750,7 +750,34 @@ namespace RDKit
       }
       catch(const std::exception& e)
       {
-        throw FileParseException("Expected \"molecule\" or \"reaction\" in MRV file");
+          // check for sparse marvin data - no reaction nor molecule parts
+          // just return an empty RWMol *
+
+          try
+          {
+            molOrRxn = tree.get_child("cml.MDocument.MChemicalStruct");
+            return new RWMol();
+          }
+          catch(const std::exception& e)
+          {
+            try
+            {
+              molOrRxn = tree.get_child("cml.MDocument");
+              return new RWMol();
+            }
+            catch(const std::exception& e)
+            {
+              try
+              {
+                molOrRxn = tree.get_child("cml");
+                return new RWMol();
+              }
+              catch(const std::exception& e)
+              {
+                throw FileParseException("Expected \"molecule\" or \"reaction\" in MRV file");
+              }
+            }
+          }
       }
 
       rxn = parseReaction(molOrRxn, tree.get_child("cml.MDocument.MChemicalStruct.reaction")); 
@@ -1281,6 +1308,7 @@ namespace RDKit
 
       catch(const std::exception& e)
       {
+        printf("Caught error in parseMolecule");
         delete mol;
 
         delete conf;
@@ -2123,7 +2151,10 @@ namespace RDKit
     bool isReaction;
     res = MrvDataStreamParser(inStream, isReaction);
     if (isReaction)
+    {
+        delete (ChemicalReaction *)res;
         throw FileParseException("The file parsed as a reaction, not a molecule"); 
+    }
 
     return (RWMol *)res;
   }
@@ -2181,7 +2212,10 @@ namespace RDKit
     bool isReaction;
     res = MrvDataStreamParser(inStream, isReaction);
     if (!isReaction)
+    {
+        delete (RWMol *)res;
         throw FileParseException("The file parsed as a reaction, not a molecule"); 
+    }
 
     return (ChemicalReaction *)res;
   }

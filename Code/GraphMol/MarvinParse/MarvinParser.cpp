@@ -714,7 +714,7 @@ namespace RDKit
     //this routine does the work of parsing.  It returns either an RWMol * or a ChemicalStructure *
     // either way it is cast to a void *
 
-    void *parse(std::istream &is, bool &isReaction)
+    void *parse(std::istream &is, bool &isReaction, bool sanitize=false, bool removeHs=false)
     {
       // Create empty property tree object
       using boost::property_tree::ptree;
@@ -735,11 +735,11 @@ namespace RDKit
       }
       catch(const std::exception& e)
       {
-        // do nothing try a reaction
+        // do nothing 
       }
       if (molFlag)
       {
-        mol = (RWMol *) parseMolecule(molOrRxn, true);
+        mol = (RWMol *) parseMolecule(molOrRxn, sanitize, removeHs);
         isReaction = false;
         return (void *)mol;
       }
@@ -780,7 +780,7 @@ namespace RDKit
           }
       }
 
-      rxn = parseReaction(molOrRxn, tree.get_child("cml.MDocument.MChemicalStruct.reaction")); 
+      rxn = parseReaction(molOrRxn, tree.get_child("cml.MDocument.MChemicalStruct.reaction"), sanitize, removeHs); 
       isReaction = true;
       return (void *)rxn;
     }
@@ -1071,7 +1071,7 @@ namespace RDKit
       }
     }   
  
-    RWMol *parseMolecule(MarvinMol *marvinMol, bool sanitize=true)
+    RWMol *parseMolecule(MarvinMol *marvinMol, bool sanitize=false, bool removeHs=false)
     {
       
       std::vector<MarvinStereoGroup *> stereoGroups;
@@ -1252,7 +1252,10 @@ namespace RDKit
 
         // calculate explicit valence on each atom:
         for (RWMol::AtomIterator atomIt = mol->beginAtoms(); atomIt != mol->endAtoms(); ++atomIt) 
+        {
           (*atomIt)->calcExplicitValence(false);
+          (*atomIt)->calcImplicitValence(false);
+        }
 
 
         // update the chirality and stereo-chemistry
@@ -1270,8 +1273,11 @@ namespace RDKit
 
         if (sanitize) 
         {
-          
-          MolOps::removeHs(*mol, false, false);
+          if (removeHs)
+              MolOps::removeHs(*mol, false, false);
+          else 
+              MolOps::sanitizeMol(*mol);
+     
           // now that atom stereochem has been perceived, the wedging
           // information is no longer needed, so we clear
           // single bond dir flags:
@@ -1309,7 +1315,7 @@ namespace RDKit
 
       catch(const std::exception& e)
       {
-        printf("Caught error in parseMolecule");
+        //printf("Caught error in parseMolecule");
         delete mol;
 
         delete conf;
@@ -1322,7 +1328,7 @@ namespace RDKit
     }
 
 
-    RWMol *parseMolecule(boost::property_tree::ptree molTree, bool sanitize=true)
+    RWMol *parseMolecule(boost::property_tree::ptree molTree, bool sanitize=false, bool removeHs=false)
     {
       MarvinMol *marvinMol = NULL;
 
@@ -1337,7 +1343,7 @@ namespace RDKit
 
 
 
-        RWMol* mol = parseMolecule(marvinMol , sanitize);
+        RWMol* mol = parseMolecule(marvinMol , sanitize, removeHs);
 
         delete marvinMol;
 
@@ -1769,11 +1775,7 @@ namespace RDKit
           
           try 
           {
-            BOOST_FOREACH(
-                boost::property_tree::ptree::value_type &v, molTree.get_child("AttachmentPointArray"))
-            {
-              break;
-            }
+            boost::property_tree::ptree AttachmentPointArrayTree = molTree.get_child("AttachmentPointArray");
             found = true;
 
           }
@@ -1843,7 +1845,7 @@ namespace RDKit
       }
     };
 
-    ChemicalReaction *parseReaction(boost::property_tree::ptree rxnTree, boost::property_tree::ptree documentTree)
+    ChemicalReaction *parseReaction(boost::property_tree::ptree rxnTree, boost::property_tree::ptree documentTree, bool sanitize=false, bool removeHs=false)
     {
       ChemicalReaction *rxn = NULL;
       MarvinReaction *marvinReaction = NULL;
@@ -1864,7 +1866,7 @@ namespace RDKit
         std::vector<MarvinMol *>::iterator molIter;
         for (molIter = marvinReaction->reactants.begin(); molIter != marvinReaction->reactants.end(); ++molIter)
         {
-          mol = parseMolecule((*molIter) , true);
+          mol = parseMolecule((*molIter) , sanitize, removeHs);
           ROMol *roMol = new ROMol(*mol);
           delete mol;
 
@@ -1875,7 +1877,7 @@ namespace RDKit
 
         for (molIter = marvinReaction->agents.begin(); molIter != marvinReaction->agents.end(); ++molIter)
         {
-          mol = parseMolecule((*molIter) , true);
+          mol = parseMolecule((*molIter) , sanitize, removeHs);
           ROMol *roMol = new ROMol(*mol);
           delete mol;
           
@@ -1886,7 +1888,7 @@ namespace RDKit
 
         for (molIter = marvinReaction->products.begin(); molIter != marvinReaction->products.end(); ++molIter)
         {
-          mol = parseMolecule((*molIter) , true);
+          mol = parseMolecule((*molIter) , sanitize, removeHs);
           ROMol *roMol = new ROMol(*mol);
           delete mol;
 
@@ -2084,14 +2086,14 @@ namespace RDKit
   //
   //------------------------------------------------
   
-  void *MrvDataStreamParser(std::istream *inStream, bool &isReaction)
+  void *MrvDataStreamParser(std::istream *inStream, bool &isReaction, bool sanitize=false, bool removeHs=false)
   {
     PRECONDITION(inStream, "no stream");
     std::string tempStr;
     void *res = NULL;
     MarvinCML marvinCML;
 
-    res = marvinCML.parse(*inStream, isReaction);
+    res = marvinCML.parse(*inStream, isReaction, sanitize, removeHs);
 
     // if (marvinCML.isReaction())
     //   res = (void *)marvinCML.rxn;
@@ -2101,20 +2103,20 @@ namespace RDKit
     return res;
   }
 
-  void *MrvDataStreamParser(std::istream &inStream, bool &isReaction)
+  void *MrvDataStreamParser(std::istream &inStream, bool &isReaction, bool sanitize=false, bool removeHs=false)
   {
-    return MrvDataStreamParser(&inStream, isReaction);
+    return MrvDataStreamParser(&inStream, isReaction, sanitize, removeHs);
   }
   //------------------------------------------------
   //
   //  Read a molecule from a string
   //
   //------------------------------------------------
-  void *MrvStringParser(const std::string &molmrvText, bool &isReaction)
+  void *MrvStringParser(const std::string &molmrvText, bool &isReaction, bool sanitize=false, bool removeHs=false)
   {
     std::istringstream inStream(molmrvText);
     // unsigned int line = 0;
-    return MrvDataStreamParser(inStream, isReaction);
+    return MrvDataStreamParser(inStream, isReaction, sanitize, removeHs);
   }
 
   //------------------------------------------------
@@ -2122,7 +2124,7 @@ namespace RDKit
   //  Read a RWMOL from a file
   //
   //------------------------------------------------
-  void *MrvFileParser(const std::string &fName, bool &isReaction)
+  void *MrvFileParser(const std::string &fName, bool &isReaction, bool sanitize, bool removeHs)
   {
     std::ifstream inStream(fName.c_str());
     if (!inStream || (inStream.bad()))
@@ -2134,7 +2136,7 @@ namespace RDKit
     void *res = nullptr;
     if (!inStream.eof())
     {
-      res = MrvDataStreamParser(inStream,  isReaction);
+      res = MrvDataStreamParser(inStream,  isReaction, sanitize, removeHs);
     }
     return res;
   }
@@ -2144,13 +2146,13 @@ namespace RDKit
   //  Read a RWMol from a stream 
   //
   //------------------------------------------------
-  RWMol *MrvMolDataStreamParser(std::istream *inStream)
+  RWMol *MrvMolDataStreamParser(std::istream *inStream, bool sanitize, bool removeHs)
   {
   
     void *res = NULL;
     
     bool isReaction;
-    res = MrvDataStreamParser(inStream, isReaction);
+    res = MrvDataStreamParser(inStream, isReaction, sanitize, removeHs);
     if (isReaction)
     {
         delete (ChemicalReaction *)res;
@@ -2164,20 +2166,20 @@ namespace RDKit
   //  Read a RWMol from a stream reference
   //
   //------------------------------------------------
-  RWMol *MrvMolDataStreamParser(std::istream &inStream)
+  RWMol *MrvMolDataStreamParser(std::istream &inStream, bool sanitize, bool removeHs)
   {
-    return MrvMolDataStreamParser(&inStream);
+    return MrvMolDataStreamParser(&inStream, sanitize, removeHs);
   }
   //------------------------------------------------
   //
   //  Read a RWMol from a string
   //
   //------------------------------------------------
-  RWMol *MrvMolStringParser(const std::string &molmrvText)
+  RWMol *MrvMolStringParser(const std::string &molmrvText, bool sanitize, bool removeHs)
   {
     std::istringstream inStream(molmrvText);
     // unsigned int line = 0;
-    return MrvMolDataStreamParser(inStream);
+    return MrvMolDataStreamParser(inStream, sanitize, removeHs);
   }
 
   //------------------------------------------------
@@ -2185,7 +2187,7 @@ namespace RDKit
   //  Read an RWMol from a file
   //
   //------------------------------------------------
-  RWMol *MrvMolFileParser(const std::string &fName)
+  RWMol *MrvMolFileParser(const std::string &fName, bool sanitize, bool removeHs)
   {
     std::ifstream inStream(fName.c_str());
     if (!inStream || (inStream.bad()))
@@ -2196,7 +2198,7 @@ namespace RDKit
     }
     RWMol *res = nullptr;
     if (!inStream.eof())
-      res = MrvMolDataStreamParser(inStream);
+      res = MrvMolDataStreamParser(inStream, sanitize, removeHs);
     return res;
   }
 
@@ -2205,13 +2207,13 @@ namespace RDKit
   //  Read a ChemicalReaction from a stream 
   //
   //------------------------------------------------
-  ChemicalReaction *MrvRxnDataStreamParser(std::istream *inStream)
+  ChemicalReaction *MrvRxnDataStreamParser(std::istream *inStream, bool sanitize, bool removeHs)
   {
   
     void *res = NULL;
     
     bool isReaction;
-    res = MrvDataStreamParser(inStream, isReaction);
+    res = MrvDataStreamParser(inStream, isReaction, sanitize, removeHs);
     if (!isReaction)
     {
         delete (RWMol *)res;
@@ -2226,20 +2228,20 @@ namespace RDKit
   //  Read a ChemicalReaction from a stream reference
   //
   //------------------------------------------------
-  ChemicalReaction *MrvRxnDataStreamParser(std::istream &inStream)
+  ChemicalReaction *MrvRxnDataStreamParser(std::istream &inStream, bool sanitize, bool removeHs)
   {
-    return MrvRxnDataStreamParser(&inStream);
+    return MrvRxnDataStreamParser(&inStream, sanitize, removeHs);
   }
   //------------------------------------------------
   //
   //  Read a ChemicalReaction from a string
   //
   //------------------------------------------------
-  ChemicalReaction *MrvRxnStringParser(const std::string &molmrvText)
+  ChemicalReaction *MrvRxnStringParser(const std::string &molmrvText, bool sanitize, bool removeHs)
   {
     std::istringstream inStream(molmrvText);
     // unsigned int line = 0;
-    return MrvRxnDataStreamParser(inStream);
+    return MrvRxnDataStreamParser(inStream, sanitize, removeHs);
   }
 
   //------------------------------------------------
@@ -2247,7 +2249,7 @@ namespace RDKit
   //  Read a ChemicalReaction from a file
   //
   //------------------------------------------------
-  ChemicalReaction *MrvRxnFileParser(const std::string &fName)
+  ChemicalReaction *MrvRxnFileParser(const std::string &fName, bool sanitize, bool removeHs)
   {
     std::ifstream inStream(fName.c_str());
     if (!inStream || (inStream.bad()))
@@ -2256,7 +2258,7 @@ namespace RDKit
       errout << "Bad input file " << fName;
       throw BadFileException(errout.str());
     }
-    ChemicalReaction *res = MrvRxnDataStreamParser(inStream);
+    ChemicalReaction *res = MrvRxnDataStreamParser(inStream, sanitize, removeHs);
     return res;
   }
 }// namespace RDKit

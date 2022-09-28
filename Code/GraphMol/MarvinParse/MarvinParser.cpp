@@ -2217,7 +2217,7 @@ namespace RDKit
     if (!isReaction)
     {
         delete (RWMol *)res;
-        throw FileParseException("The file parsed as a reaction, not a molecule"); 
+        throw FileParseException("The file parsed as a molecule, not a reaction"); 
     }
 
     return (ChemicalReaction *)res;

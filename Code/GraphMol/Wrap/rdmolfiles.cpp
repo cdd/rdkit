@@ -26,6 +26,7 @@
 #include <GraphMol/FileParsers/SequenceParsers.h>
 #include <GraphMol/FileParsers/SequenceWriters.h>
 #include <GraphMol/FileParsers/PNGParser.h>
+#include <GraphMol/MarvinParse/MarvinParser.h>
 #include <RDGeneral/BadFileException.h>
 #include <RDGeneral/FileParseException.h>
 
@@ -149,6 +150,46 @@ ROMol *MolFromMolBlock(python::object imolBlock, bool sanitize, bool removeHs,
   } catch (RDKit::FileParseException &e) {
     BOOST_LOG(rdWarningLog) << e.what() << std::endl;
   } catch (...) {
+  }
+  return static_cast<ROMol *>(newM);
+}
+
+ROMol *MolFromMrvFile(const char *molFilename, bool sanitize, bool removeHs) 
+{
+  RWMol *newM = nullptr;
+  try 
+  {
+    newM = MrvMolFileParser(molFilename, sanitize, removeHs);
+  } 
+  catch (RDKit::BadFileException &e) 
+  {
+    PyErr_SetString(PyExc_IOError, e.what());
+    throw python::error_already_set();
+  } 
+  catch (RDKit::FileParseException &e) 
+  {
+    BOOST_LOG(rdWarningLog) << e.what() << std::endl;
+  } 
+  catch (...) 
+  {
+  }
+  return static_cast<ROMol *>(newM);
+}
+
+ROMol *MolFromMrvBlock(python::object imolBlock, bool sanitize, bool removeHs) 
+{
+  std::istringstream inStream(pyObjectToString(imolBlock));
+  unsigned int line = 0;
+  RWMol *newM = nullptr;
+  try 
+  {
+    newM = MrvMolDataStreamParser(inStream, sanitize, removeHs);
+  } 
+  catch (RDKit::FileParseException &e) 
+  {
+    BOOST_LOG(rdWarningLog) << e.what() << std::endl;
+  } catch (...) 
+  {
   }
   return static_cast<ROMol *>(newM);
 }
@@ -738,6 +779,54 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
       "MolFromMolBlock", RDKit::MolFromMolBlock,
       (python::arg("molBlock"), python::arg("sanitize") = true,
        python::arg("removeHs") = true, python::arg("strictParsing") = true),
+      docString.c_str(),
+      python::return_value_policy<python::manage_new_object>());
+
+docString =
+      "Construct a molecule from a Marvin (Mrv) file.\n\n\
+  ARGUMENTS:\n\
+\n\
+    - fileName: name of the file to read\n\
+\n\
+    - sanitize: (optional) toggles sanitization of the molecule.\n\
+      Defaults to true.\n\
+\n\
+    - removeHs: (optional) toggles removing hydrogens from the molecule.\n\
+      This only make sense when sanitization is done.\n\
+      Defaults to true.\n\
+\n\
+  RETURNS:\n\
+\n\
+    a Mol object, None on failure.\n\
+\n";
+  python::def(
+      "MolFromMrvFile", RDKit::MolFromMrvFile,
+      (python::arg("molFileName"), python::arg("sanitize") = true,
+       python::arg("removeHs") = true),
+      docString.c_str(),
+      python::return_value_policy<python::manage_new_object>());
+
+  docString =
+      "Construct a molecule from a Marvin (mrv) block.\n\n\
+  ARGUMENTS:\n\
+\n\
+    - molBlock: string containing the Marvin block\n\
+\n\
+    - sanitize: (optional) toggles sanitization of the molecule.\n\
+      Defaults to True.\n\
+\n\
+    - removeHs: (optional) toggles removing hydrogens from the molecule.\n\
+      This only make sense when sanitization is done.\n\
+      Defaults to true.\n\
+\n\
+  RETURNS:\n\
+\n\
+    a Mol object, None on failure.\n\
+\n";
+  python::def(
+      "MolFromMrvBlock", RDKit::MolFromMrvBlock,
+      (python::arg("mrvBlock"), python::arg("sanitize") = true,
+       python::arg("removeHs") = true),
       docString.c_str(),
       python::return_value_policy<python::manage_new_object>());
 

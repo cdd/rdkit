@@ -179,7 +179,6 @@ ROMol *MolFromMrvFile(const char *molFilename, bool sanitize, bool removeHs)
 ROMol *MolFromMrvBlock(python::object imolBlock, bool sanitize, bool removeHs) 
 {
   std::istringstream inStream(pyObjectToString(imolBlock));
-  unsigned int line = 0;
   RWMol *newM = nullptr;
   try 
   {

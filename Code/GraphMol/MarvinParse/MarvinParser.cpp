@@ -736,7 +736,9 @@ namespace RDKit
       catch(const std::exception& e)
       {
         // do nothing 
+
       }
+  
       if (molFlag)
       {
         mol = (RWMol *) parseMolecule(molOrRxn, sanitize, removeHs);
@@ -780,7 +782,7 @@ namespace RDKit
           }
       }
 
-      rxn = parseReaction(molOrRxn, tree.get_child("cml.MDocument.MChemicalStruct.reaction"), sanitize, removeHs); 
+      rxn = parseReaction(molOrRxn, tree.get_child("cml.MDocument"), sanitize, removeHs); 
       isReaction = true;
       return (void *)rxn;
     }
@@ -1028,7 +1030,8 @@ namespace RDKit
             bond->setBondDir(Bond::BEGINWEDGE);
             chiralityPossible = true;
             stereo = 1;
-        } else if (temp == "h")  
+        } 
+        else if (temp == "h")  
         {         
             stereo = 6;
             chiralityPossible = true;
@@ -1314,7 +1317,6 @@ namespace RDKit
 
       catch(const std::exception& e)
       {
-        //printf("Caught error in parseMolecule");
         delete mol;
 
         delete conf;
@@ -1336,9 +1338,7 @@ namespace RDKit
 
 
         marvinMol = (MarvinMol *)parseMarvinMolecule(molTree);
-        //printf("%s\n", marvinMol->generateMolString().c_str());
         marvinMol->convertSuperAtoms();
-        //printf("%s\n", marvinMol->generateMolString().c_str());
 
 
 
@@ -1758,12 +1758,15 @@ namespace RDKit
             }
 
             mrvBond->bondStereo = v.second.get<std::string>("bondStereo", "");
-            if (mrvBond->bondStereo != "" &&  boost::algorithm::to_lower_copy(mrvBond->bondStereo) != "w" && boost::algorithm::to_lower_copy(mrvBond->bondStereo) != "h")
-                throw FileParseException("The value for bondStereo must be \"h\" or \"w\" in MRV file");
-
-          
+            if (mrvBond->bondStereo == "" || boost::algorithm::to_lower_copy(mrvBond->bondStereo) == "w" || boost::algorithm::to_lower_copy(mrvBond->bondStereo) == "h")
+            {
+              // do nothing  - this is OK
+            }
+            else if (boost::algorithm::to_lower_copy(mrvBond->bondStereo) == "c" || boost::algorithm::to_lower_copy(mrvBond->bondStereo) == "t")
+               mrvBond->bondStereo = "";  // cis and trans are ignored
+            else
+                throw FileParseException("The value for bondStereo must be \"H\", \"W\", \"C\" or \"T\" in MRV file (\"C\" and \"T\" are ignored)");
           }
-
         }
 
         if (role== "SuperatomSgroup")
@@ -1856,9 +1859,7 @@ namespace RDKit
         rxn = new ChemicalReaction();
 
         marvinReaction= parseMarvinReaction(rxnTree, documentTree);
-        //printf("%s\n", marvinReaction->toString().c_str());
         marvinReaction->convertSuperAtoms();
-        //printf("%s\n", marvinReaction->toString().c_str());
 
         // get each reactant
 
@@ -1938,31 +1939,68 @@ namespace RDKit
       try
       {
        
-      
-
-        BOOST_FOREACH(
-              boost::property_tree::ptree::value_type &v, rxnTree.get_child("reactantList"))
+        boost::property_tree::ptree childTree;
+        bool foundChild=false;
+        try
+        {
+          childTree = rxnTree.get_child("reactantList");
+          foundChild = true;
+        }
+        catch(const std::exception& e)
+        {
+          foundChild = false;
+        }
+        
+        if (foundChild)
+        {
+          BOOST_FOREACH(
+              boost::property_tree::ptree::value_type &v, childTree)
             res->reactants.push_back((MarvinMol *)parseMarvinMolecule(v.second));
+        }
 
-        BOOST_FOREACH(
-              boost::property_tree::ptree::value_type &v, rxnTree.get_child("agentList"))
+
+        try
+        {
+          childTree = rxnTree.get_child("agentList");
+          foundChild = true;
+        }
+        catch(const std::exception& e)
+        {
+          foundChild = false;
+        }
+        if (foundChild)
+        {
+          BOOST_FOREACH(
+              boost::property_tree::ptree::value_type &v, childTree)
             res->agents.push_back((MarvinMol *)parseMarvinMolecule(v.second));
+        }
 
-        BOOST_FOREACH(
-              boost::property_tree::ptree::value_type &v, rxnTree.get_child("productList"))
+        try
+        {
+          childTree = rxnTree.get_child("productList");
+          foundChild = true;
+        }
+        catch(const std::exception& e)
+        {
+          foundChild = false;
+        }
+        if (foundChild)
+        {
+          BOOST_FOREACH(
+              boost::property_tree::ptree::value_type &v, childTree)
             res->products.push_back((MarvinMol *)parseMarvinMolecule(v.second));
+        }
 
-          // <arrow type="DEFAULT" x1="-11.816189911577812" y1="-10.001443743444021" x2="-8.401759471454618" y2="-10.001443743444021"/>
-          boost::property_tree::ptree arrow = rxnTree.get_child("arrow");
-          res->arrow.type = arrow.get<std::string>("<xmlattr>.type", "");
+        // <arrow type="DEFAULT" x1="-11.816189911577812" y1="-10.001443743444021" x2="-8.401759471454618" y2="-10.001443743444021"/>
+        boost::property_tree::ptree arrow = rxnTree.get_child("arrow");
+        res->arrow.type = arrow.get<std::string>("<xmlattr>.type", "");
         if (!getCleanDouble( arrow.get<std::string>("<xmlattr>.x1", ""), res->arrow.x1)
               ||!getCleanDouble( arrow.get<std::string>("<xmlattr>.y1", ""), res->arrow.y1)
               ||!getCleanDouble( arrow.get<std::string>("<xmlattr>.x2", ""), res->arrow.x2)
               ||!getCleanDouble( arrow.get<std::string>("<xmlattr>.y2", ""), res->arrow.y1))
             throw FileParseException("Arrow coordinates must all be large floating point numbers in MRV file"); 
           
-
-      
+ 
           
         BOOST_FOREACH(
             boost::property_tree::ptree::value_type &v, documentTree)
@@ -1982,8 +2020,8 @@ namespace RDKit
 
               double x;
               double y; 
-              if (!getCleanDouble( v.second.get<std::string>("<xmlattr>.x", ""),x)
-                  || !getCleanDouble( v.second.get<std::string>("<xmlattr>.y", ""),y))
+              if (!getCleanDouble( v2.second.get<std::string>("<xmlattr>.x", ""),x)
+                  || !getCleanDouble( v2.second.get<std::string>("<xmlattr>.y", ""),y))
                 throw FileParseException("Plus sign  coordinates must all be large floating point numbers in MRV file"); 
                   
               switch( pointCount)
@@ -2042,9 +2080,11 @@ namespace RDKit
           {
             if (v2.first == "MPoint")
             {
-              int x,y;
-              if (! getCleanInt(v.second.get<std::string>("<xmlattr>.x", ""),  x)
-              ||  ! getCleanInt(v.second.get<std::string>("<xmlattr>.x", ""),  y))
+              double x,y;
+              std::string xStr = v2.second.get<std::string>("<xmlattr>.x", "");
+              std::string yStr = v2.second.get<std::string>("<xmlattr>.y", "");
+              if (! getCleanDouble(xStr,  x)
+              ||  ! getCleanDouble(yStr,  y))
                 throw FileParseException("Condition coordinate must valid integers in MRV file"); 
             
               switch( pointCount)
@@ -2216,7 +2256,7 @@ namespace RDKit
     if (!isReaction)
     {
         delete (RWMol *)res;
-        throw FileParseException("The file parsed as a reaction, not a molecule"); 
+        throw FileParseException("The file parsed as a molecule, not a reaction"); 
     }
 
     return (ChemicalReaction *)res;

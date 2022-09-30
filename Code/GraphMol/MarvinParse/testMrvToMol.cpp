@@ -214,9 +214,9 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
     localVars.molOrRxn = GetMolOrReaction(molOrRxnTest, localVars.isReaction);
     if (localVars.isReaction != molOrRxnTest->isRxnTest())
     {
-      printf("Wrong type of MRV file\n");
+      //printf("Wrong type of MRV file\n");
       TEST_ASSERT(molOrRxnTest->expectedResult == false);
-      printf("Expected failure!\n");
+      //printf("Expected failure!\n");
       return;
     }
 
@@ -255,7 +255,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
   }
   catch(const std::exception& e)
   {
-    printf("Caught Error\n");
+
 
     if(molOrRxnTest->expectedResult != false)
         throw;
@@ -318,11 +318,13 @@ void RunTests()
     ,MolTest("MarvinBadSupAttachAtom.mrv",false, LoadAsMolOrRxn, 9,9)  // should fail -
     ,MolTest("MarvinBadSupMissingAttachBond.mrv",false, LoadAsMolOrRxn, 9,9)  // should fail -
     ,MolTest("MarvinBadSupMissingAttachOrder.mrv",false, LoadAsMolOrRxn, 9,9)  // should fail -
-
+    ,MolTest("aspirin.mrv",true, LoadAsMolOrRxn, 13,13)  
   };
 
   for (std::list<MolTest>::const_iterator it = molFileNames.begin() ; it != molFileNames.end(); ++it)
   {
+    BOOST_LOG(rdInfoLog) << "Test: " << it->fileName << std::endl;
+
     printf("Test\n\n %s\n\n", it->fileName.c_str());
     testMarvin(&*it);
   }
@@ -342,6 +344,7 @@ void RunTests()
     ,RxnTest("marvin05.mrv",true, LoadAsMolOrRxn,2,1,1,3,0)
     ,RxnTest("EmptyRxn.mrv",true, LoadAsMolOrRxn,0,0,0,0,0)
     ,RxnTest("ketback01.mrv",false,LoadAsMolOrRxn,2,1,1,3,0)  // should fail - this is a mol file
+    ,RxnTest("aspirineSynthesisWithAttributes.mrv",true,LoadAsMolOrRxn,2,0,1,3,0)  // should fail - this is a mol file
   };
 
   for (std::list<RxnTest>::const_iterator it = rxnFileNames.begin() ; it != rxnFileNames.end(); ++it)

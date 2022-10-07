@@ -17,7 +17,8 @@
 #include <string>
 #include <iostream>
 
-namespace RDKit {
+namespace RDKit 
+{
 
 
 RDKIT_FILEPARSERS_EXPORT void *MrvFileParser(const std::string &fname, bool &isReaction, bool sanitize=false, bool removeHs=false);

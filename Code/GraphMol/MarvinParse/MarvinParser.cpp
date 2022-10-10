@@ -70,7 +70,7 @@ namespace RDKit
     Imports the Marvin-specific dialect of CML (Chemical Markup Language) and converts it to datastructures
     that are compatible with Molfile, RXNfile, and Molfile complemented with canvas objects.
   */
-  class MarvinCML
+  class MarvinCMLReader
   {
     
     public:
@@ -84,13 +84,13 @@ namespace RDKit
     
 
     public:
-    MarvinCML()
+    MarvinCMLReader()
         : mol(NULL)
         , rxn(NULL)
     {
     };
 
-    ~MarvinCML()
+    ~MarvinCMLReader()
     { 
     };
 
@@ -1519,7 +1519,7 @@ namespace RDKit
     PRECONDITION(inStream, "no stream");
     std::string tempStr;
     void *res = NULL;
-    MarvinCML marvinCML;
+    MarvinCMLReader marvinCML;
 
     res = marvinCML.parse(*inStream, isReaction, sanitize, removeHs);
 

@@ -38,6 +38,11 @@ RDKIT_FILEPARSERS_EXPORT ChemicalReaction *MrvRxnDataStreamParser(std::istream &
 RDKIT_FILEPARSERS_EXPORT ChemicalReaction *MrvRxnStringParser(const std::string &molmrvText, bool sanitize=false, bool removeHs=false);
 RDKIT_FILEPARSERS_EXPORT ChemicalReaction *MrvRxnFileParser(const std::string &fName, bool sanitize=false, bool removeHs=false);
 
+RDKIT_FILEPARSERS_EXPORT void MolToMrvFile(const ROMol &mol, const std::string &fName, bool includeStereo, int confId, bool kekulize);
+RDKIT_FILEPARSERS_EXPORT std::string MolToMrvBlock(const ROMol &mol, bool includeStereo, int confId, bool kekulize);
+
+RDKIT_FILEPARSERS_EXPORT std::string ChemicalReactionToMrvBlock(const ChemicalReaction &rxn) ;
+RDKIT_FILEPARSERS_EXPORT void ChemicalReactionToMrvFile(const ChemicalReaction &rxn, const std::string &fName); 
 
 
 

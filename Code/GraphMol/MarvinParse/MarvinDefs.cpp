@@ -94,31 +94,34 @@ namespace RDKit
         // <atom id="a7" elementType="C" x2="15.225" y2="-8.3972" sgroupAttachmentPoint="1"/>
 
         std::ostringstream out;
-        out << "<atom id=\"" << id << "\" elementType=\"" << elementType << "\" x2=\"" << x2 << "\" y2=\"" << y2;
+        out << "<atom id=\"" << id << "\" elementType=\"" << elementType << "\"";
+        
+        if (x2 != DBL_MIN && y2 != DBL_MIN)
+             out << " x2=\"" << x2 << "\" y2=\"" << y2 << "\"";
 
         if (formalCharge !=0)
-        out << " formalCharge=\"" << formalCharge << "\"";
+            out << " formalCharge=\"" << formalCharge << "\"";
 
         if (radical != "")
-        out << " radical=\"" << radical << "\"";
+            out << " radical=\"" << radical << "\"";
 
         if (isotope != 0)
-        out << " isotope=\"" << isotope << "\"";
+            out << " isotope=\"" << isotope << "\"";
 
         if (mrvAlias != "")
-        out << " mrvAlias=\"" << mrvAlias << "\"";
+            out << " mrvAlias=\"" << mrvAlias << "\"";
 
         if (mrvStereoGroup != "")
-        out << " mrvStereoGroup=\"" << mrvStereoGroup << "\"";
+            out << " mrvStereoGroup=\"" << mrvStereoGroup << "\"";
 
         if (mrvMap != 0)
-        out << " mrvMap=\"" << mrvMap << "\"";
+            out << " mrvMap=\"" << mrvMap << "\"";
 
         if (sgroupRef != "")
         out << " sgroupRef=\"" << sgroupRef << "\"";
 
         if (sgroupAttachmentPoint != "")
-        out << " sgroupAttachmentPoint=\"" << sgroupAttachmentPoint << "\"";
+            out << " sgroupAttachmentPoint=\"" << sgroupAttachmentPoint << "\"";
 
         out << "/>";
 

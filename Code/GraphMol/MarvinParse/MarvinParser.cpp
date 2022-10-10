@@ -873,14 +873,16 @@ namespace RDKit
 
               mrvAtom->id = v.second.get<std::string>("<xmlattr>.id", "");
               mrvAtom->elementType = v.second.get<std::string>("<xmlattr>.elementType", "");
+  
+              if (mrvAtom->id == "" || mrvAtom->elementType == "")
+                  throw FileParseException("Expected id, elementType for an atom definition in MRV file");
+              
               std::string x2 = v.second.get<std::string>("<xmlattr>.x2", "");
               std::string y2 = v.second.get<std::string>("<xmlattr>.y2", "");
-              if (mrvAtom->id == "" || mrvAtom->elementType == "" || x2 == "" || y2 == "" )
-                  throw FileParseException("Expected id, elementType. x2 and y2 for an atom definition in MRV file");
 
               // x2 and y2 are doubles
-
-              if (!getCleanDouble(x2, mrvAtom->x2) || !getCleanDouble(y2, mrvAtom->y2))
+              
+              if (x2 != "" && y2 != ""  && (!getCleanDouble(x2, mrvAtom->x2) || !getCleanDouble(y2, mrvAtom->y2)))
                   throw FileParseException("The values x2 and y2 must be large floats in MRV file");        
 
               std::string formalCharge = v.second.get<std::string>("<xmlattr>.formalCharge", "");
@@ -997,34 +999,12 @@ namespace RDKit
             std::string sgroupAttachmentPoint = atomArray.get<std::string>("<xmlattr>.sgroupAttachmentPoint", "");
             boost::algorithm::split(sgroupAttachmentPoints,sgroupAttachmentPoint,boost::algorithm::is_space());
 
-            if (atomID == "" ||elementType == "" || x2 == "" || y2 == ""
-                    ||  elementTypes.size() != atomCount || x2s.size() != atomCount || y2s.size() != atomCount )
-              throw FileParseException("Expected id, elementType. x2 and y2 arrays for an atomArray definition in MRV file, and the counts of each must the same");
-
-            if (formalCharge != "" && formalCharges.size() != atomCount)
-              throw FileParseException("formalCharges, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-            if (radical != "" && radicals.size() != atomCount)
-              throw FileParseException("radicals, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-  
-            if (isotope != "" && isotopes.size() != atomCount)
-              throw FileParseException("isotopes, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-            if (mrvAlias != "" && mrvAliases.size() != atomCount)
-              throw FileParseException("mrvAliases, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-            if (mrvStereoGroup != ""  && mrvStereoGroups.size() != atomCount)
-              throw FileParseException("mrvStereoGroups, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-            if (mrvMap != "" && mrvMaps.size() != atomCount)
-              throw FileParseException("mrvMaps, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-            if (sgroupRef != ""  && sgroupRefs.size() != atomCount)
-              throw FileParseException("sgroupRefs, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-            if (sgroupAttachmentPoint != ""  && sgroupAttachmentPoints.size() != atomCount)
-              throw FileParseException("sgroupAttachmentPoint, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
+            if (atomID == "" ||elementType == "" ||  elementTypes.size() < atomCount )
+              throw FileParseException("Expected id, and elementType arrays for an atomArray definition in MRV file");
+            if (elementTypes.size() < atomCount )
+              throw FileParseException("There must be an element type for each atom id");
+            
+ 
             for (size_t i = 0 ; i < atomCount ; ++i)
             {
               MarvinAtom *mrvAtom = new MarvinAtom();   
@@ -1034,10 +1014,11 @@ namespace RDKit
 
               mrvAtom->elementType = elementTypes[i];
               
-              if (!getCleanDouble(x2s[i], mrvAtom->x2) || !getCleanDouble(y2s[i], mrvAtom->y2))
-                throw FileParseException("The values x2 and y2 must be large floats in MRV file");        
+              if (x2 != ""  && y2 != "" && x2s.size() > i && y2s.size() > i)
+                if (!getCleanDouble(x2s[i], mrvAtom->x2) || !getCleanDouble(y2s[i], mrvAtom->y2))
+                  throw FileParseException("The values x2 and y2 must be large floats in MRV file");        
 
-              if (formalCharge != "")
+              if (formalCharge != "" && formalCharges.size() > i)
               {
                 if (!getCleanInt(formalCharges[i], mrvAtom->formalCharge) )
                     throw FileParseException("The value for formalCharge must be an integer in MRV file"); 
@@ -1045,7 +1026,7 @@ namespace RDKit
               else
                 mrvAtom->formalCharge = 0;
 
-              if (isotope != "")
+              if (isotope != "" && isotopes.size() > i)
               {
                 if (!getCleanInt(isotopes[i], mrvAtom->isotope) )
                     throw FileParseException("The value for formalCharge must be an integer in MRV file"); 
@@ -1054,7 +1035,7 @@ namespace RDKit
                 mrvAtom->isotope = 0;
             
             
-              if (radical != "")
+              if (radical != "" && radicals.size() > i)
               {
                 mrvAtom->radical = radicals[i];
                 if (!boost::algorithm::contains(marvinRadicalVals, std::vector<std::string>{mrvAtom->radical} ))
@@ -1067,30 +1048,30 @@ namespace RDKit
               else 
                 mrvAtom->radical = "";
 
-              if (mrvAlias != "")
+              if (mrvAlias != "" && mrvAliases.size() > i)
                 mrvAtom->mrvAlias = mrvAliases[i];
               else
                 mrvAtom->mrvAlias = "";
               
-              if (mrvStereoGroup != "")
+              if (mrvStereoGroup != "" && mrvStereoGroups.size() > i)
                 mrvAtom->mrvStereoGroup = mrvStereoGroups[i];
               else
                 mrvAtom->mrvStereoGroup = "";       
               
-              if (mrvMap != "")
+              if (mrvMap != "" && mrvMaps.size() > i)
               {
-                if (!getCleanInt(mrvMap, mrvAtom->mrvMap) || mrvAtom->mrvMap <=0)
+                if (!getCleanInt(mrvMaps[i], mrvAtom->mrvMap) || mrvAtom->mrvMap <=0)
                     throw FileParseException("The value for mrvMap must be an non-=negative integer in MRV file"); 
               }
               else
                 mrvAtom->mrvMap = 0;       
 
-              if (sgroupRef != "")
+              if (sgroupRef != "" && sgroupRefs.size() > i)
                 mrvAtom->sgroupRef = sgroupRefs[i];
               else
                 mrvAtom->sgroupRef = "";
               
-              if (role== "SuperatomSgroup" && sgroupAttachmentPoint != "")
+              if (role== "SuperatomSgroup" && sgroupAttachmentPoint != "" && sgroupAttachmentPoints.size() > i)
               {
                 mrvAtom->sgroupAttachmentPoint = sgroupAttachmentPoints[i];
               }

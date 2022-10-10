@@ -790,7 +790,7 @@ namespace RDKit
     GenericGroups::convertGenericQueriesToSubstanceGroups(trwmol);
 
     MarvinCMLWriter marvinCMLWriter;
-    return marvinCMLWriter.MolToMarvinMol(&trwmol, confId)->toString();
+    return marvinCMLWriter.MolToMarvinMol(&trwmol, confId)->generateMolString();
   }
 
   //------------------------------------------------

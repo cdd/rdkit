@@ -29,6 +29,7 @@
 #include <GraphMol/FileParsers/MolSGroupParsing.h>
 #include <GraphMol/FileParsers/MolFileStereochem.h>
 #include "MarvinParser.h"
+#include "MarvinDefs.h"
 
 
 #include <GraphMol/RDKitQueries.h>
@@ -69,7 +70,7 @@ namespace RDKit
     Imports the Marvin-specific dialect of CML (Chemical Markup Language) and converts it to datastructures
     that are compatible with Molfile, RXNfile, and Molfile complemented with canvas objects.
   */
-  class MarvinCML
+  class MarvinCMLReader
   {
     
     public:
@@ -83,630 +84,17 @@ namespace RDKit
     
 
     public:
-    MarvinCML()
+    MarvinCMLReader()
         : mol(NULL)
         , rxn(NULL)
     {
     };
 
-    ~MarvinCML()
+    ~MarvinCMLReader()
     { 
     };
 
 
-    private:
-
-    class MarvinArrow
-    {
-    public:
-      std::string type;
-      double x1;
-      double y1;
-      double x2;
-      double y2;
-
-      std::string toString() const
-      {
-
-        std::ostringstream out;
-        out << "<arrow type=\"" << type << "\" x1=\"" << x1<< "\" y1=\"" << y1 << "\" x2=\"" << x2<< "\" y2=\"" << y2 << "\"/>";
-    
-        return out.str();
-      }
-    };
-
-    class MarvinPlus
-    {
-      public:
-      std::string id;
-      double x1;
-      double y1;
-      double x2;
-      double y2;
-
-
-      std::string toString() const
-      {
-
-        std::ostringstream out;
-
-        out << "<MReactionSign id=\"" << id << "\" toptions=\"NOROT\" fontScale=\"14.0\" halign=\"CENTER\" valign=\"CENTER\" autoSize=\"true\">"
-              "<Field name=\"text\"><![CDATA[ {D font=SansSerif,size=18,bold}+ ]]></Field>"
-              "<MPoint x=\"" << x1 << "\" y=\"" << y1 << "\"/>"
-              "<MPoint x=\"" << x2 << "\" y=\"" << y1 << "\"/>"
-              "<MPoint x=\"" << x2 << "\" y=\"" << y2 << "\"/>"
-              "<MPoint x=\"" << x1 << "\" y=\"" << y2 << "/>"
-              "</MReactionSign>";
-
-        return out.str();
-            
-      }
-    };
-
-    class MarvinCondition
-    {
-      public:
-      std::string id;
-      std::string text;
-      double x;
-      double y;
-      double fontScale;
-
-      std::string halign;
-      std::string valign;
-
-      std::string toString() const
-      {
-        std::ostringstream out;
-
-        out << "<MTextBox id=\"" << id << "\" toption=\"NOROT\" fontScale=\"" << fontScale << "\" halign=\"" << halign << "\" valign=\"" << valign << "\" autoSize=\"true\">"
-              "<Field name=\"text\">" << text << "</Field>"
-              "<MPoint x=\"" << x << "\" y=\"" << y << "\"/>"
-              "<MPoint x=\"" << x << "\" y=\"" << y << "\"/>"
-              "<MPoint x=\"" << x << "\" y=\"" << y << "\"/>"
-              "<MPoint x=\"" << x << "\" y=\"" << y << "\"/>"
-              "</MTextBox>";
-
-        return out.str();
-      }
-    };
-
-    
-    class MarvinAttachmentPoint
-    {
-      public:
-
-      // <AttachmentPoint atom="a7" order="1" bond="b6"/>
-      std::string atom;
-      std::string bond;
-      std::string order;
-
-      std::string toString() const
-      {
-        std::ostringstream out;
-
-        out << "<AttachmentPoint atom=\"" << atom << "\" order=\"" << order << "\" bond=\"" << bond << "\"/>";
-
-        return out.str();
-      }
-    };
-
-    class MarvinAtom
-    {
-      public:
-      std::string id;
-      std::string elementType;
-      double x2;
-      double y2;
-      int formalCharge;
-      std::string radical;
-      int isotope;
-      std::string mrvAlias;
-      std::string mrvStereoGroup;
-      int mrvMap;
-      std::string sgroupRef;
-      std::string sgroupAttachmentPoint;
-
-      MarvinAtom()
-      : x2(DBL_MIN)
-      , y2(DBL_MIN)
-      , formalCharge(0)
-    
-      , mrvMap(0)
-    {
-    }
-
-    
-      bool operator==(const MarvinAtom& rhs) const
-      {
-          return this->id == rhs.id;
-      }
-      
-      bool operator==(const MarvinAtom *rhs) const
-      {
-          return this->id == rhs->id;
-      }
-
-    std::string toString() const
-    {
-        // <atom id="a7" elementType="C" x2="15.225" y2="-8.3972" sgroupAttachmentPoint="1"/>
-
-        std::ostringstream out;
-        out << "<atom id=\"" << id << "\" elementType=\"" << elementType << "\" x2=\"" << x2 << "\" y2=\"" << y2;
-
-        if (formalCharge !=0)
-          out << " formalCharge=\"" << formalCharge << "\"";
-
-        if (radical != "")
-          out << " radical=\"" << radical << "\"";
-
-        if (isotope != 0)
-          out << " isotope=\"" << isotope << "\"";
-
-        if (mrvAlias != "")
-          out << " mrvAlias=\"" << mrvAlias << "\"";
-
-        if (mrvStereoGroup != "")
-          out << " mrvStereoGroup=\"" << mrvStereoGroup << "\"";
-
-        if (mrvMap != 0)
-          out << " mrvMap=\"" << mrvMap << "\"";
-
-        if (sgroupRef != "")
-          out << " sgroupRef=\"" << sgroupRef << "\"";
-
-        if (sgroupAttachmentPoint != "")
-          out << " sgroupAttachmentPoint=\"" << sgroupAttachmentPoint << "\"";
-
-        out << "/>";
-
-        return out.str();
-      }     
-    };
-
-    class MarvinBond
-    {
-      public:
-      std::string id;
-      std::string atomRefs2[2];
-      std::string order;
-      std::string bondStereo;
-      std::string queryType;
-
-      bool isEqual(const MarvinAtom& other) const
-      {
-        return this->id == other.id;
-      }
-
-      bool operator==(const MarvinAtom& rhs) const
-      {
-          return this->isEqual(rhs);
-      }
-
-      std::string toString() const
-      {
-        // <bond id="b8" atomRefs2="a1 a7" order="1">
-
-        std::ostringstream out;
-        
-        out << "<bond id=\"" << id << "\" atomRefs2=\"" << atomRefs2[0] << " " << atomRefs2[1] << "\" order=\"" << order << "\"";
-       
-
-        if (queryType != "")
-          out << " queryType=\"" << queryType << "\"";
-        
-
-        if (bondStereo != "")
-          out << "><bondStereo>" << bondStereo << "</bondStereo></bond>";
-        else
-          out << "/>";          
-        return out.str();
-      }
-    };
-
-    class MarvinMolBase
-    {
-      public:
-      std::string molID;
-      std::vector<MarvinAtom *> atoms;
-      std::vector<MarvinBond *> bonds;      
-
-      
-      virtual std::string role() = 0;
-
-      MarvinMolBase()
-      {
-
-      }
-
-      virtual ~MarvinMolBase()
-      {
-        for ( std::vector<MarvinAtom *>::iterator it = atoms.begin(); it != atoms.end(); ++it)
-          delete(*it);
-        for ( std::vector<MarvinBond *>::iterator it = bonds.begin(); it != bonds.end(); ++it)
-          delete(*it);
-      }
-    };
-
-    class MarvinSruSgroup : public MarvinMolBase
-    {
-      public:
-      std::string id;
-      std::vector<std::string> atomRefs;
-      std::string title;
-      std::string connect;
-      std::string correspondence;
-      std::vector<std::string> bondList;
-
-      MarvinSruSgroup()
-      {
-        
-      }
-      ~MarvinSruSgroup()
-      {
-        
-      }
-
-      std::string toString() const
-      {
-        std::ostringstream out;
-
-        out << "<molecule molID=\"" << molID << "\" id=\"" << id << "\" role=\"SruSgroup\" atomRefs=\"" << boost::algorithm::join(atomRefs,",") << "\" title=\"" << title 
-          <<"\" connect=\"" << connect << "\" correspondence=\"" << correspondence << "\" bondList=\"" << boost::algorithm::join(bondList,",") << "\"/>";
-
-        return out.str();
-      }
-
-      std::string role()
-      {
-        return std::string("SruSgroup");
-      } 
-
-    };
-
-    
-    class MarvinSuperatomSgroup : public MarvinMolBase
-    {
-      public:
-      std::string id;
-      std::string title;
-      std::vector<MarvinAttachmentPoint *> attachmentPoints;
-
-      MarvinSuperatomSgroup()
-      {
-
-      }
-
-      ~MarvinSuperatomSgroup()
-      {
-        for ( std::vector<MarvinAttachmentPoint *>::iterator it = attachmentPoints.begin(); it != attachmentPoints.end(); ++it)
-          delete(*it);
-      }
-
-      std::string role()
-      {
-        return std::string("SuperatomSgroup");
-      } 
-
-      std::string toString() const
-      {
-        std::ostringstream out;
-
-        out << "<molecule molID=\"" << molID << "\" id=\"" << id << "\" role=\"SuperatomSgroup\" title=\"" << title << "\">";
-
-        out <<"<atomArray>";
-        for (std::vector<MarvinAtom *>::const_iterator it = atoms.begin();  it != atoms.end(); ++it)
-          out << (*it)->toString();
-        out << "</atomArray>";
-
-        out <<"<bondArray>";
-        for (std::vector<MarvinBond *>::const_iterator it = bonds.begin();  it != bonds.end(); ++it)
-          out << (*it)->toString();
-        out << "</bondArray>";
-
-        if (attachmentPoints.size() > 0)
-        {
-          out <<"<AttachmentPointArray>";
-          for (std::vector<MarvinAttachmentPoint *>::const_iterator it = attachmentPoints.begin();  it != attachmentPoints.end(); ++it)
-            out << (*it)->toString();
-          out << "</AttachmentPointArray>";
-        }
-        out << "</molecule>";
-        
-        return out.str();
-
-      }   
-    };
-
-    class MarvinSuperInfo   // used in converting superatoms group to mol stule groups
-    {
-      public:
-      std::string title;
-      std::vector<std::string> atoms;
-    };
-    
-    class MarvinMol : public MarvinMolBase
-    {
-      public:
-
-      std::vector<MarvinSuperatomSgroup *> superatomSgroups;
-      std::vector<MarvinSruSgroup *>  sruSgroups;
-      std::vector<MarvinSuperInfo *> superInfos;  // used in convertng superatomSgroups to mol-type CTs
-
-      MarvinMol()
-      {
-
-      }
-
-      ~MarvinMol()
-      {
-        for (std::vector<MarvinSuperatomSgroup *>::iterator it = superatomSgroups.begin(); it != superatomSgroups.end(); ++it)
-          delete(*it);
-        for (std::vector<MarvinSruSgroup *>::iterator it = sruSgroups.begin(); it != sruSgroups.end(); ++it)
-          delete(*it);
-        for (std::vector<MarvinSuperInfo *>::iterator it = superInfos.begin(); it != superInfos.end(); ++it)
-          delete(*it);
-      }
-
-      std::string role()
-      {
-        return std::string("Parent");
-      } 
-
-      static bool atomRefInAtoms(MarvinAtom *a, std::string b )
-      { 
-        return a->id == b; 
-      }
-
-      static bool bondRefInBonds(MarvinBond *a, std::string b )
-      { 
-        return a->id == b; 
-      }
-
-      void convertSuperAtoms()
-      {
-        // the mol-style super atoms are significatnly different than the Marvin super atoms.  The mol style has all atoms and bonds in the main mol, and parameter lines that
-        // indicate the name of the super atom and the atom indices affected.
-        //
-        // The Marvin as a dummy atom with the super atom name in the main molecule, and a separate sub-mol with the atoms and bonds of the superatom.  It also has a separate record 
-        // called attachmentPoint that atom in the super atom sub=mol that is replaces the dummy atom, and also a bond pointer and bond order in case the bond order changes.
-        //
-        //This routine copies the aboms and bonds from the sub=mol to the parent mol, and deleted the dummy atom form the parent mol.  It also saves the infor needed to make a mol-file type
-        // superatom in the MarvinSuperInfo array.
-
-        for(std::vector<MarvinSuperatomSgroup *>::iterator subMolIter =  superatomSgroups.begin() ; subMolIter != superatomSgroups.end() ; ++subMolIter)
-        {
-          //save the name of the superatom
-          
-          auto marvinSuperInfo = new MarvinSuperInfo();
-          this->superInfos.push_back(marvinSuperInfo);
-
-          marvinSuperInfo->title = (*subMolIter)->title;
-
-          //  remove and delete the dummy atom from the parent.
-
-          auto dummyAtomIter = find_if(atoms.begin(), atoms.end(), [subMolIter](const MarvinAtom *arg) { 
-                                            return arg->sgroupRef == (*subMolIter)->id; });
-          if (dummyAtomIter != atoms.end())
-          {
-            delete *dummyAtomIter;  // get rid of the MolAtom
-            atoms.erase(dummyAtomIter);   // get rid of the atoms pointer to the old dummy atom
-          }
-
-          // add the atoms and bonds from the super group to the parent
-
-          for (std::vector<MarvinAtom *>::iterator subAtomIter = (*subMolIter)->atoms.begin() ; subAtomIter != (*subMolIter)->atoms.end() ; ++subAtomIter)
-          {
-            atoms.push_back( *subAtomIter);
-            marvinSuperInfo->atoms.push_back((*subAtomIter)->id);
-
-            // remove the sgroupRef from the atom (only one will have it)
-            (*subAtomIter)->sgroupAttachmentPoint = "";
-
-          }
-          for (std::vector<MarvinBond *>::iterator subBondIter = (*subMolIter)->bonds.begin()  ; subBondIter != (*subMolIter)->bonds.end() ; ++subBondIter)
-          {
-            bonds.push_back( *subBondIter);
-          }
-
-          // process the attachment points - fix the bond that was made wrong by deleting the dummy atom
-
-          for (std::vector<MarvinAttachmentPoint *>::iterator attachIter = (*subMolIter) -> attachmentPoints.begin() ;  attachIter != (*subMolIter) -> attachmentPoints.end(); ++attachIter)
-          {
-            // find the bond in the parent
-            
-            auto bondIter = find_if(bonds.begin(), bonds.end(), [attachIter](const MarvinBond *arg) { 
-                                            return arg->id == (*attachIter)->bond; });
-            if (bondIter == bonds.end())
-              throw FileParseException("Bond specification for an AttachmentPoint definition was not found in the bond array in MRV file");
-
-            // one of the two atoms in the bond is NOT in the mol - we deleted the dummy atom.
-
-            int atomIndex;
-            for (atomIndex = 0 ; atomIndex < 2 ; ++atomIndex)
-            {
-              if (!boost::algorithm::contains(atoms, std::vector<std::string>{(*bondIter)->atomRefs2[atomIndex]}, atomRefInAtoms ))
-              {
-                (*bondIter)->atomRefs2[atomIndex] = (*attachIter)->atom;   // the attach atom
-                (*bondIter)->order = (*attachIter)->order;  // fix the bond order
-                break;
-              }
-            }
-            if (atomIndex == 2)  // not found?
-            {
-                std::ostringstream err;
-                err << "Bond " << (*attachIter)->bond.c_str() << " from attachment point did not have a missing atom in MRV file";
-                throw FileParseException(err.str());
-            }
-
-            delete *attachIter;         
-          }
-          
-          // clean up - delete the super atom mols and the attach points
-
-          (*subMolIter)->attachmentPoints.clear();
-          (*subMolIter)->atoms.clear();
-          (*subMolIter)->bonds.clear();
-          delete *subMolIter;
-        }
-        this->superatomSgroups.clear();
-      }
-
-
-      int getAtomIndex(std::string id)
-      {
-        auto atomIter = find_if(atoms.begin(), atoms.end(), [id](const MarvinAtom *arg) { return arg->id == id; });
-        if (atomIter != atoms.end())
-              return atomIter - atoms.begin();
-          else 
-              return -1;
-      }
-
-      int getBondIndex(std::string id)
-      {
-        auto bondIter = find_if(bonds.begin(), bonds.end(), [id](const MarvinBond *arg) { return arg->id == id; });
-        if (bondIter != bonds.end())
-              return bondIter - bonds.begin();
-          else 
-              return -1;
-      }
-
-  
-      std::string toString() const
-      {
-        std::ostringstream out;
-
-        out << "<molecule molID=\"" << molID << "\">";
-
-        out <<"<atomArray>";
-        for (std::vector<MarvinAtom *>::const_iterator it = atoms.begin();  it != atoms.end(); ++it)
-          out << (*it)->toString();
-        out <<"</atomArray>";
-
-        out <<"<bondArray>";
-        for (std::vector<MarvinBond *>::const_iterator it = bonds.begin();  it != bonds.end(); ++it)
-          out << (*it)->toString();
-        out << "</bondArray>";
-
-      
-        for (std::vector<MarvinSuperatomSgroup *>::const_iterator it = superatomSgroups.begin();  it != superatomSgroups.end(); ++it)
-          out << (*it)->toString();
-        for (std::vector<MarvinSruSgroup *>::const_iterator it = sruSgroups.begin();  it != sruSgroups.end(); ++it)
-          out << (*it)->toString();
-        
-        out <<"</molecule>";
-        
-        return out.str();
-
-
-      }   
-
-      std::string generateMolString()
-      {
-        std::ostringstream out;
-
-        out << "<cml xmlns=\"http://www.chemaxon.com\" version=\"ChemAxon file format v20.20.0, generated by RDKit\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
-            "xsi:schemaLocation=\"http://www.chemaxon.com http://www.chemaxon.com/marvin/schema/mrvSchema_20_20_0.xsd\">"
-            "<MDocument><MChemicalStruct>";
-
-        out << toString();
-      
-        out << "</MChemicalStruct></MDocument></cml>";
-        return out.str();
-      }
-
-    };
-
-  
-
-    class MarvinReaction
-    {
-      public:
-
-      std::vector<MarvinMol *> reactants;
-      std::vector<MarvinMol *> agents;
-      std::vector<MarvinMol *> products;
-
-      MarvinArrow arrow;
-      std::vector<MarvinPlus *> pluses;
-      std::vector<MarvinCondition *> conditions;
-
-      ~MarvinReaction()
-      {
-        for (std::vector<MarvinMol *>::iterator it = reactants.begin(); it != reactants.end(); ++it)
-          delete(*it);      
-        for (std::vector<MarvinMol *>::iterator it = agents.begin(); it != agents.end(); ++it)
-          delete(*it);      
-        for (std::vector<MarvinMol *>::iterator it = products.begin(); it != products.end(); ++it)
-          delete(*it);
-        for (std::vector<MarvinPlus *>::iterator it = pluses.begin(); it != pluses.end(); ++it)
-          delete(*it);
-        for (std::vector<MarvinCondition *>::iterator it = conditions.begin(); it != conditions.end(); ++it)
-          delete(*it);
-      }
-
-      void convertSuperAtoms()
-      {
-        //This routine converts all the mols in the rxn to be ready for conversion to RDKIT mols
-
-        for (std::vector<MarvinMol *>::iterator molIter = reactants.begin() ; molIter != reactants.end() ; ++molIter)
-          (*molIter)->convertSuperAtoms();
-        for (std::vector<MarvinMol *>::iterator molIter = agents.begin() ; molIter != agents.end() ; ++molIter)
-          (*molIter)->convertSuperAtoms();
-        for (std::vector<MarvinMol *>::iterator molIter = products.begin() ; molIter != products.end() ; ++molIter)
-          (*molIter)->convertSuperAtoms();
-        
-      }
-      std::string toString()
-      {
-        std::ostringstream out;
-
-        out << "<cml xmlns=\"http://www.chemaxon.com\" version=\"ChemAxon file format v20.20.0, generated by RDKit\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""
-              " xsi:schemaLocation=\"http://www.chemaxon.com http://www.chemaxon.com/marvin/schema/mrvSchema_20_20_0.xsd\">"
-              "<MDocument><MChemicalStruct><reaction>";
-
-        out <<"<reactantList>";
-        for (std::vector<MarvinMol *>::const_iterator it = reactants.begin();  it != reactants.end(); ++it)
-          out << (*it)->toString();
-        out <<"</reactantList>";
-        out <<"<agentList>";
-        for (std::vector<MarvinMol *>::const_iterator it = agents.begin();  it != agents.end(); ++it)
-          out << (*it)->toString();
-        out <<"</agentList>";
-        out <<"<productList>";
-        for (std::vector<MarvinMol *>::const_iterator it = products.begin();  it != products.end(); ++it)
-          out << (*it)->toString();
-        out <<"</productList>";
-
-        out << arrow.toString();
-
-        out << "</reaction></MChemicalStruct>";
-
-        for (std::vector<MarvinPlus *>::const_iterator it = pluses.begin();  it != pluses.end(); ++it)
-          out << (*it)->toString();
-        for (std::vector<MarvinCondition *>::const_iterator it = conditions.begin();  it != conditions.end(); ++it)
-          out << (*it)->toString();
-
-        
-        out << "</MDocument></cml>";
-        return out.str();
-      }
-    };
-
-    class MarvinStereoGroup
-    {
-      public:
-
-      StereoGroupType groupType;  // one of ABS AND OR
-      int groupNumber;
-      std::vector<unsigned int> atoms;
-
-      MarvinStereoGroup(StereoGroupType grouptypeInit, int groupNumberInit )
-      {
-        groupType = grouptypeInit;
-        groupNumber = groupNumberInit;
-      }
-    };
 
 
     public:
@@ -966,7 +354,7 @@ namespace RDKit
           }
           else if (temp == "DA")
           {
-              bType = 6;
+              bType = 7;
               type = Bond::UNSPECIFIED;
               bond = new QueryBond;
               bond->setQuery(makeDoubleOrAromaticBondQuery());
@@ -1328,6 +716,7 @@ namespace RDKit
       }
     }
 
+    
 
     RWMol *parseMolecule(boost::property_tree::ptree molTree, bool sanitize=false, bool removeHs=false)
     {
@@ -1338,7 +727,7 @@ namespace RDKit
 
 
         marvinMol = (MarvinMol *)parseMarvinMolecule(molTree);
-        marvinMol->convertSuperAtoms();
+        marvinMol->convertFromSuperAtoms();
 
 
 
@@ -1484,14 +873,16 @@ namespace RDKit
 
               mrvAtom->id = v.second.get<std::string>("<xmlattr>.id", "");
               mrvAtom->elementType = v.second.get<std::string>("<xmlattr>.elementType", "");
+  
+              if (mrvAtom->id == "" || mrvAtom->elementType == "")
+                  throw FileParseException("Expected id, elementType for an atom definition in MRV file");
+              
               std::string x2 = v.second.get<std::string>("<xmlattr>.x2", "");
               std::string y2 = v.second.get<std::string>("<xmlattr>.y2", "");
-              if (mrvAtom->id == "" || mrvAtom->elementType == "" || x2 == "" || y2 == "" )
-                  throw FileParseException("Expected id, elementType. x2 and y2 for an atom definition in MRV file");
 
               // x2 and y2 are doubles
-
-              if (!getCleanDouble(x2, mrvAtom->x2) || !getCleanDouble(y2, mrvAtom->y2))
+              
+              if (x2 != "" && y2 != ""  && (!getCleanDouble(x2, mrvAtom->x2) || !getCleanDouble(y2, mrvAtom->y2)))
                   throw FileParseException("The values x2 and y2 must be large floats in MRV file");        
 
               std::string formalCharge = v.second.get<std::string>("<xmlattr>.formalCharge", "");
@@ -1608,34 +999,12 @@ namespace RDKit
             std::string sgroupAttachmentPoint = atomArray.get<std::string>("<xmlattr>.sgroupAttachmentPoint", "");
             boost::algorithm::split(sgroupAttachmentPoints,sgroupAttachmentPoint,boost::algorithm::is_space());
 
-            if (atomID == "" ||elementType == "" || x2 == "" || y2 == ""
-                    ||  elementTypes.size() != atomCount || x2s.size() != atomCount || y2s.size() != atomCount )
-              throw FileParseException("Expected id, elementType. x2 and y2 arrays for an atomArray definition in MRV file, and the counts of each must the same");
-
-            if (formalCharge != "" && formalCharges.size() != atomCount)
-              throw FileParseException("formalCharges, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-            if (radical != "" && radicals.size() != atomCount)
-              throw FileParseException("radicals, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-  
-            if (isotope != "" && isotopes.size() != atomCount)
-              throw FileParseException("isotopes, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-            if (mrvAlias != "" && mrvAliases.size() != atomCount)
-              throw FileParseException("mrvAliases, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-            if (mrvStereoGroup != ""  && mrvStereoGroups.size() != atomCount)
-              throw FileParseException("mrvStereoGroups, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-            if (mrvMap != "" && mrvMaps.size() != atomCount)
-              throw FileParseException("mrvMaps, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-            if (sgroupRef != ""  && sgroupRefs.size() != atomCount)
-              throw FileParseException("sgroupRefs, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
-            if (sgroupAttachmentPoint != ""  && sgroupAttachmentPoints.size() != atomCount)
-              throw FileParseException("sgroupAttachmentPoint, if specified, must have the same count as the atomIDs for an atomArray definition in MRV file");
-
+            if (atomID == "" ||elementType == "" ||  elementTypes.size() < atomCount )
+              throw FileParseException("Expected id, and elementType arrays for an atomArray definition in MRV file");
+            if (elementTypes.size() < atomCount )
+              throw FileParseException("There must be an element type for each atom id");
+            
+ 
             for (size_t i = 0 ; i < atomCount ; ++i)
             {
               MarvinAtom *mrvAtom = new MarvinAtom();   
@@ -1645,10 +1014,11 @@ namespace RDKit
 
               mrvAtom->elementType = elementTypes[i];
               
-              if (!getCleanDouble(x2s[i], mrvAtom->x2) || !getCleanDouble(y2s[i], mrvAtom->y2))
-                throw FileParseException("The values x2 and y2 must be large floats in MRV file");        
+              if (x2 != ""  && y2 != "" && x2s.size() > i && y2s.size() > i)
+                if (!getCleanDouble(x2s[i], mrvAtom->x2) || !getCleanDouble(y2s[i], mrvAtom->y2))
+                  throw FileParseException("The values x2 and y2 must be large floats in MRV file");        
 
-              if (formalCharge != "")
+              if (formalCharge != "" && formalCharges.size() > i)
               {
                 if (!getCleanInt(formalCharges[i], mrvAtom->formalCharge) )
                     throw FileParseException("The value for formalCharge must be an integer in MRV file"); 
@@ -1656,7 +1026,7 @@ namespace RDKit
               else
                 mrvAtom->formalCharge = 0;
 
-              if (isotope != "")
+              if (isotope != "" && isotopes.size() > i)
               {
                 if (!getCleanInt(isotopes[i], mrvAtom->isotope) )
                     throw FileParseException("The value for formalCharge must be an integer in MRV file"); 
@@ -1665,7 +1035,7 @@ namespace RDKit
                 mrvAtom->isotope = 0;
             
             
-              if (radical != "")
+              if (radical != "" && radicals.size() > i)
               {
                 mrvAtom->radical = radicals[i];
                 if (!boost::algorithm::contains(marvinRadicalVals, std::vector<std::string>{mrvAtom->radical} ))
@@ -1678,30 +1048,30 @@ namespace RDKit
               else 
                 mrvAtom->radical = "";
 
-              if (mrvAlias != "")
+              if (mrvAlias != "" && mrvAliases.size() > i)
                 mrvAtom->mrvAlias = mrvAliases[i];
               else
                 mrvAtom->mrvAlias = "";
               
-              if (mrvStereoGroup != "")
+              if (mrvStereoGroup != "" && mrvStereoGroups.size() > i)
                 mrvAtom->mrvStereoGroup = mrvStereoGroups[i];
               else
                 mrvAtom->mrvStereoGroup = "";       
               
-              if (mrvMap != "")
+              if (mrvMap != "" && mrvMaps.size() > i)
               {
-                if (!getCleanInt(mrvMap, mrvAtom->mrvMap) || mrvAtom->mrvMap <=0)
+                if (!getCleanInt(mrvMaps[i], mrvAtom->mrvMap) || mrvAtom->mrvMap <=0)
                     throw FileParseException("The value for mrvMap must be an non-=negative integer in MRV file"); 
               }
               else
                 mrvAtom->mrvMap = 0;       
 
-              if (sgroupRef != "")
+              if (sgroupRef != "" && sgroupRefs.size() > i)
                 mrvAtom->sgroupRef = sgroupRefs[i];
               else
                 mrvAtom->sgroupRef = "";
               
-              if (role== "SuperatomSgroup" && sgroupAttachmentPoint != "")
+              if (role== "SuperatomSgroup" && sgroupAttachmentPoint != "" && sgroupAttachmentPoints.size() > i)
               {
                 mrvAtom->sgroupAttachmentPoint = sgroupAttachmentPoints[i];
               }
@@ -1859,7 +1229,7 @@ namespace RDKit
         rxn = new ChemicalReaction();
 
         marvinReaction= parseMarvinReaction(rxnTree, documentTree);
-        marvinReaction->convertSuperAtoms();
+        marvinReaction->convertFromSuperAtoms();
 
         // get each reactant
 
@@ -2130,7 +1500,7 @@ namespace RDKit
     PRECONDITION(inStream, "no stream");
     std::string tempStr;
     void *res = NULL;
-    MarvinCML marvinCML;
+    MarvinCMLReader marvinCML;
 
     res = marvinCML.parse(*inStream, isReaction, sanitize, removeHs);
 

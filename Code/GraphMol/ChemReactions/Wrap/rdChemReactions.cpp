@@ -866,6 +866,11 @@ of the replacements argument.",
               (python::arg("reaction"), python::arg("separateAgents") = false,
                python::arg("forceV3000") = false),
               "construct a string in MDL rxn format for a ChemicalReaction");
+
+  // python::def("ReactionToMrvBlock", RDKit::ChemicalReactionToMrvBlock,
+  //             (python::arg("reaction")),
+  //             "construct a string in Marvin (MRV) rxn format for a ChemicalReaction");
+
   python::def(
       "ReactionToV3KRxnBlock", RDKit::ChemicalReactionToV3KRxnBlock,
       (python::arg("reaction"), python::arg("separateAgents") = false),

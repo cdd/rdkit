@@ -197,13 +197,13 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
         out << outMolStr << "\n";
       }  
       
-      ofName = "Out_" + fName;
-      outMolStr = ChemicalReactionToMrvBlock(*rxn);
-      {
-        std::ofstream  out;
-        out.open(ofName);
-        out << outMolStr << "\n";
-      }      
+      // ofName =  fName + ".OUT.mrv";
+      // outMolStr = ChemicalReactionToMrvBlock(*rxn);
+      // {
+      //   std::ofstream  out;
+      //   out.open(ofName);
+      //   out << outMolStr << "\n";
+      // }      
 
       unsigned int nWarn=0, nError=0;
         
@@ -250,13 +250,13 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
         out << outMolStr << "\n";
       }      
 
-      ofName = "Out_" + fName;
-      outMolStr = MolToMrvBlock(*mol,true, -1, true);
-      {
-        std::ofstream  out;
-        out.open(ofName);
-        out << outMolStr << "\n";
-      }      
+      // ofName =  fName + ".OUT.mrv";
+      // outMolStr = MolToMrvBlock(*mol,true, -1, true);
+      // {
+      //   std::ofstream  out;
+      //   out.open(ofName);
+      //   out << outMolStr << "\n";
+      // }      
 
       // MolOps::sanitizeMol(*m);
       TEST_ASSERT(mol != NULL);
@@ -299,7 +299,7 @@ void RunTests()
      MolTest("ketback01.mrv", true, LoadAsMolOrRxn, 11,11)
     ,MolTest("ketback01.mrv", true, LoadAsMol, 11,11)
     ,MolTest("ketback01.mrv", false, LoadAsRxn, 11,11)   // should fail
-    ,MolTest("ketback02.mrv",true,LoadAsMolOrRxn, 9,9)
+       ,MolTest("ketback02.mrv",true,LoadAsMolOrRxn, 9,9)
     ,MolTest("ketback07.mrv",true,LoadAsMolOrRxn, 12,11)
     ,MolTest("ketback10.mrv",true,LoadAsMolOrRxn, 10,10)
     ,MolTest("marvin06.mrv",true,LoadAsMolOrRxn, 11,11)
@@ -342,30 +342,30 @@ void RunTests()
     ,MolTest("aspirin.mrv",true, LoadAsMolOrRxn, 13,13)  
   };
 
-  // for (std::list<MolTest>::const_iterator it = molFileNames.begin() ; it != molFileNames.end(); ++it)
-  // {
-  //   BOOST_LOG(rdInfoLog) << "Test: " << it->fileName << std::endl;
+  for (std::list<MolTest>::const_iterator it = molFileNames.begin() ; it != molFileNames.end(); ++it)
+  {
+    BOOST_LOG(rdInfoLog) << "Test: " << it->fileName << std::endl;
 
-  //   printf("Test\n\n %s\n\n", it->fileName.c_str());
-  //   testMarvin(&*it);
-  // }
+    printf("Test\n\n %s\n\n", it->fileName.c_str());
+    testMarvin(&*it);
+  }
 
 
 // now the reactions
 
  std::list<RxnTest> rxnFileNames
  {
-    //  RxnTest("ketback03.mrv",true, LoadAsMolOrRxn,1,1,1,2,0)
-    // ,RxnTest("ketback03.mrv",true, LoadAsRxn,1,1,1,2,0)
-    // ,RxnTest("ketback03.mrv",false, LoadAsMol,1,1,1,2,0)   // should fail
-    // ,RxnTest("ketback04.mrv",true, LoadAsMolOrRxn,2,1,2,4,0)
-    RxnTest("ketback08.mrv",true, LoadAsMolOrRxn,2,3,2,4,0)
-    // ,RxnTest("ketback09.mrv",true, LoadAsMolOrRxn,2,3,2,4,0)
-    // ,RxnTest("ketback11.mrv",true, LoadAsMolOrRxn,2,0,1,0,0)
-    // ,RxnTest("marvin05.mrv",true, LoadAsMolOrRxn,2,1,1,3,0)
-    // ,RxnTest("EmptyRxn.mrv",true, LoadAsMolOrRxn,0,0,0,0,0)
-    // ,RxnTest("ketback01.mrv",false,LoadAsMolOrRxn,2,1,1,3,0)  // should fail - this is a mol file
-    // ,RxnTest("aspirineSynthesisWithAttributes.mrv",true,LoadAsMolOrRxn,2,0,1,3,0)  // should fail - this is a mol file
+     RxnTest("ketback03.mrv",true, LoadAsMolOrRxn,1,1,1,2,0)
+    ,RxnTest("ketback03.mrv",true, LoadAsRxn,1,1,1,2,0)
+    ,RxnTest("ketback03.mrv",false, LoadAsMol,1,1,1,2,0)   // should fail
+    ,RxnTest("ketback04.mrv",true, LoadAsMolOrRxn,2,1,2,4,0)
+    ,RxnTest("ketback08.mrv",true, LoadAsMolOrRxn,2,3,2,4,0)
+    ,RxnTest("ketback09.mrv",true, LoadAsMolOrRxn,2,3,2,4,0)
+    ,RxnTest("ketback11.mrv",true, LoadAsMolOrRxn,2,0,1,0,0)
+    ,RxnTest("marvin05.mrv",true, LoadAsMolOrRxn,2,1,1,3,0)
+    ,RxnTest("EmptyRxn.mrv",true, LoadAsMolOrRxn,0,0,0,0,0)
+    ,RxnTest("ketback01.mrv",false,LoadAsMolOrRxn,2,1,1,3,0)  // should fail - this is a mol file
+    ,RxnTest("aspirineSynthesisWithAttributes.mrv",true,LoadAsMolOrRxn,2,0,1,3,0)  // should fail - this is a mol file
   };
 
   for (std::list<RxnTest>::const_iterator it = rxnFileNames.begin() ; it != rxnFileNames.end(); ++it)

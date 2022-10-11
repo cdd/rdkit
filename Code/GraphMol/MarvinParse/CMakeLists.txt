@@ -45,7 +45,7 @@ rdkit_library(MarvinParser
 target_compile_definitions(MarvinParser PRIVATE RDKIT_MARVINPARSER_BUILD)
 
 rdkit_headers(MarvinParser.h
-              MarvinDef.h
+              MarvinDefs.h
               DEST GraphMol/MarvinParser)
 
 rdkit_test(testMrvToMol testMrvToMol.cpp

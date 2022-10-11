@@ -314,23 +314,23 @@ namespace RDKit
       {
         case Bond::SINGLE:
           if (bond->getIsAromatic()) 
-            queryType = "A";
+            order = "A";
           else
-            queryType =  "1";
+            order =  "1";
           break;
 
         case Bond::DOUBLE:
           if (bond->getIsAromatic()) 
-            queryType = "A";
+            order = "A";
           else
-            queryType =  "2";
+            order =  "2";
           break;
         case Bond::TRIPLE:
-          queryType = "3";
+          order = "3";
           break;
 
         case Bond::AROMATIC:
-          queryType =  "A";
+          order =  "A";
           break;
 
         default:
@@ -363,6 +363,8 @@ namespace RDKit
           if (wbi != wedgeBonds.end() && static_cast<unsigned int>(wbi->second) != bond->getBeginAtomIdx()) 
             reverse = true;
         }
+        else
+          dir = Bond::NONE;   // other types are ignored
       } 
     }
 
@@ -375,12 +377,12 @@ namespace RDKit
       
       MarvinMol *marvinMol = NULL;
       const Conformer *conf = NULL;
-
+      int tempMolCount=0, tempAtomCount=0, tempBondCount=0;
       try
       {
         marvinMol = new MarvinMol();
 
-        marvinMol->molID = 'm' + std::to_string(++molCount);
+        marvinMol->molID = 'm' + std::to_string(++tempMolCount);
 
         // get a 2D conformer
 
@@ -405,12 +407,13 @@ namespace RDKit
           auto marvinAtom = new MarvinAtom();
           marvinMol->atoms.push_back(marvinAtom);
 
-          marvinAtom->id = 'a' + std::to_string(++atomCount);
+          marvinAtom->id = 'a' + std::to_string(++tempAtomCount);
 
           marvinAtom->elementType = GetMarvinAtomSymbol(atom);
           
           marvinAtom->formalCharge = atom->getFormalCharge();
-          marvinAtom->isotope = atom->getIsotope();
+          if (!atom->hasQuery())
+            marvinAtom->isotope = atom->getIsotope();
           
           if (!atom->getPropIfPresent(common_properties::molAtomMapNumber, marvinAtom->mrvMap))
             marvinAtom->mrvMap=0;
@@ -444,7 +447,7 @@ namespace RDKit
           auto marvinBond = new MarvinBond();
           marvinMol->bonds.push_back(marvinBond);
 
-          marvinBond->id = 'b' + std::to_string(++bondCount);
+          marvinBond->id = 'b' + std::to_string(++tempBondCount);
 
           GetMarvinBondSymbol(bond, marvinBond->order, marvinBond->queryType );
           
@@ -478,7 +481,7 @@ namespace RDKit
                         marvinBond->bondStereo = "d";
                 break;
             default:
-              throw MarvinWriterException("Unsupported bond direction");
+              marvinBond->bondStereo = "";   // other types are ignored
           }       
         }
 
@@ -486,7 +489,7 @@ namespace RDKit
         int orCount=0;
         int andCount=0;
         int absCount=0;  // really should be only one, but maybe ...
-        int *currentCount;
+        int *stereoCount;
 
         for (const StereoGroup group : mol->getStereoGroups())
         {
@@ -495,24 +498,24 @@ namespace RDKit
           switch (group.getGroupType()) {
             case RDKit::StereoGroupType::STEREO_ABSOLUTE:
               stereoGroupType = "ABS";
-              currentCount = &absCount;
+              stereoCount = &absCount;
               break;
             case RDKit::StereoGroupType::STEREO_OR:
               stereoGroupType = "OR";
-              currentCount = &orCount;
+              stereoCount = &orCount;
               break;
             case RDKit::StereoGroupType::STEREO_AND:
                 stereoGroupType = "AND";
-                currentCount = &andCount;
+                stereoCount = &andCount;
               break;
             default:
               throw MarvinWriterException("Unrecognized stereo group type"); 
           }
           for (auto &&atom : group.getAtoms()) 
-            marvinMol->atoms[atom->getIdx()]->mrvStereoGroup = stereoGroupType + std::to_string(++(*currentCount));
+            marvinMol->atoms[atom->getIdx()]->mrvStereoGroup = stereoGroupType + std::to_string(++(*stereoCount));
         }
 
-        int sruMolCount = 0, sruSgCount=0;
+        int  sruSgCount=0;
         for (const SubstanceGroup &sgroup:  getSubstanceGroups(*mol))
         {
           std::string type = sgroup.getProp<std::string>("TYPE");
@@ -526,7 +529,7 @@ namespace RDKit
               
             marvinSruSgroup->connect = sgroup.getProp<std::string>("CONNECT");
             marvinSruSgroup->id = "sg" + std::to_string(++sruSgCount);
-            marvinSruSgroup->molID  = 'm' + std::to_string(++sruMolCount);
+            marvinSruSgroup->molID  = 'm' + std::to_string(++tempMolCount);
 
 
             for (auto atomIndex : sgroup.getAtoms())
@@ -556,7 +559,7 @@ namespace RDKit
 
         // convert the superInfos to supergroups
 
-        marvinMol->convertFromSuperAtoms();
+        marvinMol->convertToSuperAtoms();
         marvinMol->cleanUpNumbering(molCount, atomCount, bondCount, sgCount);
 
         return marvinMol;

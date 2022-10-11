@@ -309,7 +309,7 @@ namespace RDKit
     for (auto bondPtr : this->bonds)
     {
         std::string newId = "b" + std::to_string(++bondCount);
-        atomMap[bondPtr->id] =newId;
+        bondMap[bondPtr->id] =newId;
         bondPtr->id = newId;
 
         // fix the bond's references to atoms
@@ -333,7 +333,7 @@ namespace RDKit
         for (auto bondPtr : marvinSuperatomSgroup->bonds)
         {
             std::string newId = "b" + std::to_string(++bondCount);
-            atomMap[bondPtr->id] =newId;
+            bondMap[bondPtr->id] =newId;
             bondPtr->id = newId;
 
             // fix the bond's references to atoms
@@ -486,41 +486,45 @@ namespace RDKit
         
         MarvinBond *attachmentBondInParent = NULL;
         std::string atomInGroup = "";
-        
         for (auto bond : this->bonds)
         {
-        bool atom1IsInGroup = boost::algorithm::contains(marvinSuperatomSgroup->atoms, std::vector<std::string>{(bond)->atomRefs2[0]}, atomRefInAtoms );
-        bool atom2IsInGroup = boost::algorithm::contains(marvinSuperatomSgroup->atoms, std::vector<std::string>{(bond)->atomRefs2[1]}, atomRefInAtoms );
+            bool atom1IsInGroup = boost::algorithm::contains(marvinSuperatomSgroup->atoms, std::vector<std::string>{(bond)->atomRefs2[0]}, atomRefInAtoms );
+            bool atom2IsInGroup = boost::algorithm::contains(marvinSuperatomSgroup->atoms, std::vector<std::string>{(bond)->atomRefs2[1]}, atomRefInAtoms );
 
 
-        if (atom1IsInGroup && atom2IsInGroup )  // both are in, so move the bond
+            if (atom1IsInGroup && atom2IsInGroup )  // both are in, so move the bond
+                marvinSuperatomSgroup->bonds.push_back(bond);
+
+
+            // see if one atom of the bond is in the group to be created.  
+            else if (atom1IsInGroup)
+            {
+                if (atomInGroup != "")  // already found - we aonly alow one attachment point
+                    throw MarvinWriterException("Multiple attachment points for SuperGroup is not supported");
+                
+                
+                atomInGroup = bond->atomRefs2[0];
+                bond->atomRefs2[0] = newAtomName;  // fix the bond that was attached to the moved attachment atom
+                attachmentBondInParent = bond;
+
+            }
+            else if  (atom2IsInGroup)
+            {
+                if (atomInGroup != "")  // already found - we aonly alow one attachment point
+                    throw  MarvinWriterException("Multiple attachment points for SuperGroup is not supported");
+                
+                atomInGroup = bond->atomRefs2[1];
+                bond->atomRefs2[1] = newAtomName;  // fix the bond that was attached to the moved attachment atom
+                attachmentBondInParent = bond;
+            }
+        } 
+
+        // now remove the bonds that were moved to the superGroup from the parent
+        
+        for (auto bond : marvinSuperatomSgroup->bonds)
         {
             int index = this->getBondIndex(bond->id);
-            MarvinBond *bondToMove = this->bonds[index];
-            marvinSuperatomSgroup->bonds.push_back(bondToMove);
             this->bonds.erase(this->bonds.begin() + index);
-        }
-
-        // see if one atom of the bond is in the group to be created.  
-        else if (atom1IsInGroup)
-        {
-            if (atomInGroup != "")  // already found - we aonly alow one attachment point
-                throw MarvinWriterException("Multiple attachment points for SuperGroup is not supported");
-            
-            
-            atomInGroup = bond->atomRefs2[0];
-            bond->atomRefs2[0] = newAtomName;  // fix the bond that was attached to the moved attachment atom
-            attachmentBondInParent = bond;
-
-        }
-        else if  (atom2IsInGroup)
-        {
-            if (atomInGroup != "")  // already found - we aonly alow one attachment point
-                throw  MarvinWriterException("Multiple attachment points for SuperGroup is not supported");
-            
-            atomInGroup = bond->atomRefs2[1];
-            bond->atomRefs2[1] = newAtomName;  // fix the bond that was attached to the moved attachment atom
-            attachmentBondInParent = bond;
         }
 
         // now if we found one atom of a bond that was in the group, we have an attachment point.
@@ -533,7 +537,7 @@ namespace RDKit
             this->atoms.push_back(attachAtom);
             attachAtom->elementType = "R";
             attachAtom->id = newAtomName;
-            attachAtom->sgroupAttachmentPoint = marvinSuperInfo->title;
+            attachAtom->sgroupRef = marvinSuperatomSgroup->id;
             MarvinAtom *atomPtr = marvinSuperatomSgroup->atoms[marvinSuperatomSgroup->getAtomIndex(atomInGroup)];
             attachAtom->x2 = atomPtr->x2;
             attachAtom->y2 = atomPtr->y2;
@@ -547,10 +551,12 @@ namespace RDKit
             marvinAttachmentPoint->bond = attachmentBondInParent->id;
             marvinAttachmentPoint->order = attachmentBondInParent->order;
         }
-        } 
+
+        delete marvinSuperInfo;  // this converted to a super group
     }
         
-    this->superatomSgroups.clear();
+     
+    this->superInfos.clear();
     }
 
     std::string MarvinMol::toString() const

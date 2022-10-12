@@ -60,11 +60,17 @@
 
 using namespace RDKit::SGroupWriting;
 
+#define ARROW_MIN_LENGTH 1.0
+#define ARROW_SPACE 0.5
+#define PLUS_SPACE 0.5
+
 namespace RDKit 
 {
 
   class  MarvinCMLWriter
   {
+
+
 
     bool hasComplexQuery(const Atom *atom) 
     {
@@ -90,24 +96,28 @@ namespace RDKit
       return res;
     }
 
-    const std::string GetMarvinAtomSymbol(
-        const Atom *atom) 
+    void GetMarvinAtomInfo(
+        const Atom *atom
+        , MarvinAtom *marvinAtom
+        ) 
     {
       PRECONDITION(atom, "");
 
-      std::string res;
+  
       if (atom->hasProp(common_properties::_MolFileRLabel)) 
       {
-        unsigned int lbl;
-        if (atom->getPropIfPresent(common_properties::_MolFileRLabel, lbl) && lbl > 0)
-          res = "R" + std::to_string(lbl);
-        else 
-          res = "R";
+        marvinAtom->elementType = "R";
+       
+        unsigned int rgroupRef;
+        atom->getProp(common_properties::_MolFileRLabel, rgroupRef);
+        marvinAtom->rgroupRef = (int)rgroupRef;
+         
+         std::string alias;
+        if (!atom->getPropIfPresent(common_properties::molFileAlias, marvinAtom->mrvAlias)) 
+          marvinAtom->mrvAlias = "R" + std::to_string(marvinAtom->rgroupRef);
       } 
       else if (atom->getAtomicNum()) 
-      {
-        res = atom->getSymbol();
-      } 
+        marvinAtom->elementType = atom->getSymbol();
       else 
       {
         if (!atom->hasProp(common_properties::dummyLabel)) 
@@ -119,7 +129,7 @@ namespace RDKit
                 static_cast<ATOM_EQUALS_QUERY *>(atom->getQuery())->getVal() ==
                     1))) 
           {
-            res = "*";
+             marvinAtom->elementType = "*";
           } 
           else if (atom->hasQuery() &&
                     (atom->getQuery()->getTypeLabel() == "Q" ||
@@ -171,7 +181,7 @@ namespace RDKit
           } 
           else 
           {
-            res = "R";
+             marvinAtom->elementType = "*";
           }
         } 
         else 
@@ -179,34 +189,73 @@ namespace RDKit
           std::string symb;
           atom->getProp(common_properties::dummyLabel, symb);
           if (symb == "*") 
-            res = "R";
+             marvinAtom->elementType = "*";
           else if (symb == "X") 
-            res = "R";
+          {
+            marvinAtom->elementType = "R";
+            marvinAtom->rgroupRef = 0;
+            marvinAtom->mrvAlias = "R";
+          }
           else if (symb == "Xa") 
-            res = "R1";
+          {
+            marvinAtom->elementType = "R";
+            marvinAtom->rgroupRef = 1;
+            marvinAtom->mrvAlias = "R1";
+          }          
           else if (symb == "Xb") 
-            res = "R2";
+          {
+            marvinAtom->elementType = "R";
+            marvinAtom->rgroupRef = 2;
+            marvinAtom->mrvAlias = "R2";
+          }          
           else if (symb == "Xc") 
-            res = "R3";
+          {
+            marvinAtom->elementType = "R";
+            marvinAtom->rgroupRef = 3;
+            marvinAtom->mrvAlias = "R3";
+          }          
           else if (symb == "Xd") 
-            res = "R4";
+          {
+            marvinAtom->elementType = "R";
+            marvinAtom->rgroupRef = 4;
+            marvinAtom->mrvAlias = "R4";
+          }               
           else if (symb == "Xf") 
-            res = "R5";
+          {
+            marvinAtom->elementType = "R";
+            marvinAtom->rgroupRef = 5;
+            marvinAtom->mrvAlias = "R5";
+          }     
           else if (symb == "Xg") 
-            res = "R6";
+          {
+            marvinAtom->elementType = "R";
+            marvinAtom->rgroupRef = 6;
+            marvinAtom->mrvAlias = "R6";
+          }     
           else if (symb == "Xh") 
-            res = "R7";
+          {
+            marvinAtom->elementType = "R";
+            marvinAtom->rgroupRef = 7;
+            marvinAtom->mrvAlias = "R7";
+          }     
           else if (symb == "Xi") 
-            res = "R8";
+          {
+            marvinAtom->elementType = "R";
+            marvinAtom->rgroupRef = 8;
+            marvinAtom->mrvAlias = "R8";
+          }     
           else if (symb == "Xj") 
-            res = "R9";
+          {
+            marvinAtom->elementType = "R";
+            marvinAtom->rgroupRef = 9;
+            marvinAtom->mrvAlias = "R9";
+          }     
           else 
             throw MarvinWriterException("Query atoms are not supported for MarvinWriter");
-        }
-      
+        }    
       }
       
-      return res;
+      return;
     }
 
     bool isQueryBondInRing(const Bond *bond) 
@@ -409,10 +458,10 @@ namespace RDKit
 
           marvinAtom->id = 'a' + std::to_string(++tempAtomCount);
 
-          marvinAtom->elementType = GetMarvinAtomSymbol(atom);
+          GetMarvinAtomInfo(atom, marvinAtom);
           
           marvinAtom->formalCharge = atom->getFormalCharge();
-          if (!atom->hasQuery())
+          if (marvinAtom->isElement())
             marvinAtom->isotope = atom->getIsotope();
           
           if (!atom->getPropIfPresent(common_properties::molAtomMapNumber, marvinAtom->mrvMap))
@@ -497,15 +546,15 @@ namespace RDKit
 
           switch (group.getGroupType()) {
             case RDKit::StereoGroupType::STEREO_ABSOLUTE:
-              stereoGroupType = "ABS";
+              stereoGroupType = "abs";
               stereoCount = &absCount;
               break;
             case RDKit::StereoGroupType::STEREO_OR:
-              stereoGroupType = "OR";
+              stereoGroupType = "or";
               stereoCount = &orCount;
               break;
             case RDKit::StereoGroupType::STEREO_AND:
-                stereoGroupType = "AND";
+                stereoGroupType = "and";
                 stereoCount = &andCount;
               break;
             default:
@@ -586,7 +635,75 @@ namespace RDKit
     }
 
 
-    void AddMarvinPluses(MarvinReaction &rxn, std::vector<MarvinMol *>molList, int &arrowPlusCount)
+    double GetArrowPerdendicularPosition(
+      std::vector<MarvinMol *>molList   // list of mols (agents) to examince for a space for the arrow
+      , bool verticalFlag)              // if verticalFlag, the arrow is to be placed horizonatally, so look for a vertical (y) space
+    {
+      // dividing the mols into rows and sorted by y value
+
+      std::vector<MarvinRectangle> rectangleList;
+      for (auto mol : molList)
+      {
+        // see if there is horizontal overlap with any existing row
+
+        MarvinRectangle molRect(mol->atoms);
+        bool foundOverlap = false;
+        for (MarvinRectangle rectangle : rectangleList)
+        {           
+            if ((verticalFlag == true && molRect.overlapsVertically(rectangle))
+              ||
+                (verticalFlag == false && molRect.overlapsVHorizontally(rectangle)))
+            {
+              rectangle.extend(molRect);
+              foundOverlap = true;
+              break;
+            }          
+        }
+
+        if (!foundOverlap)  // no overlap with a current row rectangle, so make a new one
+          rectangleList.push_back(molRect);
+      }
+          
+      //sort the rows by X or Y, depending on vertical flag
+
+      if (verticalFlag)
+        std::sort(rectangleList.begin(), rectangleList.end(), MarvinRectangle::compareRectanglesByY);
+      else        
+        std::sort(rectangleList.begin(), rectangleList.end(), MarvinRectangle::compareRectanglesByX);
+
+      // find a  spot for the arrow between rectangles, if possible
+
+      for (auto rect1 = rectangleList.begin(); rect1 != rectangleList.end() ; ++rect1)
+      {
+        auto rect2 = rect1 + 1;
+        if (rect2 == rectangleList.end())
+          break;
+        
+        // see if there is room between for the arrow
+        
+        if (verticalFlag)
+        {
+          if (rect2->lowerRight.y - rect1->upperLeft.y >= ARROW_SPACE)
+              return (rect2->lowerRight.y + rect1->upperLeft.y)/2.0;
+        }
+        else
+        {
+          if (rect2->upperLeft.x - rect1->lowerRight.x >= ARROW_SPACE)
+              return (rect2->upperLeft.x + rect1->lowerRight.x)/2.0;
+        }
+      }
+
+      //if made it to here no spot was found, so place the arrow under the bottom rectangle or left of the the leftmost one
+
+      if (verticalFlag)
+        return rectangleList.front().lowerRight.y - ARROW_SPACE;
+      else
+        return rectangleList.front().upperLeft.x - ARROW_SPACE;
+
+    }
+
+
+    void AddMarvinPluses(MarvinReaction &rxn, std::vector<MarvinMol *>molList, int &plusCount)
     {
       // dividing the mols into rows and sorted by y value
 
@@ -640,19 +757,19 @@ namespace RDKit
             double y;
 
             // see if there is room between for the +
-            if (rect2->lowerRight.x - rect1->upperLeft.x >= 0.5)
+            if (rect2->lowerRight.x - rect1->upperLeft.x >= PLUS_SPACE)
                 y = (rect2->getCenter().y + rect1->getCenter().y)/2.0;
             else  // put it under the two rectangles
-              y = std::min<double>(rect1->lowerRight.y, rect2->lowerRight.y) - 0.25;
+              y = std::min<double>(rect1->lowerRight.y, rect2->lowerRight.y) - PLUS_SPACE/2.0;
 
             auto newMarvinPlus = new MarvinPlus();
             rxn.pluses.push_back(newMarvinPlus);
 
-            newMarvinPlus->id = "o" + std::to_string(++arrowPlusCount);
-            newMarvinPlus->x1 = x - 0.25;
-            newMarvinPlus->y1 = y - 0.25;
-            newMarvinPlus->x2 = x + 0.25;
-            newMarvinPlus->y2 = y + 0.25;
+            newMarvinPlus->id = "o" + std::to_string(++plusCount);
+            newMarvinPlus->x1 = x - PLUS_SPACE/2.0;
+            newMarvinPlus->y1 = y - PLUS_SPACE/2.0;
+            newMarvinPlus->x2 = x + PLUS_SPACE/2.0;
+            newMarvinPlus->y2 = y + PLUS_SPACE/2.0;
         }
 
       // for each row after the first, add plus
@@ -664,7 +781,7 @@ namespace RDKit
 
           double x = rowPtr->front().upperLeft.x;
           double y = rowPtr->front().getCenter().y;
-          newMarvinPlus->id = "o" + std::to_string(++arrowPlusCount);
+          newMarvinPlus->id = "o" + std::to_string(++plusCount);
           newMarvinPlus->x1 = x - 0.25;
           newMarvinPlus->y1 = y - 0.25;
           newMarvinPlus->x2 = x + 0.25;
@@ -699,15 +816,13 @@ namespace RDKit
           marvinReaction->products.push_back(MolToMarvinMol(&rwMol, molCount, atomCount, bondCount, sgCount, confId));
         }
 
-        // make up some arrows
+        // make up some pluses
 
-        int arrowPlusCount = 0;
-        AddMarvinPluses(*marvinReaction, marvinReaction->reactants, arrowPlusCount);
-        AddMarvinPluses(*marvinReaction, marvinReaction->products, arrowPlusCount);
+        int plusCount = 0;
+        AddMarvinPluses(*marvinReaction, marvinReaction->reactants, plusCount);
+        AddMarvinPluses(*marvinReaction, marvinReaction->products, plusCount);
 
         // add a reaction arrow
-
-
         // get the overall rectangle for the reactants and the one for the products
 
         if (marvinReaction->reactants.size() > 0 && marvinReaction->products.size() > 0)
@@ -724,26 +839,32 @@ namespace RDKit
 
           // if there is room between the reactants and products, put the arrow there
 
-          if (productRect.upperLeft.x - reactantRect.lowerRight.x  > 2.0)
+          if (productRect.upperLeft.x - reactantRect.lowerRight.x  > ARROW_MIN_LENGTH + 2.0*ARROW_SPACE)
           {
-            marvinReaction->arrow.x1 = reactantRect.lowerRight.x + 0.5;
-            marvinReaction->arrow.x2 = productRect.upperLeft.x - 0.5;
-            marvinReaction->arrow.y1 =(reactantRect.getCenter().y + productRect.getCenter().y)/2.0;
+            marvinReaction->arrow.x1 = reactantRect.lowerRight.x + ARROW_SPACE;
+            marvinReaction->arrow.x2 = productRect.upperLeft.x - ARROW_SPACE;
+            if (marvinReaction->agents.size() > 0)
+              marvinReaction->arrow.y1 = GetArrowPerdendicularPosition(marvinReaction->agents, true);
+            else
+              marvinReaction->arrow.y1 =(reactantRect.getCenter().y + productRect.getCenter().y)/2.0;  // no agents = just put it based on the reactant and products
             marvinReaction->arrow.y2 = marvinReaction->arrow.y1;
           }
           // if not enough room between the reactants and product horizontally, try vertically
 
-          else if (productRect.upperLeft.y - reactantRect.lowerRight.y  > 2.0)
+          else if (reactantRect.lowerRight.y -productRect.upperLeft.y   > ARROW_MIN_LENGTH + 2.0*ARROW_SPACE)
           {
-            marvinReaction->arrow.x1 = (reactantRect.getCenter().x + productRect.getCenter().x)/2.0;
+            if (marvinReaction->agents.size() > 0)
+              marvinReaction->arrow.x1 = GetArrowPerdendicularPosition(marvinReaction->agents, false);
+            else
+              marvinReaction->arrow.x1 = (reactantRect.getCenter().x + productRect.getCenter().x)/2.0; // no agents = just put it based on the reactant and products
             marvinReaction->arrow.x2 = marvinReaction->arrow.x1;
-            marvinReaction->arrow.y1 =reactantRect.lowerRight.y + 0.5;
-            marvinReaction->arrow.y2 =productRect.upperLeft.y - 0.5;
+            marvinReaction->arrow.y1 = reactantRect.lowerRight.y - ARROW_SPACE;
+            marvinReaction->arrow.y2 = productRect.upperLeft.y + ARROW_SPACE;
           }
 
           // if not good horizontal nor vertical place, just put it between the centers (hack)
 
-          else if ((reactantRect.getCenter() - productRect.getCenter()).length() > 2.0)
+          else if ((reactantRect.getCenter() - productRect.getCenter()).length() > ARROW_MIN_LENGTH + 2.0*ARROW_SPACE)
           {
             marvinReaction->arrow.x1 = reactantRect.getCenter().x;
             marvinReaction->arrow.x2 = productRect.getCenter().x;
@@ -755,8 +876,8 @@ namespace RDKit
 
           else
           {
-            marvinReaction->arrow.x1 = reactantRect.lowerRight.x + 0.5;
-            marvinReaction->arrow.x2 = reactantRect.lowerRight.x + 1.5;
+            marvinReaction->arrow.x1 = reactantRect.lowerRight.x + ARROW_SPACE;
+            marvinReaction->arrow.x2 = reactantRect.lowerRight.x + ARROW_MIN_LENGTH + ARROW_SPACE;
             marvinReaction->arrow.y1 =(reactantRect.getCenter().y + productRect.getCenter().y)/2.0;
             marvinReaction->arrow.y2 = marvinReaction->arrow.y1;
           }

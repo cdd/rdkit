@@ -107,12 +107,15 @@ namespace RDKit
         int mrvMap;
         std::string sgroupRef;
         std::string sgroupAttachmentPoint;
+        int rgroupRef;
 
         MarvinAtom();
     
         bool operator==(const MarvinAtom& rhs) const;
        
         bool operator==(const MarvinAtom *rhs) const;
+
+        bool isElement() const;
 
         std::string toString() const;
     };

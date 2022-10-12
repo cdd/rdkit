@@ -72,10 +72,11 @@ namespace RDKit
     }
 
     MarvinAtom::MarvinAtom()
-        : x2(DBL_MIN)
-        , y2(DBL_MIN)
+        : x2(DBL_MAX)
+        , y2(DBL_MAX)
         , formalCharge(0)
         , mrvMap(0)
+        , rgroupRef (-1)   // indicates that it was not specified
     {
     }
 
@@ -89,6 +90,12 @@ namespace RDKit
         return this->id == rhs->id;
     }
 
+    bool MarvinAtom::isElement() const
+    {
+        return this->elementType != "R" && this->elementType != "*";
+    }
+
+
     std::string MarvinAtom::toString() const
     {
         // <atom id="a7" elementType="C" x2="15.225" y2="-8.3972" sgroupAttachmentPoint="1"/>
@@ -96,7 +103,7 @@ namespace RDKit
         std::ostringstream out;
         out << "<atom id=\"" << id << "\" elementType=\"" << elementType << "\"";
         
-        if (x2 != DBL_MIN && y2 != DBL_MIN)
+        if (x2 != DBL_MAX && y2 != DBL_MAX)
              out << " x2=\"" << x2 << "\" y2=\"" << y2 << "\"";
 
         if (formalCharge !=0)
@@ -105,7 +112,7 @@ namespace RDKit
         if (radical != "")
             out << " radical=\"" << radical << "\"";
 
-        if (isotope != 0)
+        if (isElement() &&  isotope != 0)
             out << " isotope=\"" << isotope << "\"";
 
         if (mrvAlias != "")
@@ -189,8 +196,8 @@ namespace RDKit
     {
         std::ostringstream out;
 
-        out << "<molecule molID=\"" << molID << "\" id=\"" << id << "\" role=\"SruSgroup\" atomRefs=\"" << boost::algorithm::join(atomRefs,",") << "\" title=\"" << title 
-        <<"\" connect=\"" << connect << "\" correspondence=\"" << correspondence << "\" bondList=\"" << boost::algorithm::join(bondList,",") << "\"/>";
+        out << "<molecule molID=\"" << molID << "\" id=\"" << id << "\" role=\"SruSgroup\" atomRefs=\"" << boost::algorithm::join(atomRefs," ") << "\" title=\"" << title 
+        <<"\" connect=\"" << connect << "\" correspondence=\"" << correspondence << "\" bondList=\"" << boost::algorithm::join(bondList," ") << "\"/>";
 
         return out.str();
     }
@@ -414,7 +421,7 @@ namespace RDKit
             auto bondIter = find_if(bonds.begin(), bonds.end(), [attachIter](const MarvinBond *arg) { 
                                             return arg->id == (*attachIter)->bond; });
             if (bondIter == bonds.end())
-            throw FileParseException("Bond specification for an AttachmentPoint definition was not found in the bond array in MRV file");
+                throw FileParseException("Bond specification for an AttachmentPoint definition was not found in the bond array in MRV file");
 
             // one of the two atoms in the bond is NOT in the mol - we deleted the dummy atom.
 
@@ -527,20 +534,23 @@ namespace RDKit
             this->bonds.erase(this->bonds.begin() + index);
         }
 
+        // add the dummy atom into the parent
+
+        MarvinAtom *dummyParentAtom = new MarvinAtom();
+            this->atoms.push_back(dummyParentAtom);
+            dummyParentAtom->elementType = "R";
+            dummyParentAtom->id = newAtomName;
+            dummyParentAtom->sgroupRef = marvinSuperatomSgroup->id;
+
         // now if we found one atom of a bond that was in the group, we have an attachment point.
 
         if (atomInGroup != "")
         {
             // add an attachment  atom to the parent 
 
-            MarvinAtom *attachAtom = new MarvinAtom();
-            this->atoms.push_back(attachAtom);
-            attachAtom->elementType = "R";
-            attachAtom->id = newAtomName;
-            attachAtom->sgroupRef = marvinSuperatomSgroup->id;
             MarvinAtom *atomPtr = marvinSuperatomSgroup->atoms[marvinSuperatomSgroup->getAtomIndex(atomInGroup)];
-            attachAtom->x2 = atomPtr->x2;
-            attachAtom->y2 = atomPtr->y2;
+            dummyParentAtom->x2 = atomPtr->x2;
+            dummyParentAtom->y2 = atomPtr->y2;
             atomPtr->sgroupAttachmentPoint = "1";
 
             // add an attachentPoint structure
@@ -550,6 +560,20 @@ namespace RDKit
             marvinAttachmentPoint->atom = atomInGroup;
             marvinAttachmentPoint->bond = attachmentBondInParent->id;
             marvinAttachmentPoint->order = attachmentBondInParent->order;
+        }
+        else if  (marvinSuperatomSgroup->atoms.size() > 0) 
+        {
+            // no bond to the super group was found - this happens when the entire mol is the super-group. e.g THF as an agent in rxn
+            // use the coords of the first atom in the super group
+
+            dummyParentAtom->x2 = marvinSuperatomSgroup->atoms[0]->x2;
+            dummyParentAtom->y2 = marvinSuperatomSgroup->atoms[0]->y2;
+        }
+        else
+        {
+            // should not happen - there are not ataoms in the supergroup
+            dummyParentAtom->x2 = 0.0;
+            dummyParentAtom->y2 =  0.0;
         }
 
         delete marvinSuperInfo;  // this converted to a super group
@@ -688,53 +712,61 @@ namespace RDKit
 
     MarvinRectangle::MarvinRectangle(double left, double right, double top, double bottom)
     {
-    upperLeft.x = left;
-    upperLeft.y = top;
-    lowerRight.x = right;
-    lowerRight.y = bottom;
-    center = NULL;
+        upperLeft.x = left;
+        upperLeft.y = top;
+        lowerRight.x = right;
+        lowerRight.y = bottom;
+        center = NULL;
     }
 
     MarvinRectangle::MarvinRectangle(const RDGeom::Point3D &upperLeftInit, const RDGeom::Point3D &lowerRightInit)
     {
-    upperLeft = upperLeftInit;
-    lowerRight = lowerRightInit;
-    center = NULL;
+        upperLeft = upperLeftInit;
+        lowerRight = lowerRightInit;
+        center = NULL;
     }
 
     MarvinRectangle::MarvinRectangle(const std::vector<MarvinAtom *> atoms)
     {
-    center = NULL;
+        center = NULL;
 
-    for (auto atom : atoms)
-    {
-        if (atom->x2 < upperLeft.x)
-            upperLeft.x = atom->x2;
-        if (atom->x2 > lowerRight.x)
-            lowerRight.x = atom->x2;
+        if (atoms.size() == 0)
+            return;
+        upperLeft.x = DBL_MAX;
+        upperLeft.y = -DBL_MAX;
+        lowerRight.x = -DBL_MAX;
+        lowerRight.y = DBL_MAX;
 
-        
-        if (atom->y2 > upperLeft.y)
-            upperLeft.y = atom->y2;
-        if (atom->y2 < lowerRight.y)
-            lowerRight.y = atom->y2;
-    }
+
+        for (auto atom : atoms)
+        {
+            if (atom->x2 < upperLeft.x)
+                upperLeft.x = atom->x2;
+            if (atom->x2 > lowerRight.x)
+                lowerRight.x = atom->x2;
+
+            
+            if (atom->y2 > upperLeft.y)
+                upperLeft.y = atom->y2;
+            if (atom->y2 < lowerRight.y)
+                lowerRight.y = atom->y2;
+        }
     }
 
     void MarvinRectangle::extend(const MarvinRectangle &otherRectangle)
     {  
-    if (otherRectangle.upperLeft.x < upperLeft.x)
-        upperLeft.x = otherRectangle.upperLeft.x;
-    if (otherRectangle.lowerRight.x > lowerRight.x)
-        lowerRight.x = otherRectangle.lowerRight.x;
+        if (otherRectangle.upperLeft.x < upperLeft.x)
+            upperLeft.x = otherRectangle.upperLeft.x;
+        if (otherRectangle.lowerRight.x > lowerRight.x)
+            lowerRight.x = otherRectangle.lowerRight.x;
 
-    
-    if (otherRectangle.upperLeft.y > upperLeft.y)
-        upperLeft.y = otherRectangle.upperLeft.y;
-    if (otherRectangle.lowerRight.y < lowerRight.y)
-        lowerRight.y = otherRectangle.lowerRight.y;
-    
-    center = NULL;
+        
+        if (otherRectangle.upperLeft.y > upperLeft.y)
+            upperLeft.y = otherRectangle.upperLeft.y;
+        if (otherRectangle.lowerRight.y < lowerRight.y)
+            lowerRight.y = otherRectangle.lowerRight.y;
+        
+        center = NULL;
     }
 
     RDGeom::Point3D MarvinRectangle::getCenter()

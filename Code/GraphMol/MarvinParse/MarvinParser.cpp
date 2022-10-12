@@ -225,38 +225,32 @@ namespace RDKit
         std::string symb = marvinAtom->elementType;
         boost::trim(symb);
         
-        if (symb == "R") 
+        if (symb == "*") 
         {
-            auto *query = new QueryAtom(0);
+            auto *query = new QueryAtom(0);   // wHAT IS AUTO *
             res = query;
             query->setQuery(makeAtomNullQuery());
+            query->setProp(common_properties::dummyLabel, "*");
             // queries have no implicit Hs:
             res->setNoImplicit(true);
         } 
-        else if (symb[0] == 'R' && symb >= "R0" && symb <= "R99") 
+        else if (symb  == "R") 
         {
-          auto *query = new QueryAtom(0);
+          // It must have an  mrvAlias and rgroupRef/>
+          
+          if ( marvinAtom->mrvAlias == "" || marvinAtom->rgroupRef >= 0)
+            throw FileParseException("Expected an R group atom to have both an mrvAlias and rgroupRef designation");
+          
+          auto *query = new QueryAtom(0);   // wHAT IS AUTO *
           res = query;
+  
+          query->setProp(common_properties::_MolFileRLabel, marvinAtom->rgroupRef);
+          std::string dLabel = "R" + std::to_string(marvinAtom->rgroupRef);
+          query->setProp(common_properties::dummyLabel, dLabel);
+          query->setIsotope(marvinAtom->rgroupRef);
           query->setQuery(makeAtomNullQuery());
+        }
 
-          if ( marvinAtom->isotope == 0)
-          {
-            std::string rlabel = "";
-            rlabel = symb.substr(1, symb.length() - 1);
-            int rnumber;
-            try 
-            {
-              rnumber = boost::lexical_cast<int>(rlabel);
-            } catch (boost::bad_lexical_cast &) {
-              rnumber = -1;
-            }
-            if (rnumber >= 0) 
-            {
-              res->setIsotope(rnumber);
-            }
-          }
-        } 
-      
         else if (symb.size() <= 2) 
         {
           // must be a regular atom
@@ -924,7 +918,11 @@ namespace RDKit
 
               mrvAtom->mrvAlias = v.second.get<std::string>("<xmlattr>.mrvAlias", "");
 
+              mrvAtom->rgroupRef = v.second.get<int>("<xmlattr>.rgroupRef", -1);
+
               mrvAtom->mrvStereoGroup = v.second.get<std::string>("<xmlattr>.mrvStereoGroup", "");
+              if (mrvAtom->mrvStereoGroup == "0")
+                mrvAtom->mrvStereoGroup = "";
 
               std::string mrvMap = v.second.get<std::string>("<xmlattr>.mrvMap", "");
               if (mrvMap != "")
@@ -983,6 +981,11 @@ namespace RDKit
             std::string mrvAlias = atomArray.get<std::string>("<xmlattr>.mrvAlias", "");
             boost::algorithm::split(mrvAliases,mrvAlias,boost::algorithm::is_space());
 
+
+            std::vector<std::string> rgroupRefs;
+            std::string rgroupRef = atomArray.get<std::string>("<xmlattr>.rgroupRef", "");
+            boost::algorithm::split(rgroupRefs,rgroupRef,boost::algorithm::is_space());
+    
             std::vector<std::string> mrvStereoGroups;
             std::string mrvStereoGroup = atomArray.get<std::string>("<xmlattr>.mrvStereoGroup", "");
             boost::algorithm::split(mrvStereoGroups,mrvStereoGroup,boost::algorithm::is_space());
@@ -1052,9 +1055,20 @@ namespace RDKit
                 mrvAtom->mrvAlias = mrvAliases[i];
               else
                 mrvAtom->mrvAlias = "";
+
+
+              if (rgroupRef != "" && rgroupRefs.size() > i)
+              {
+                if (!getCleanInt(rgroupRefs[i],mrvAtom->rgroupRef))
+                  throw FileParseException("rgroupRef value must be an integer in MRV file");
+              }
+              else
+                mrvAtom->rgroupRef = (-1);                  
               
-              if (mrvStereoGroup != "" && mrvStereoGroups.size() > i)
+              if (mrvStereoGroup != "" && mrvStereoGroups.size() > i && mrvStereoGroups[i] != "0")  // "0" is NOT a stereo group
+              {
                 mrvAtom->mrvStereoGroup = mrvStereoGroups[i];
+              }
               else
                 mrvAtom->mrvStereoGroup = "";       
               

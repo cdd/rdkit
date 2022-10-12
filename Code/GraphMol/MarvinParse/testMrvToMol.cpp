@@ -97,23 +97,6 @@ class RxnTest : public MolOrRxnTest
 
 
 
-void testMrvToMol(RWMol *mol,const MolTest *molTest)
-{
-  // MolOps::sanitizeMol(*m);
-  TEST_ASSERT(mol != NULL);
-
-  // if (mol->getNumAtoms() != molTest->atomCount)
-  //   printf("mol->getNumAtoms(): %d    molTest->atomCount: %d\n" ,mol->getNumAtoms(), molTest->atomCount);
-  // if (mol->getNumBonds() != molTest->bondCount)
-  //   printf("mol->getNumBonds(): %d    molTest->bondCount: %d\n" ,mol->getNumBonds(), molTest->bondCount);
-  TEST_ASSERT(mol->getNumAtoms() == molTest->atomCount)
-  TEST_ASSERT(mol->getNumBonds() == molTest->bondCount)
-  
-  //delete mol;
-  BOOST_LOG(rdInfoLog) << "done" << std::endl;
-}
-
-
 
 
 void *GetMolOrReaction(const MolOrRxnTest *molOrRxnTest, bool &isReaction)
@@ -197,13 +180,13 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
         out << outMolStr << "\n";
       }  
       
-      // ofName =  fName + ".OUT.mrv";
-      // outMolStr = ChemicalReactionToMrvBlock(*rxn);
-      // {
-      //   std::ofstream  out;
-      //   out.open(ofName);
-      //   out << outMolStr << "\n";
-      // }      
+      ofName =  fName + ".OUT.mrv";
+      outMolStr = ChemicalReactionToMrvBlock(*rxn);
+      {
+        std::ofstream  out;
+        out.open(ofName);
+        out << outMolStr << "\n";
+      }      
 
       unsigned int nWarn=0, nError=0;
         
@@ -250,13 +233,13 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
         out << outMolStr << "\n";
       }      
 
-      // ofName =  fName + ".OUT.mrv";
-      // outMolStr = MolToMrvBlock(*mol,true, -1, true);
-      // {
-      //   std::ofstream  out;
-      //   out.open(ofName);
-      //   out << outMolStr << "\n";
-      // }      
+      ofName =  fName + ".OUT.mrv";
+      outMolStr = MolToMrvBlock(*mol,true, -1, true);
+      {
+        std::ofstream  out;
+        out.open(ofName);
+        out << outMolStr << "\n";
+      }      
 
       // MolOps::sanitizeMol(*m);
       TEST_ASSERT(mol != NULL);
@@ -299,7 +282,7 @@ void RunTests()
      MolTest("ketback01.mrv", true, LoadAsMolOrRxn, 11,11)
     ,MolTest("ketback01.mrv", true, LoadAsMol, 11,11)
     ,MolTest("ketback01.mrv", false, LoadAsRxn, 11,11)   // should fail
-       ,MolTest("ketback02.mrv",true,LoadAsMolOrRxn, 9,9)
+    ,MolTest("ketback02.mrv",true,LoadAsMolOrRxn, 9,9)
     ,MolTest("ketback07.mrv",true,LoadAsMolOrRxn, 12,11)
     ,MolTest("ketback10.mrv",true,LoadAsMolOrRxn, 10,10)
     ,MolTest("marvin06.mrv",true,LoadAsMolOrRxn, 11,11)
@@ -309,6 +292,8 @@ void RunTests()
     ,MolTest("Sparse2.mrv",true,LoadAsMolOrRxn, 0,0)
     ,MolTest("Sparse3.mrv",true,LoadAsMolOrRxn, 0,0)
     ,MolTest("MarvinNoCoords.mrv",true,LoadAsMolOrRxn, 6,6)
+    ,MolTest("aspirin.mrv",true, LoadAsMolOrRxn, 13,13)  
+    ,MolTest("MarvinStereoGroupsZeros.mrv",true, LoadAsMolOrRxn, 8,8)  
     ,MolTest("MarvinMissingX2.mrv",true,LoadAsMolOrRxn, 12,11)  // should fail - missing atom X2 coord
     ,MolTest("MarvinMissingY2.mrv",true,LoadAsMolOrRxn, 12,11)  // should fail - missing atom Y2 coord
     ,MolTest("ketback03.mrv",false,LoadAsMolOrRxn, 31,33)  // should fail - this is a reaction
@@ -339,7 +324,6 @@ void RunTests()
     ,MolTest("MarvinBadSupAttachAtom.mrv",false, LoadAsMolOrRxn, 9,9)  // should fail -
     ,MolTest("MarvinBadSupMissingAttachBond.mrv",false, LoadAsMolOrRxn, 9,9)  // should fail -
     ,MolTest("MarvinBadSupMissingAttachOrder.mrv",false, LoadAsMolOrRxn, 9,9)  // should fail -
-    ,MolTest("aspirin.mrv",true, LoadAsMolOrRxn, 13,13)  
   };
 
   for (std::list<MolTest>::const_iterator it = molFileNames.begin() ; it != molFileNames.end(); ++it)

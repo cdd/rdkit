@@ -107,12 +107,15 @@ namespace RDKit
         int mrvMap;
         std::string sgroupRef;
         std::string sgroupAttachmentPoint;
+        int rgroupRef;
 
         MarvinAtom();
     
         bool operator==(const MarvinAtom& rhs) const;
        
         bool operator==(const MarvinAtom *rhs) const;
+
+        bool isElement() const;
 
         std::string toString() const;
     };
@@ -250,7 +253,8 @@ namespace RDKit
     class MarvinRectangle
     {
       private:
-      RDGeom::Point3D *center;
+      RDGeom::Point3D center;
+      bool centerIsStale;
       
       public:
       RDGeom::Point3D upperLeft;
@@ -262,7 +266,7 @@ namespace RDKit
       
       void extend(const MarvinRectangle &otherRectangle);
      
-      RDGeom::Point3D getCenter();
+      RDGeom::Point3D &getCenter();
       
       bool overlapsVertically(const MarvinRectangle &otherRectangle) const;
       

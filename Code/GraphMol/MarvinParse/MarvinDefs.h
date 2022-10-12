@@ -253,7 +253,8 @@ namespace RDKit
     class MarvinRectangle
     {
       private:
-      RDGeom::Point3D *center;
+      RDGeom::Point3D center;
+      bool centerIsStale;
       
       public:
       RDGeom::Point3D upperLeft;
@@ -265,7 +266,7 @@ namespace RDKit
       
       void extend(const MarvinRectangle &otherRectangle);
      
-      RDGeom::Point3D getCenter();
+      RDGeom::Point3D &getCenter();
       
       bool overlapsVertically(const MarvinRectangle &otherRectangle) const;
       

@@ -97,23 +97,6 @@ class RxnTest : public MolOrRxnTest
 
 
 
-void testMrvToMol(RWMol *mol,const MolTest *molTest)
-{
-  // MolOps::sanitizeMol(*m);
-  TEST_ASSERT(mol != NULL);
-
-  // if (mol->getNumAtoms() != molTest->atomCount)
-  //   printf("mol->getNumAtoms(): %d    molTest->atomCount: %d\n" ,mol->getNumAtoms(), molTest->atomCount);
-  // if (mol->getNumBonds() != molTest->bondCount)
-  //   printf("mol->getNumBonds(): %d    molTest->bondCount: %d\n" ,mol->getNumBonds(), molTest->bondCount);
-  TEST_ASSERT(mol->getNumAtoms() == molTest->atomCount)
-  TEST_ASSERT(mol->getNumBonds() == molTest->bondCount)
-  
-  //delete mol;
-  BOOST_LOG(rdInfoLog) << "done" << std::endl;
-}
-
-
 
 
 void *GetMolOrReaction(const MolOrRxnTest *molOrRxnTest, bool &isReaction)

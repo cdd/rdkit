@@ -457,130 +457,131 @@ namespace RDKit
 
     void MarvinMol::convertToSuperAtoms()
     {
-    // the mol-style super atoms are significatnly different than the Marvin super atoms.  The mol style has all atoms and bonds in the main mol, and parameter lines that
-    // indicate the name of the super atom and the atom indices affected.
-    //
-    // The Marvin as a dummy atom with the super atom name in the main molecule, and a separate sub-mol with the atoms and bonds of the superatom.  It also has a separate record 
-    // called attachmentPoint that atom in the super atom sub=mol that is replaces the dummy atom, and also a bond pointer and bond order in case the bond order changes.
-    //
-    //  Takes information from a MarvinSuperInfos and converts the Marvin structure  to have the super atoms defined
+        // the mol-style super atoms are significatnly different than the Marvin super atoms.  The mol style has all atoms and bonds in the main mol, and parameter lines that
+        // indicate the name of the super atom and the atom indices affected.
+        //
+        // The Marvin as a dummy atom with the super atom name in the main molecule, and a separate sub-mol with the atoms and bonds of the superatom.  It also has a separate record 
+        // called attachmentPoint that atom in the super atom sub=mol that is replaces the dummy atom, and also a bond pointer and bond order in case the bond order changes.
+        //
+        //  Takes information from a MarvinSuperInfos and converts the Marvin structure  to have the super atoms defined
 
-    int superGroupsAdded = 0;
-    for (auto marvinSuperInfo : this->superInfos)
-    {
-        // make a new sub mol
-
-        auto marvinSuperatomSgroup = new MarvinSuperatomSgroup();
-        this->superatomSgroups.push_back(marvinSuperatomSgroup);
-        superGroupsAdded++;
-        std::string newAtomName =  "NA" + std::to_string( superGroupsAdded);
-
-        marvinSuperatomSgroup->molID = "AS";
-        marvinSuperatomSgroup->title = marvinSuperInfo->title;
-        marvinSuperatomSgroup->id = "nsg" + std::to_string(superGroupsAdded);  // n in nsg ensures no colllision with other sgs already in the mol 
-
-        for (auto atom : marvinSuperInfo->atoms)
+        int superGroupsAdded = 0;
+        for (auto marvinSuperInfo : this->superInfos)
         {
-            // Find the atom in the main structure
+            // make a new sub mol
 
-            int index = this->getAtomIndex(atom);
-            MarvinAtom *atomToMove = this->atoms[index];
-            marvinSuperatomSgroup->atoms.push_back(atomToMove);
-            this->atoms.erase(this->atoms.begin() + index);
-        }
+            auto marvinSuperatomSgroup = new MarvinSuperatomSgroup();
+            this->superatomSgroups.push_back(marvinSuperatomSgroup);
+            superGroupsAdded++;
+            std::string newAtomName =  "NA" + std::to_string( superGroupsAdded);
 
-        // move the bonds of the group
-        
-        MarvinBond *attachmentBondInParent = NULL;
-        std::string atomInGroup = "";
-        for (auto bond : this->bonds)
-        {
-            bool atom1IsInGroup = boost::algorithm::contains(marvinSuperatomSgroup->atoms, std::vector<std::string>{(bond)->atomRefs2[0]}, atomRefInAtoms );
-            bool atom2IsInGroup = boost::algorithm::contains(marvinSuperatomSgroup->atoms, std::vector<std::string>{(bond)->atomRefs2[1]}, atomRefInAtoms );
+            marvinSuperatomSgroup->molID = "AS";
+            marvinSuperatomSgroup->title = marvinSuperInfo->title;
+            marvinSuperatomSgroup->id = "nsg" + std::to_string(superGroupsAdded);  // n in nsg ensures no colllision with other sgs already in the mol 
 
-
-            if (atom1IsInGroup && atom2IsInGroup )  // both are in, so move the bond
-                marvinSuperatomSgroup->bonds.push_back(bond);
-
-
-            // see if one atom of the bond is in the group to be created.  
-            else if (atom1IsInGroup)
+            for (auto atom : marvinSuperInfo->atoms)
             {
-                if (atomInGroup != "")  // already found - we aonly alow one attachment point
-                    throw MarvinWriterException("Multiple attachment points for SuperGroup is not supported");
-                
-                
-                atomInGroup = bond->atomRefs2[0];
-                bond->atomRefs2[0] = newAtomName;  // fix the bond that was attached to the moved attachment atom
-                attachmentBondInParent = bond;
+                // Find the atom in the main structure
 
+                int index = this->getAtomIndex(atom);
+                MarvinAtom *atomToMove = this->atoms[index];
+                marvinSuperatomSgroup->atoms.push_back(atomToMove);
+                this->atoms.erase(this->atoms.begin() + index);
             }
-            else if  (atom2IsInGroup)
+
+            // move the bonds of the group
+            
+            MarvinBond *attachmentBondInParent = NULL;
+            std::string atomInGroup = "";
+            for (auto bond : this->bonds)
             {
-                if (atomInGroup != "")  // already found - we aonly alow one attachment point
-                    throw  MarvinWriterException("Multiple attachment points for SuperGroup is not supported");
-                
-                atomInGroup = bond->atomRefs2[1];
-                bond->atomRefs2[1] = newAtomName;  // fix the bond that was attached to the moved attachment atom
-                attachmentBondInParent = bond;
+                bool atom1IsInGroup = boost::algorithm::contains(marvinSuperatomSgroup->atoms, std::vector<std::string>{(bond)->atomRefs2[0]}, atomRefInAtoms );
+                bool atom2IsInGroup = boost::algorithm::contains(marvinSuperatomSgroup->atoms, std::vector<std::string>{(bond)->atomRefs2[1]}, atomRefInAtoms );
+
+
+                if (atom1IsInGroup && atom2IsInGroup )  // both are in, so move the bond
+                    marvinSuperatomSgroup->bonds.push_back(bond);
+
+
+                // see if one atom of the bond is in the group to be created.  
+                else if (atom1IsInGroup)
+                {
+                    if (atomInGroup != "")  // already found - we aonly alow one attachment point
+                        throw MarvinWriterException("Multiple attachment points for SuperGroup is not supported");
+                    
+                    
+                    atomInGroup = bond->atomRefs2[0];
+                    bond->atomRefs2[0] = newAtomName;  // fix the bond that was attached to the moved attachment atom
+                    attachmentBondInParent = bond;
+
+                }
+                else if  (atom2IsInGroup)
+                {
+                    if (atomInGroup != "")  // already found - we aonly alow one attachment point
+                        throw  MarvinWriterException("Multiple attachment points for SuperGroup is not supported");
+                    
+                    atomInGroup = bond->atomRefs2[1];
+                    bond->atomRefs2[1] = newAtomName;  // fix the bond that was attached to the moved attachment atom
+                    attachmentBondInParent = bond;
+                }
+            } 
+
+            // now remove the bonds that were moved to the superGroup from the parent
+            
+            for (auto bond : marvinSuperatomSgroup->bonds)
+            {
+                int index = this->getBondIndex(bond->id);
+                this->bonds.erase(this->bonds.begin() + index);
             }
-        } 
 
-        // now remove the bonds that were moved to the superGroup from the parent
+            // add the dummy atom into the parent
+
+            MarvinAtom *dummyParentAtom = new MarvinAtom();
+                this->atoms.push_back(dummyParentAtom);
+                dummyParentAtom->elementType = "R";
+                dummyParentAtom->id = newAtomName;
+                dummyParentAtom->sgroupRef = marvinSuperatomSgroup->id;
+
+            // now if we found one atom of a bond that was in the group, we have an attachment point.
+
+            if (atomInGroup != "")
+            {
+                // add an attachment  atom to the parent 
+
+                MarvinAtom *atomPtr = marvinSuperatomSgroup->atoms[marvinSuperatomSgroup->getAtomIndex(atomInGroup)];
+                dummyParentAtom->x2 = atomPtr->x2;
+                dummyParentAtom->y2 = atomPtr->y2;
+                atomPtr->sgroupAttachmentPoint = "1";
+
+                // add an attachentPoint structure
+
+                auto marvinAttachmentPoint = new MarvinAttachmentPoint();
+                marvinSuperatomSgroup->attachmentPoints.push_back(marvinAttachmentPoint);
+                marvinAttachmentPoint->atom = atomInGroup;
+                marvinAttachmentPoint->bond = attachmentBondInParent->id;
+                marvinAttachmentPoint->order = attachmentBondInParent->order;
+            }
+            else if  (marvinSuperatomSgroup->atoms.size() > 0) 
+            {
+                // no bond to the super group was found - this happens when the entire mol is the super-group. e.g THF as an agent in rxn
+                // use the coords of the first atom in the super group
+
+                dummyParentAtom->x2 = marvinSuperatomSgroup->atoms[0]->x2;
+                dummyParentAtom->y2 = marvinSuperatomSgroup->atoms[0]->y2;
+            }
+            else
+            {
+                // should not happen - there are not ataoms in the supergroup
+                dummyParentAtom->x2 = 0.0;
+                dummyParentAtom->y2 =  0.0;
+            }
+
+        }
         
-        for (auto bond : marvinSuperatomSgroup->bonds)
-        {
-            int index = this->getBondIndex(bond->id);
-            this->bonds.erase(this->bonds.begin() + index);
-        }
+        for (auto marvinSuperInfo : this->superInfos)
+            delete marvinSuperInfo;
 
-        // add the dummy atom into the parent
-
-        MarvinAtom *dummyParentAtom = new MarvinAtom();
-            this->atoms.push_back(dummyParentAtom);
-            dummyParentAtom->elementType = "R";
-            dummyParentAtom->id = newAtomName;
-            dummyParentAtom->sgroupRef = marvinSuperatomSgroup->id;
-
-        // now if we found one atom of a bond that was in the group, we have an attachment point.
-
-        if (atomInGroup != "")
-        {
-            // add an attachment  atom to the parent 
-
-            MarvinAtom *atomPtr = marvinSuperatomSgroup->atoms[marvinSuperatomSgroup->getAtomIndex(atomInGroup)];
-            dummyParentAtom->x2 = atomPtr->x2;
-            dummyParentAtom->y2 = atomPtr->y2;
-            atomPtr->sgroupAttachmentPoint = "1";
-
-            // add an attachentPoint structure
-
-            auto marvinAttachmentPoint = new MarvinAttachmentPoint();
-            marvinSuperatomSgroup->attachmentPoints.push_back(marvinAttachmentPoint);
-            marvinAttachmentPoint->atom = atomInGroup;
-            marvinAttachmentPoint->bond = attachmentBondInParent->id;
-            marvinAttachmentPoint->order = attachmentBondInParent->order;
-        }
-        else if  (marvinSuperatomSgroup->atoms.size() > 0) 
-        {
-            // no bond to the super group was found - this happens when the entire mol is the super-group. e.g THF as an agent in rxn
-            // use the coords of the first atom in the super group
-
-            dummyParentAtom->x2 = marvinSuperatomSgroup->atoms[0]->x2;
-            dummyParentAtom->y2 = marvinSuperatomSgroup->atoms[0]->y2;
-        }
-        else
-        {
-            // should not happen - there are not ataoms in the supergroup
-            dummyParentAtom->x2 = 0.0;
-            dummyParentAtom->y2 =  0.0;
-        }
-
-        delete marvinSuperInfo;  // this converted to a super group
-    }
-        
-     
-    this->superInfos.clear();
+        this->superInfos.clear();
     }
 
     std::string MarvinMol::toString() const
@@ -716,19 +717,19 @@ namespace RDKit
         upperLeft.y = top;
         lowerRight.x = right;
         lowerRight.y = bottom;
-        center = NULL;
+        centerIsStale = true;
     }
 
     MarvinRectangle::MarvinRectangle(const RDGeom::Point3D &upperLeftInit, const RDGeom::Point3D &lowerRightInit)
     {
         upperLeft = upperLeftInit;
         lowerRight = lowerRightInit;
-        center = NULL;
+        centerIsStale = true;
     }
 
     MarvinRectangle::MarvinRectangle(const std::vector<MarvinAtom *> atoms)
     {
-        center = NULL;
+        centerIsStale = true;
 
         if (atoms.size() == 0)
             return;
@@ -766,18 +767,18 @@ namespace RDKit
         if (otherRectangle.lowerRight.y < lowerRight.y)
             lowerRight.y = otherRectangle.lowerRight.y;
         
-        center = NULL;
+        centerIsStale = true;
     }
 
-    RDGeom::Point3D MarvinRectangle::getCenter()
+    RDGeom::Point3D &MarvinRectangle::getCenter()
     {
-        if (center == NULL)
+        if (centerIsStale)
         {
-            center = new RDGeom::Point3D();
-            center->x = (lowerRight.x + upperLeft.x)/2.0;
-            center->y = (lowerRight.y + upperLeft.y)/2.0;
+            center.x = (lowerRight.x + upperLeft.x)/2.0;
+            center.y = (lowerRight.y + upperLeft.y)/2.0;
+            centerIsStale = false;
         }
-        return *center;
+        return center;
     }
 
     bool MarvinRectangle::overlapsVertically(const MarvinRectangle &otherRectangle) const

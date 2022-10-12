@@ -914,7 +914,11 @@ namespace RDKit
     GenericGroups::convertGenericQueriesToSubstanceGroups(trwmol);
 
     MarvinCMLWriter marvinCMLWriter;
-    return marvinCMLWriter.MolToMarvinMol(&trwmol, confId)->generateMolString();
+
+    auto marvinMol = marvinCMLWriter.MolToMarvinMol(&trwmol, confId);
+    std::string res = marvinMol->generateMolString();
+    delete marvinMol;
+    return res;
   }
 
   //------------------------------------------------
@@ -941,7 +945,11 @@ namespace RDKit
   {
     MarvinCMLWriter marvinCMLWriter;
 
-    return marvinCMLWriter.ChemicalReactionToMarvinRxn(&rxn)->toString();
+
+    auto marvinRxn = marvinCMLWriter.ChemicalReactionToMarvinRxn(&rxn);
+    std::string res = marvinRxn->toString();
+    delete marvinRxn;
+    return res;
   };
 
   void  ChemicalReactionToMrvFile(const ChemicalReaction &rxn, const std::string &fName) 

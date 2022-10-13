@@ -48,10 +48,8 @@
 #include "MarvinParser.h"
 #include "MarvinDefs.h"
 
-
 #include <GraphMol/RDKitQueries.h>
 #include <GraphMol/StereoGroup.h>
-#
 
 #include <RDGeneral/StreamOps.h>
 #include <RDGeneral/FileParseException.h>
@@ -66,12 +64,8 @@ using namespace RDKit::SGroupWriting;
 
 namespace RDKit 
 {
-
   class  MarvinCMLWriter
   {
-
-
-
     bool hasComplexQuery(const Atom *atom) 
     {
       PRECONDITION(atom, "bad atom");
@@ -386,7 +380,6 @@ namespace RDKit
           throw MarvinWriterException("Only 1,2,3,Aromatic, and query bonds SA, DA, and SD are supported for MarvinWriter");
       }
     }
-
     
     void GetMarvinBondStereoInfo(const Bond *bond, const INT_MAP_INT &wedgeBonds,
                                   const Conformer *conf,  Bond::BondDir &dir,
@@ -418,7 +411,6 @@ namespace RDKit
     }
 
   private:
-
 
     MarvinMol *MolToMarvinMol(RWMol *mol, int &molCount, int &atomCount, int &bondCount, int &sgCount, int confId=(-1))
     {
@@ -583,13 +575,13 @@ namespace RDKit
 
             for (auto atomIndex : sgroup.getAtoms())
             {
-                marvinSruSgroup->atomRefs.push_back(marvinMol->atoms[atomIndex]->id);
+                marvinSruSgroup->atoms.push_back(marvinMol->atoms[atomIndex]);
                 marvinMol->atoms[atomIndex]->sgroupRef =  marvinSruSgroup->id;
             }
             
             for (auto bondIndex : sgroup.getBonds())
             {
-                marvinSruSgroup->bondList.push_back(marvinMol->bonds[bondIndex]->id);
+                marvinSruSgroup->bonds.push_back(marvinMol->bonds[bondIndex]);
             }
           }
 
@@ -633,7 +625,6 @@ namespace RDKit
     {
       return MarvinRectangle::compareRectanglesByY(v1.front(), v2.front());  // just compare the first one in each row
     }
-
 
     double GetArrowPerdendicularPosition(
       std::vector<MarvinMol *>molList   // list of mols (agents) to examince for a space for the arrow
@@ -699,9 +690,7 @@ namespace RDKit
         return rectangleList.front().lowerRight.y - ARROW_SPACE;
       else
         return rectangleList.front().upperLeft.x - ARROW_SPACE;
-
     }
-
 
     void AddMarvinPluses(MarvinReaction &rxn, std::vector<MarvinMol *>molList, int &plusCount)
     {
@@ -788,9 +777,6 @@ namespace RDKit
           newMarvinPlus->y2 = y + 0.25;
         }
       }
-
-
-
     }
 
     MarvinReaction *ChemicalReactionToMarvinRxn(const ChemicalReaction *rxn, int confId=(-1))
@@ -881,7 +867,6 @@ namespace RDKit
             marvinReaction->arrow.y1 =(reactantRect.getCenter().y + productRect.getCenter().y)/2.0;
             marvinReaction->arrow.y2 = marvinReaction->arrow.y1;
           }
-
         }
 
         return marvinReaction;
@@ -891,7 +876,6 @@ namespace RDKit
         delete marvinReaction;
         throw;
       }
-
     }
   };
 

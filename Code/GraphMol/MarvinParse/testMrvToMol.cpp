@@ -95,17 +95,12 @@ class RxnTest : public MolOrRxnTest
   }
 };
 
-
-
-
-
 void *GetMolOrReaction(const MolOrRxnTest *molOrRxnTest, bool &isReaction)
 {
   std::string rdbase = getenv("RDBASE");
   std::string fName =
       rdbase + "/Code/GraphMol/MarvinParse/test_data/" + molOrRxnTest->fileName;
   std::string ofName = fName + ".sdf";
-
 
   switch(molOrRxnTest->loadAs)
   {
@@ -114,16 +109,14 @@ void *GetMolOrReaction(const MolOrRxnTest *molOrRxnTest, bool &isReaction)
 
     case LoadAsMol:
         isReaction = false;
-        return (void *)MrvMolFileParser(fName);  
+        return (void *)MrvMolFileParser(fName);
 
     case LoadAsRxn:
         isReaction = true;
         return (void *)MrvRxnFileParser(fName);
-
   }
-  
+
   throw   BadFileException("Should never happen");
-  
 }
 
 void testMarvin(const MolOrRxnTest *molOrRxnTest)
@@ -144,7 +137,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
     LocalVars(){};
 
     ~LocalVars()
-    {  
+    {
 
       //printf ("deleting molOrRxn\n");
       if (isReaction)
@@ -155,8 +148,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
   } localVars;
 
   try
-  {  
-
+  {
     localVars.molOrRxn = GetMolOrReaction(molOrRxnTest, localVars.isReaction);
     if (localVars.isReaction != molOrRxnTest->isRxnTest())
     {
@@ -166,7 +158,6 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
       return;
     }
 
- 
     if (localVars.isReaction)
     {
       // reaction test
@@ -178,18 +169,18 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
         std::ofstream  out;
         out.open(ofName);
         out << outMolStr << "\n";
-      }  
-      
+      }
+
       ofName =  fName + ".OUT.mrv";
       outMolStr = ChemicalReactionToMrvBlock(*rxn);
       {
         std::ofstream  out;
         out.open(ofName);
         out << outMolStr << "\n";
-      }      
+      }
 
       unsigned int nWarn=0, nError=0;
-        
+
       TEST_ASSERT(rxn!= NULL);
 
       //printf("rxnTest->reactantCount): %d rxnTest->productCount: %d rxnTest->agentCount: %d\n", rxnTest->reactantCount, rxnTest->productCount, rxnTest->agentCount);
@@ -201,7 +192,6 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
       TEST_ASSERT(rxn->getNumProductTemplates() == rxnTest->productCount);
       TEST_ASSERT(rxn->getNumAgentTemplates() == rxnTest->agentCount);
       rxn->initReactantMatchers(true);
-
 
       if (rxn->getNumReactantTemplates() > 0 && rxn->getNumProductTemplates() > 0)
       {
@@ -217,7 +207,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
       TEST_ASSERT(nWarn == rxnTest->warnings);
       TEST_ASSERT(nError == rxnTest->errors);
 
-      BOOST_LOG(rdInfoLog) << "done" << std::endl;     
+      BOOST_LOG(rdInfoLog) << "done" << std::endl;
     }
     else
     {
@@ -227,11 +217,11 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
 
       std::string ofName = fName + ".sdf";
       std::string outMolStr =  MolToMolBlock(*mol, true, 0, true, true);
-      {                    
+      {
         std::ofstream  out;
         out.open(ofName);
         out << outMolStr << "\n";
-      }      
+      }
 
       ofName =  fName + ".OUT.mrv";
       outMolStr = MolToMrvBlock(*mol,true, -1, true);
@@ -239,7 +229,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
         std::ofstream  out;
         out.open(ofName);
         out << outMolStr << "\n";
-      }      
+      }
 
       // MolOps::sanitizeMol(*m);
       TEST_ASSERT(mol != NULL);
@@ -252,8 +242,8 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
       //   printf("mol->getNumBonds(): %d    molTest->bondCount: %d\n" ,mol->getNumBonds(), molTest->bondCount);
       TEST_ASSERT(mol->getNumAtoms() == molTest->atomCount)
       TEST_ASSERT(mol->getNumBonds() == molTest->bondCount)
-      
-      BOOST_LOG(rdInfoLog) << "done" << std::endl;    
+
+      BOOST_LOG(rdInfoLog) << "done" << std::endl;
     }
   }
   catch(const std::exception& e)
@@ -263,18 +253,17 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
     if(molOrRxnTest->expectedResult != false)
         throw;
     return;
-    
+
   }
 
   TEST_ASSERT(molOrRxnTest->expectedResult == true);
-   
-  return; 
+
+  return;
 
 }
 
 void RunTests()
 {
-  
   // first the molecule tests
 
   std::list<MolTest> molFileNames
@@ -292,30 +281,31 @@ void RunTests()
     ,MolTest("Sparse2.mrv",true,LoadAsMolOrRxn, 0,0)
     ,MolTest("Sparse3.mrv",true,LoadAsMolOrRxn, 0,0)
     ,MolTest("MarvinNoCoords.mrv",true,LoadAsMolOrRxn, 6,6)
-    ,MolTest("aspirin.mrv",true, LoadAsMolOrRxn, 13,13)  
-    ,MolTest("MarvinStereoGroupsZeros.mrv",true, LoadAsMolOrRxn, 8,8)  
+    ,MolTest("aspirin.mrv",true, LoadAsMolOrRxn, 13,13)
+    ,MolTest("MarvinStereoGroupsZeros.mrv",true, LoadAsMolOrRxn, 8,8)
+    ,MolTest("triphenylphosphine.mrv",true, LoadAsMolOrRxn,19,21)
     ,MolTest("MarvinMissingX2.mrv",true,LoadAsMolOrRxn, 12,11)  // should fail - missing atom X2 coord
     ,MolTest("MarvinMissingY2.mrv",true,LoadAsMolOrRxn, 12,11)  // should fail - missing atom Y2 coord
     ,MolTest("ketback03.mrv",false,LoadAsMolOrRxn, 31,33)  // should fail - this is a reaction
     ,MolTest("MarvinBadMissingMolID.mrv",false,LoadAsMolOrRxn, 12,11)  // should fail - no molId
     ,MolTest("MarvinBadMissingAtomID.mrv",false,LoadAsMolOrRxn, 12,11)  // should fail - missing atom Id
-    ,MolTest("MarvinBadX2.mrv",false,LoadAsMolOrRxn, 12,11)  // should fail - 
-    ,MolTest("MarvinBadY2.mrv",false,LoadAsMolOrRxn, 12,11)  // should fail - 
-    ,MolTest("MarvinBadElementType.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail - 
-    ,MolTest("MarvinBadMissingBondID.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail - 
-    ,MolTest("MarvinBadMissingBondAtomRefs",false, LoadAsMolOrRxn, 12,11)  // should fail - 
-    ,MolTest("MarvinBadMissingBondOrder.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail - 
-    ,MolTest("MarvinBadMissingSruMolID.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail - 
-    ,MolTest("MarvinBadMissingSruID.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail - 
-    ,MolTest("MarvinBadMissingSruRole.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail - 
-    ,MolTest("MarvinBadMissingSruAtomRef.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail - 
-    ,MolTest("MarvinBadMissingSruTitle.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail - 
-    ,MolTest("MarvinBadSruAtomRef.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail - 
-    ,MolTest("MarvinBadSruID.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail - 
-    ,MolTest("MarvinBadSruRole.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail - 
-    ,MolTest("MarvinBadSruAtomRef.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail - 
-    ,MolTest("MarvinBadSruAtomRef.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail - 
-    ,MolTest("MarvinBadSruConnect.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail - 
+    ,MolTest("MarvinBadX2.mrv",false,LoadAsMolOrRxn, 12,11)  // should fail -
+    ,MolTest("MarvinBadY2.mrv",false,LoadAsMolOrRxn, 12,11)  // should fail -
+    ,MolTest("MarvinBadElementType.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail -
+    ,MolTest("MarvinBadMissingBondID.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail -
+    ,MolTest("MarvinBadMissingBondAtomRefs",false, LoadAsMolOrRxn, 12,11)  // should fail -
+    ,MolTest("MarvinBadMissingBondOrder.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail -
+    ,MolTest("MarvinBadMissingSruMolID.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail -
+    ,MolTest("MarvinBadMissingSruID.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail -
+    ,MolTest("MarvinBadMissingSruRole.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail -
+    ,MolTest("MarvinBadMissingSruAtomRef.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail -
+    ,MolTest("MarvinBadMissingSruTitle.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail -
+    ,MolTest("MarvinBadSruAtomRef.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail -
+    ,MolTest("MarvinBadSruID.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail -
+    ,MolTest("MarvinBadSruRole.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail -
+    ,MolTest("MarvinBadSruAtomRef.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail -
+    ,MolTest("MarvinBadSruAtomRef.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail -
+    ,MolTest("MarvinBadSruConnect.mrv",false, LoadAsMolOrRxn, 12,11)  // should fail -
     ,MolTest("MarvinBadSupAttachAtom.mrv",false, LoadAsMolOrRxn, 9,9)  // should fail -
     ,MolTest("MarvinBadSupAttachBond.mrv",false, LoadAsMolOrRxn, 9,9)  // should fail -
     ,MolTest("MarvinBadSupAttachOrder.mrv",false, LoadAsMolOrRxn, 9,9)  // should fail -
@@ -333,7 +323,6 @@ void RunTests()
     printf("Test\n\n %s\n\n", it->fileName.c_str());
     testMarvin(&*it);
   }
-
 
 // now the reactions
 
@@ -357,9 +346,7 @@ void RunTests()
     printf("Test\n\n %s\n\n", it->fileName.c_str());
     testMarvin(&*it);
   }
-
-};
- 
+}
 
 int main(int argc, char *argv[])
 {

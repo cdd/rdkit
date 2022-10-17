@@ -106,11 +106,11 @@ namespace RDKit
         atom->getProp(common_properties::_MolFileRLabel, rgroupRef);
         marvinAtom->rgroupRef = (int)rgroupRef;
          
-         std::string alias;
-        if (!atom->getPropIfPresent(common_properties::molFileAlias, marvinAtom->mrvAlias)) 
-          marvinAtom->mrvAlias = "R" + std::to_string(marvinAtom->rgroupRef);
+        std::string alias;
+        if (atom->hasProp(common_properties::molFileAlias))
+          atom->getProp(common_properties::molFileAlias, marvinAtom->mrvAlias);
       } 
-      else if (atom->getAtomicNum()) 
+      else if (atom->getAtomicNum())
         marvinAtom->elementType = atom->getSymbol();
       else 
       {
@@ -427,18 +427,26 @@ namespace RDKit
 
         // get a 2D conformer
 
-        Conformer testConf = mol->getConformer(confId);
-        if (!testConf.is3D())
-          conf = &testConf;
-        else
+        int confCount = mol->getNumConformers();
+        if (confCount > 0)
         {
-          for (unsigned int confId = 0; confId < mol->getNumConformers(); ++confId) 
+          if (confId >= 0 && confId < confCount)
           {
-            testConf = mol->getConformer(confId);
-            if (!testConf.is3D())
-            { 
-              conf = &testConf;
-              break;
+            Conformer *testConf = &mol->getConformer(confId);
+            if (!testConf->is3D())
+              conf = testConf;
+          }
+          
+          if (conf == NULL)
+          {
+            for (unsigned int confId = 0; confId < mol->getNumConformers(); ++confId) 
+            {
+              Conformer *testConf = &mol->getConformer(confId);
+              if (!testConf->is3D())
+              { 
+                conf = testConf;
+                break;
+              }
             }
           }
         }
@@ -473,8 +481,8 @@ namespace RDKit
     
           unsigned int nRadEs = atom->getNumRadicalElectrons();
           if (nRadEs != 0)
-            throw MarvinWriterException("Radicals are not handled by MarvinWriter"); 
-        
+            marvinAtom->radical = radicalElectronsToMarvinRadical.at(nRadEs);
+
           // atom maps for rxns
 
           if (!atom->getPropIfPresent(common_properties::molAtomMapNumber, marvinAtom->mrvMap)) 

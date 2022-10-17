@@ -47,13 +47,19 @@ namespace RDKit
   {
     std::ostringstream out;
 
-    out << "<MTextBox id=\"" << id << "\" toption=\"NOROT\" fontScale=\"" << fontScale << "\" halign=\"" << halign << "\" valign=\"" << valign << "\" autoSize=\"true\">"
+    out << "<MTextBox id=\"" << id << "\" toption=\"NOROT\" halign=\"" << halign << "\" valign=\"" << valign << "\" autoSize=\"true\"";
+    if (fontScale > 0)
+      out << " fontScale=\"" << fontScale << "\"";
+  
+    out << ">"
       "<Field name=\"text\">" << text << "</Field>"
       "<MPoint x=\"" << x << "\" y=\"" << y << "\"/>"
       "<MPoint x=\"" << x << "\" y=\"" << y << "\"/>"
       "<MPoint x=\"" << x << "\" y=\"" << y << "\"/>"
       "<MPoint x=\"" << x << "\" y=\"" << y << "\"/>"
       "</MTextBox>";
+
+
 
     return out.str();
   }
@@ -120,7 +126,10 @@ namespace RDKit
       out << " mrvMap=\"" << mrvMap << "\"";
 
     if (sgroupRef != "")
-    out << " sgroupRef=\"" << sgroupRef << "\"";
+      out << " sgroupRef=\"" << sgroupRef << "\"";
+
+    if (rgroupRef >= 0) 
+      out << " rgroupRef=\"" << rgroupRef << "\"";
 
     if (sgroupAttachmentPoint != "")
       out << " sgroupAttachmentPoint=\"" << sgroupAttachmentPoint << "\"";

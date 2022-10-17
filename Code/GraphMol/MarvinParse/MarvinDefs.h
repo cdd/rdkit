@@ -31,12 +31,25 @@
 
 namespace RDKit 
 {
-    
-  class MarvinWriterException : public std::runtime_error 
-  {
-    public:
-    explicit MarvinWriterException(std::string message)
-        : std::runtime_error(message){};
+
+  const std::vector<std::string> sruSgroupConnectChoices{"hh", "ht", "eu"};
+  const std::vector<std::string> marvinBondOrders{"1", "2", "3", "A"};
+  const std::vector<std::string> marvinQueryBondsTypes{"SD", "SA", "DA"};
+  const std::vector<std::string> marvinRadicalVals{"monovalent", "divalent", "divalent1", "trivalent4", "4"};
+  const std::map<std::string, int> marvinRadicalToRadicalElectrons{
+      {"monovalent", 1},
+      {"divalent", 2},
+      {"divalent1", 2},
+      {"trivalent4", 3},
+      {"4", 4}};
+  const std::map<int, std::string> radicalElectronsToMarvinRadical{
+      {1, "monovalent"}, {2, "divalent"}, {3, "trivalent4"}, {4, "4"}};
+
+  class MarvinWriterException : public std::runtime_error {
+  public:
+
+  explicit MarvinWriterException(std::string message)
+      : std::runtime_error(message){};
   };
 
   class MarvinArrow
@@ -71,7 +84,7 @@ namespace RDKit
     std::string text;
     double x;
     double y;
-    double fontScale;
+    double fontScale=0.0;
 
     std::string halign;
     std::string valign;

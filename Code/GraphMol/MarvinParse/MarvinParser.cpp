@@ -638,7 +638,7 @@ namespace RDKit
 
           std::vector<std::string>::const_iterator atomIter;
           for (atomIter = (*superIter)->atoms.begin(); atomIter != (*superIter)->atoms.end(); ++atomIter)
-          (sgroup.*sGroupAddIndexedElement)(marvinMol->getAtomIndex(*atomIter));
+            (sgroup.*sGroupAddIndexedElement)(marvinMol->getAtomIndex(*atomIter));
 
           sgroup.setProp("LABEL", (*superIter)->title);    
 
@@ -1239,19 +1239,19 @@ namespace RDKit
           
           try 
           {
-          boost::property_tree::ptree AttachmentPointArrayTree = molTree.get_child("AttachmentPointArray");
-          found = true;
+            boost::property_tree::ptree AttachmentPointArrayTree = molTree.get_child("AttachmentPointArray");
+            found = true;
 
           }
           catch(const std::exception& e)
           {
-          found = false;
+            found = false;
           }
 
           if (found)
           {
-          BOOST_FOREACH(
-            boost::property_tree::ptree::value_type &v, molTree.get_child("AttachmentPointArray"))
+            BOOST_FOREACH(
+              boost::property_tree::ptree::value_type &v, molTree.get_child("AttachmentPointArray"))
             {
               MarvinAttachmentPoint *marvinAttachmentPoint = new MarvinAttachmentPoint();   
               ((MarvinSuperatomSgroup *)res)->attachmentPoints.push_back(marvinAttachmentPoint);
@@ -1273,6 +1273,12 @@ namespace RDKit
 
               if (!boost::algorithm::contains(parentMol->bonds, std::vector<std::string>{marvinAttachmentPoint->bond}, MarvinMol::bondRefInBonds ))
                 throw FileParseException("Bond specification for an AttachmentPoint definition must be in the bond array in MRV file");
+
+              // the order must be an integer
+
+              int orderInt;
+              if (!getCleanInt(marvinAttachmentPoint->order, orderInt))
+                throw FileParseException("Order for an AttachmentPoint definition must be an integer in MRV file");
 
             }
           }

@@ -165,7 +165,7 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
 
     localVars.smilesMol = SmilesToMol(smilesTest->smiles, smilesParserParams);
     std::string mrvBlock = MolToMrvBlock(*localVars.smilesMol, true, -1, true);
-    printf("MolToMrvBlock(*smilesMol, true, -1, true) -> %s\n",mrvBlock.c_str());
+    //printf("MolToMrvBlock(*smilesMol, true, -1, true) -> %s\n",mrvBlock.c_str());
 
     delete localVars.smilesMol;
     localVars.smilesMol = NULL;
@@ -434,7 +434,7 @@ void testRegistrationFile(std::string filename)
 
 void RunTests() 
 {
-  testRegistrationFile("registrationData.txt");
+  //testRegistrationFile("registrationData.txt");
 
   // first the molecule tests
 

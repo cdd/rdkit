@@ -155,11 +155,16 @@ namespace RDKit
 
     std::ostringstream out;
     
-    out << "<bond id=\"" << id << "\" atomRefs2=\"" << atomRefs2[0] << " " << atomRefs2[1] << "\" order=\"" << order << "\"";
+    out << "<bond id=\"" << id << "\" atomRefs2=\"" << atomRefs2[0] << " " << atomRefs2[1] << "\"";
   
+    if (order != "")
+      out << " order=\"" << order << "\"";
 
     if (queryType != "")
       out << " queryType=\"" << queryType << "\"";
+
+    if (convention != "")
+      out << " convention=\"" << convention << "\"";
     
     if (bondStereo != "")
       out << "><bondStereo>" << bondStereo << "</bondStereo></bond>";
@@ -404,13 +409,25 @@ namespace RDKit
 
   void MarvinMol::convertFromSuperAtoms()
   {
-  // the mol-style super atoms are significatnly different than the Marvin super atoms.  The mol style has all atoms and bonds in the main mol, and parameter lines that
+  // the mol-style super atoms are significanyly different than the Marvin super atoms.  The mol style has all atoms and bonds in the main mol, and parameter lines that
   // indicate the name of the super atom and the atom indices affected.
   //
-  // The Marvin as a dummy atom with the super atom name in the main molecule, and a separate sub-mol with the atoms and bonds of the superatom.  It also has a separate record 
-  // called attachmentPoint that atom in the super atom sub=mol that is replaces the dummy atom, and also a bond pointer and bond order in case the bond order changes.
+  // There are 3 general forms in MRV:
+  //    1) SUP atoms   
+  //    2) MultipleSgroup
+  //    3) SruGroup
   //
-  //This routine copies the aboms and bonds from the sub=mol to the parent mol, and deleted the dummy atom form the parent mol.  It also saves the infor needed to make a mol-file type
+  //    The SUP form can appear in conracted or expanded form in MRV blocks:
+  //   
+  // In the contracted form, the MRV block can have one or more dummy atoms with the super atom name in the main molecule, and a separate sub-mol with the atoms and bonds of the superatom.  
+  // It also can have one or more separate records 
+  // called attachmentPoints that specifiy which atom(s) in the super atom sub-mol that replaces the dummy atom(s), and also a bond pointer (in the parent mol).
+  // 
+  // In the expanded form, all of the atoms are in the parent molecule, and the sub-mol only refers to them.  The attachement points refer to the atoms in the parent mol.
+  //  The MultipleSgroup and SruGroup seem very much alike.   In both, all atoms are in the parent mol, and the sub-mol refers to a group of atoms in that parent.
+  //  The SruGroup specifies the name and also the connection informat (head-to-tail, head-head, and unspecified).  The Multiple S-group specifies the report count for the group
+  //
+  //This routine deals with only the contracted form of the Supergroups, and copies the atoms and bonds from the sub=mol to the parent mol, and deleted the dummy atom form the parent mol.  It also saves the infor needed to make a mol-file type
   // superatom in the MarvinSuperInfo array.
 
   for(std::vector<MarvinSuperatomSgroup *>::iterator subMolIter =  superatomSgroups.begin() ; subMolIter != superatomSgroups.end() ; ++subMolIter)
@@ -467,7 +484,7 @@ namespace RDKit
         if (!boost::algorithm::contains(atoms, std::vector<std::string>{(*bondIter)->atomRefs2[atomIndex]}, atomRefInAtoms ))
         {
           (*bondIter)->atomRefs2[atomIndex] = (*attachIter)->atom;   // the attach atom
-          (*bondIter)->order = (*attachIter)->order;  // fix the bond order
+          //(*bondIter)->order = (*attachIter)->order;  // fix the bond order  (this is NOT the bond order! - it is the order id of the attachment groups
           break;
         }
       }
@@ -607,7 +624,7 @@ namespace RDKit
       }
       else
       {
-        // should not happen - there are not ataoms in the supergroup
+        // should not happen - there are not atoms in the supergroup
         dummyParentAtom->x2 = 0.0;
         dummyParentAtom->y2 =  0.0;
       }

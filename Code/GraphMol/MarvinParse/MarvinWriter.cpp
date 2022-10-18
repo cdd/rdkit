@@ -325,23 +325,26 @@ namespace RDKit
           }
         } 
         else if (qry->getDescription() == "SingleOrAromaticBond" && !qry->getNegation()) 
-        return "SA";
+          return "SA";
         else if (qry->getDescription() == "SingleOrDoubleBond" && !qry->getNegation()) 
           return "SD";
         else if (qry->getDescription() == "DoubleOrAromaticBond" && !qry->getNegation()) 
           return "DA";
-    
+        else if (qry->getDescription() == "BondNull" && !qry->getNegation()) 
+          return "Any";
       }
-      throw MarvinWriterException("Only SA, DA, and SD query bond are supported for MarvinWriter");
+
+      throw MarvinWriterException("Only SA, DA, SD, and Any query bond are supported for MarvinWriter");
     }
 
-  
-
-    void GetMarvinBondSymbol(const Bond *bond, std::string &order, std::string &queryType)
+    void GetMarvinBondSymbol(const Bond *bond, std::string &order, std::string &queryType, std::string &convention)
     {
       PRECONDITION(bond, "");
       
-      order = "1";
+      convention = "";
+      order = "";
+      queryType = "";
+
       if (bond->hasQuery())
       {
         order = "1";
@@ -374,6 +377,10 @@ namespace RDKit
 
         case Bond::AROMATIC:
           order =  "A";
+          break;
+
+        case Bond::DATIVE:
+          convention = "cxn:coord";
           break;
 
         default:
@@ -475,8 +482,8 @@ namespace RDKit
           }
           else
           {
-            marvinAtom->x2 = 0.0;
-            marvinAtom->y2 = 0.0;
+            marvinAtom->x2 = DBL_MAX;
+            marvinAtom->y2 = DBL_MAX;
           }
     
           unsigned int nRadEs = atom->getNumRadicalElectrons();
@@ -498,7 +505,7 @@ namespace RDKit
 
           marvinBond->id = 'b' + std::to_string(++tempBondCount);
 
-          GetMarvinBondSymbol(bond, marvinBond->order, marvinBond->queryType );
+          GetMarvinBondSymbol(bond, marvinBond->order, marvinBond->queryType, marvinBond->convention );
           
 
           Bond::BondDir bondDirection;
@@ -524,10 +531,10 @@ namespace RDKit
               marvinBond->bondStereo = "";
               break;
             case Bond::BEGINWEDGE:
-                marvinBond->bondStereo = "w";
+                marvinBond->bondStereo = "W";
                 break;
             case Bond::BEGINDASH:
-                        marvinBond->bondStereo = "d";
+                        marvinBond->bondStereo = "H";
                 break;
             default:
               marvinBond->bondStereo = "";   // other types are ignored

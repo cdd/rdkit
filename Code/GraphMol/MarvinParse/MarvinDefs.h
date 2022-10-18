@@ -34,7 +34,8 @@ namespace RDKit
 
   const std::vector<std::string> sruSgroupConnectChoices{"hh", "ht", "eu"};
   const std::vector<std::string> marvinBondOrders{"1", "2", "3", "A"};
-  const std::vector<std::string> marvinQueryBondsTypes{"SD", "SA", "DA"};
+  const std::vector<std::string> marvinQueryBondsTypes{"SD", "SA", "DA", "Any"};
+  const std::vector<std::string> marvinConventionTypes{"cxn:coord"};
   const std::vector<std::string> marvinRadicalVals{"monovalent", "divalent", "divalent1", "trivalent4", "4"};
   const std::map<std::string, int> marvinRadicalToRadicalElectrons{
       {"monovalent", 1},
@@ -141,6 +142,7 @@ namespace RDKit
     std::string order;
     std::string bondStereo;
     std::string queryType;
+    std::string convention;
 
     bool isEqual(const MarvinAtom& other) const;
     

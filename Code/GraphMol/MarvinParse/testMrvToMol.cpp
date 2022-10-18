@@ -39,8 +39,6 @@ class MolOrRxnTest
 {
   public:
 
-
-
   std::string fileName;
   bool expectedResult;
   LoadAs loadAs;
@@ -73,6 +71,7 @@ class MolTest : public MolOrRxnTest
 
 };
 
+
 class RxnTest : public MolOrRxnTest
 {
   public:
@@ -94,6 +93,28 @@ class RxnTest : public MolOrRxnTest
   {
     return true;
   }
+};
+
+class SmilesTest
+{
+  public:
+  std::string smiles;
+  bool expectedResult;
+  unsigned int atomCount;
+  unsigned int bondCount;
+
+  SmilesTest(std::string smilesInit, bool expectedResultInit, int atomCountInit, int bondCountInit)
+    : smiles(smilesInit)
+    , expectedResult(expectedResultInit)
+    ,atomCount(atomCountInit)
+    , bondCount(bondCountInit)
+  {};
+
+  bool isRxnTest() const
+  {
+    return false;
+  }
+
 };
 
 void *GetMolOrReaction(const MolOrRxnTest *molOrRxnTest, bool &isReaction)
@@ -120,11 +141,11 @@ void *GetMolOrReaction(const MolOrRxnTest *molOrRxnTest, bool &isReaction)
   throw   BadFileException("Should never happen");
 }
 
-void testSmilesToMarvin(std::string smilesToTest)
+void testSmilesToMarvin(const SmilesTest *smilesTest)
 {
   BOOST_LOG(rdInfoLog) << "testing smiles to marin " << std::endl;
   
-  class LocalVars  // protext agains mem leak on error
+  class LocalVars  // protext against mem leak on error
   {
    public:
     RWMol *smilesMol;
@@ -142,18 +163,31 @@ void testSmilesToMarvin(std::string smilesToTest)
     SmilesParserParams smilesParserParams;
     smilesParserParams.sanitize = true;
 
-    localVars.smilesMol = SmilesToMol(smilesToTest, smilesParserParams);
-
+    localVars.smilesMol = SmilesToMol(smilesTest->smiles, smilesParserParams);
     std::string mrvBlock = MolToMrvBlock(*localVars.smilesMol, true, -1, true);
     printf("MolToMrvBlock(*smilesMol, true, -1, true) -> %s\n",mrvBlock.c_str());
 
-      BOOST_LOG(rdInfoLog) << "done" << std::endl;   
+    delete localVars.smilesMol;
+    localVars.smilesMol = NULL;
+
+    localVars.smilesMol = MrvMolStringParser(mrvBlock);
+
+    TEST_ASSERT(localVars.smilesMol->getNumAtoms() == smilesTest->atomCount);
+    TEST_ASSERT(localVars.smilesMol->getNumBonds() == smilesTest->bondCount);
+
+
+
+    BOOST_LOG(rdInfoLog) << "done" << std::endl;   
   } 
   catch (const std::exception &e) 
   {
-    TEST_ASSERT(false);
+    if(smilesTest->expectedResult != false)
+        throw;
+    return;
+
   }
-  return;
+
+  TEST_ASSERT(smilesTest->expectedResult == true);
 }
 
 void testMarvin(const MolOrRxnTest *molOrRxnTest)
@@ -165,7 +199,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
       rdbase + "/Code/GraphMol/MarvinParse/test_data/" + molOrRxnTest->fileName;
   std::string ofName = fName + ".sdf";
 
-  class LocalVars  // protext agains mem leak on error
+  class LocalVars  // protext against mem leak on error
   {
     public:
     void *molOrRxn = NULL;
@@ -252,9 +286,9 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
 
       auto mol = (RWMol *)localVars.molOrRxn;
 
-      
+      std::string outMolStr;
       std::string ofName = fName + ".sdf";
-      std::string outMolStr =  MolToMolBlock(*mol, true, 0, true, true);
+      outMolStr =  MolToMolBlock(*mol, true, 0, true, true);
       {
         std::ofstream  out;
         out.open(ofName);
@@ -400,7 +434,7 @@ void testRegistrationFile(std::string filename)
 
 void RunTests() 
 {
-  //testRegistrationFile("registrationData.txt");
+  testRegistrationFile("registrationData.txt");
 
   // first the molecule tests
 
@@ -424,6 +458,12 @@ void RunTests()
     ,  MolTest("triphenylphosphine.mrv", true, LoadAsMolOrRxn, 19, 21)
     ,  MolTest("MarvinOldSuperGroupTest.mrv", true, LoadAsMolOrRxn, 89, 93)
     ,  MolTest("RadicalTests.mrv", true, LoadAsMolOrRxn, 9, 9)
+    ,  MolTest("AnyBond.mrv", true, LoadAsMolOrRxn, 4, 3)
+    ,  MolTest("cisBenzene.mrv", true, LoadAsMolOrRxn, 6, 6)
+    ,  MolTest("DativeBond.mrv", true, LoadAsMolOrRxn, 6, 5)
+   // ,  MolTest("MultipleSgroup.mrv", true, LoadAsMolOrRxn, 75, 74)
+   // ,  MolTest("SgroupExpanded.mrv", true, LoadAsMolOrRxn, 5, 4)
+   // ,  MolTest("SgroupMultAttach.mrv", true, LoadAsMolOrRxn, 42, 45)  
     ,  MolTest("MarvinMissingX2.mrv", true, LoadAsMolOrRxn, 12, 11)  // should fail - missing atom X2 coord
     ,  MolTest("MarvinMissingY2.mrv", true, LoadAsMolOrRxn, 12, 11)  // should fail - missing atom Y2 coord
     ,  MolTest("ketback03.mrv", false, LoadAsMolOrRxn, 31,33)  // should fail - this is a reaction
@@ -453,8 +493,7 @@ void RunTests()
     ,  MolTest("MarvinBadSupAttachAtom.mrv", false, LoadAsMolOrRxn, 9,  9)  // should fail -
     ,  MolTest("MarvinBadSupAttachAtom.mrv", false, LoadAsMolOrRxn, 9,  9)  // should fail -
     ,  MolTest("MarvinBadSupMissingAttachBond.mrv", false, LoadAsMolOrRxn, 9,  9)  // should fail -
-    ,  MolTest("MarvinBadSupMissingAttachOrder.mrv", false, LoadAsMolOrRxn,
-            9,  9)  // should fail -
+    ,  MolTest("MarvinBadSupMissingAttachOrder.mrv", false, LoadAsMolOrRxn,9,  9)  // should fail -
   };
 
   for (std::list<MolTest>::const_iterator it = molFileNames.begin();
@@ -468,7 +507,8 @@ void RunTests()
 
   // now the reactions
 
-  std::list<RxnTest> rxnFileNames{
+  std::list<RxnTest> rxnFileNames
+  {
       RxnTest("ketback03.mrv", true, LoadAsMolOrRxn, 1, 1, 1, 2, 0),
       RxnTest("ketback03.mrv", true, LoadAsRxn, 1, 1, 1, 2, 0),
       RxnTest("ketback03.mrv", false, LoadAsMol, 1, 1, 1, 2, 0),  // should fail
@@ -494,7 +534,16 @@ void RunTests()
 
   // now smiles tests
 
-  testSmilesToMarvin("N[C@@H]([O-])c1cc[13c]cc1");
+   std::list<SmilesTest> smiFileNames
+   {
+      SmilesTest("N[C@@H]([O-])c1cc[13c]cc1",true,9,9)
+   };
+
+  for (std::list<SmilesTest>::const_iterator it = smiFileNames.begin(); it != smiFileNames.end(); ++it) 
+  {
+    printf("Test\n\n %s\n\n", it->smiles.c_str());
+    testSmilesToMarvin(&*it);
+  }
 }
 
 int main(int argc, char *argv[]) 

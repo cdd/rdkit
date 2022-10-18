@@ -323,29 +323,39 @@ namespace RDKit
         Bond::BondType type;
 
         // if there is a query type, that takes precidence over the bond type
-        std::string temp = boost::algorithm::to_upper_copy(marvinBond->queryType);
-        if (temp != "")
+        std::string tempQueryType = boost::algorithm::to_upper_copy(marvinBond->queryType);
+        std::string tempOrder = boost::algorithm::to_upper_copy(marvinBond->order);
+        std::string tempConvention = boost::algorithm::to_upper_copy(marvinBond->convention);
+
+        if (tempQueryType != "")
         {
-          if (temp == "SD")
+          if (tempQueryType == "SD")
           {
             bType = 5;
             type = Bond::UNSPECIFIED;
             bond = new QueryBond;
             bond->setQuery(makeSingleOrDoubleBondQuery());
           }
-          else if (temp == "SA")
+          else if (tempQueryType == "SA")
           {
             bType = 6;
             type = Bond::UNSPECIFIED;
             bond = new QueryBond;
             bond->setQuery(makeSingleOrAromaticBondQuery());
           }
-          else if (temp == "DA")
+          else if (tempQueryType == "DA")
           {
             bType = 7;
             type = Bond::UNSPECIFIED;
             bond = new QueryBond;
             bond->setQuery(makeDoubleOrAromaticBondQuery());
+          }
+          else if (tempQueryType == "ANY")
+          {
+            bType = 8;
+            type = Bond::UNSPECIFIED;
+            bond = new QueryBond;
+            bond->setQuery(makeBondNullQuery());
           }
           else
           {
@@ -354,40 +364,60 @@ namespace RDKit
             throw FileParseException(err.str());
           } 
         }
-        else   // if no query type, the bond order takes over
+        else if (tempConvention != "")// if no query type, check for convention 
         {
-          temp = boost::algorithm::to_upper_copy(marvinBond->order);
-          if (temp == "1")
+          if (tempConvention == "CXN:COORD")
           {
-            type = Bond::SINGLE;
-            bond = new Bond;
+            bond = new Bond();
+            type = Bond::DATIVE;
             bType = 1;
-          }
-          else if (temp == "2")
-          {
-            type = Bond::DOUBLE;
-            bond = new Bond;
-            bType = 2;
-          }
-          else if (temp == "3")
-          {
-            type = Bond::TRIPLE;
-            bond = new Bond;
-            bType = 3;
-          }
-          else if (temp == "A")
-          {
-            bType = 4;
-            type = Bond::AROMATIC;
-            bond = new Bond;
           }
           else
           {
-            std::ostringstream err;
-            err      << "unrecognized bond type " << marvinBond->order << " in MRV File ";
-            throw FileParseException(err.str());
+              std::ostringstream err;
+              err      << "unrecognized convention " << marvinBond->convention << " in MRV File ";
+              throw FileParseException(err.str());
           } 
         }      
+        else if (tempOrder != "") // if no query type not conventtion,  so check for order
+        {
+          if (tempOrder == "1")
+          {
+              type = Bond::SINGLE;
+              bond = new Bond;
+              bType = 1;
+          }
+          else if (tempOrder == "2")
+          {
+              type = Bond::DOUBLE;
+              bond = new Bond;
+              bType = 2;
+          }
+          else if (tempOrder == "3")
+          {
+              type = Bond::TRIPLE;
+              bond = new Bond;
+              bType = 3;
+          }
+          else if (tempOrder == "A")
+          {
+              bType = 4;
+              type = Bond::AROMATIC;
+              bond = new Bond;
+          }
+          else
+          {
+              std::ostringstream err;
+              err      << "unrecognized bond type " << marvinBond->order << " in MRV File ";
+              throw FileParseException(err.str());
+          } 
+        }
+        else
+        {
+            std::ostringstream err;
+            err      << "bond must have one of:  order, queryType, or convention in MRV File ";
+            throw FileParseException(err.str());
+        }       
 
 
         bond->setBeginAtomIdx(idx1);
@@ -395,7 +425,7 @@ namespace RDKit
         bond->setBondType(type);
         bond->setProp(common_properties::_MolFileBondType, bType);
         
-        temp = boost::algorithm::to_lower_copy(marvinBond->bondStereo);
+        std::string temp = boost::algorithm::to_lower_copy(marvinBond->bondStereo);
         if (temp == "")  
         {         
           bond->setBondDir(Bond::NONE);
@@ -450,6 +480,20 @@ namespace RDKit
         throw;
       }
     }   
+
+    // see if the MarviMol has any coordinates
+
+    bool hasCoords(MarvinMol *marvinMol)
+    {
+      for (auto atomPtr : marvinMol->atoms)
+      {
+        if (atomPtr->x2 != DBL_MAX && atomPtr->y2 != DBL_MAX)
+          return true;
+      }
+
+      return false;
+
+    }
   
     RWMol *parseMolecule(MarvinMol *marvinMol, bool sanitize=false, bool removeHs=false)
     {
@@ -470,21 +514,34 @@ namespace RDKit
         unsigned int i;
         std::vector<MarvinAtom *>::const_iterator atomIter;
 
-        conf = new Conformer(marvinMol->atoms.size());
-        conf->set3D(false);
+        if (hasCoords(marvinMol))
+        {
+          conf = new Conformer(marvinMol->atoms.size());
+          conf->set3D(false);
+        }
 
         for (i = 0, atomIter = marvinMol->atoms.begin() ; atomIter != marvinMol->atoms.end();  ++i, ++atomIter)
         {		  
           Atom *atom = molAtomFromMarvinAtom(*atomIter);
           unsigned int aid = mol->addAtom(atom, false, true);
 
-          RDGeom::Point3D pos;
-          pos.x = (*atomIter)->x2;
-          pos.y = (*atomIter)->y2;
-          pos.z = 0.0;
+          if (conf != NULL)
+          {
+            RDGeom::Point3D pos;
+            if ((*atomIter)->x2 != DBL_MAX && (*atomIter)->y2 != DBL_MAX)
+            {
+              pos.x = (*atomIter)->x2;
+              pos.y = (*atomIter)->y2;
+            }
+            else
+            {
+              pos.x = 0.0;
+              pos.y = 0.0;
+            }
+            pos.z = 0.0;
           
-          conf->setAtomPos(aid, pos);
-          //mol->setAtomBookmark(atom, i+1);
+            conf->setAtomPos(aid, pos);
+          }
 
 
           //also collect the stereo groups here
@@ -537,11 +594,12 @@ namespace RDKit
           }
         }
 
-        mol->addConformer(conf, true);
-        conf = NULL;  // conf now owned by mol
+        if (conf != NULL)
+        {
+          mol->addConformer(conf, true);
+          conf = NULL;  // conf now owned by mol
+        }
         
-
-
         // set the bonds
 
         std::vector<MarvinBond *>::const_iterator bondIter;
@@ -645,9 +703,12 @@ namespace RDKit
         // perceive chirality, then remove the Hs and sanitize.
         //
 
-        const Conformer &conf2 = mol->getConformer();
-        if (chiralityPossible) 
-          DetectAtomStereoChemistry(*mol, &conf2);
+        if (mol->getNumConformers() > 0)
+        {
+          const Conformer &conf2 = mol->getConformer();
+          if (chiralityPossible) 
+            DetectAtomStereoChemistry(*mol, &conf2);
+        }
 
         if (sanitize) 
         {
@@ -1126,11 +1187,14 @@ namespace RDKit
 
 
           mrvBond->order = v.second.get<std::string>("<xmlattr>.order", "");
-          if (!boost::algorithm::contains(marvinBondOrders, std::vector<std::string>{mrvBond->order} ))
+          if (mrvBond->order != "")
           {
-            std::ostringstream err;
-            err << "Expected one of  " << boost::algorithm::join(marvinBondOrders,", ") << " for order for an bond definition in MRV file";
-            throw FileParseException(err.str());
+            if (!boost::algorithm::contains(marvinBondOrders, std::vector<std::string>{mrvBond->order} ))
+            {
+              std::ostringstream err;
+              err << "Expected one of  " << boost::algorithm::join(marvinBondOrders,", ") << " for order for an bond definition in MRV file";
+              throw FileParseException(err.str());
+            }
           }
 
           mrvBond->queryType = v.second.get<std::string>("<xmlattr>.queryType", "");
@@ -1140,6 +1204,17 @@ namespace RDKit
             {
               std::ostringstream err;
               err << "Expected one of  " << boost::algorithm::join(marvinQueryBondsTypes,", ") << " for queryType for an bond definition in MRV file";
+              throw FileParseException(err.str());
+            }
+          }
+
+          mrvBond->convention = v.second.get<std::string>("<xmlattr>.convention", "");
+          if (mrvBond->convention != "")
+          {
+            if (!boost::algorithm::contains(marvinConventionTypes, std::vector<std::string>{mrvBond->convention} ))
+            {
+              std::ostringstream err;
+              err << "Expected one of  " << boost::algorithm::join(marvinConventionTypes,", ") << " for conention for an bond definition in MRV file";
               throw FileParseException(err.str());
             }
           }

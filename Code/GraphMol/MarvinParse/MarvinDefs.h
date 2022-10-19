@@ -25,7 +25,6 @@
 #include <boost/format.hpp>
 #include <RDGeneral/BoostEndInclude.h>
 
-
 #include <string>
 #include <iostream>
 
@@ -36,8 +35,9 @@ namespace RDKit
   const std::vector<std::string> marvinBondOrders{"1", "2", "3", "A"};
   const std::vector<std::string> marvinQueryBondsTypes{"SD", "SA", "DA", "Any"};
   const std::vector<std::string> marvinConventionTypes{"cxn:coord"};
-  const std::vector<std::string> marvinRadicalVals{"monovalent", "divalent", "divalent1", "trivalent4", "4"};
+  const std::vector<std::string> marvinRadicalVals{"monovalent", "divalent", "divalent1", "trivalent4", "4", "0"};
   const std::map<std::string, int> marvinRadicalToRadicalElectrons{
+      {"0", 0},
       {"monovalent", 1},
       {"divalent", 2},
       {"divalent1", 2},
@@ -46,11 +46,12 @@ namespace RDKit
   const std::map<int, std::string> radicalElectronsToMarvinRadical{
       {1, "monovalent"}, {2, "divalent"}, {3, "trivalent4"}, {4, "4"}};
 
-  class MarvinWriterException : public std::runtime_error {
-  public:
+  class MarvinWriterException : public std::runtime_error 
+  {
+    public:
 
-  explicit MarvinWriterException(std::string message)
-      : std::runtime_error(message){};
+    explicit MarvinWriterException(std::string message)
+        : std::runtime_error(message){};
   };
 
   class MarvinArrow
@@ -146,7 +147,6 @@ namespace RDKit
 
     bool isEqual(const MarvinAtom& other) const;
     
-
     bool operator==(const MarvinAtom& rhs) const;
     
     std::string toString() const;
@@ -159,8 +159,8 @@ namespace RDKit
     std::vector<MarvinAtom *> atoms;
     std::vector<MarvinBond *> bonds;      
 
-    
-    virtual std::string role() = 0;
+    virtual std::string role() const = 0;
+    virtual bool hasAtomBondBlocks() const = 0;
 
     MarvinMolBase()
     {
@@ -170,30 +170,55 @@ namespace RDKit
           
     int getAtomIndex(std::string id);
   
-    int getBondIndex(std::string id);       
+    int getBondIndex(std::string id);  
+
+    const std::vector<std::string> getBondList() const;
+    const std::vector<std::string> getAtomList() const;         
   };
 
   class MarvinSruSgroup : public MarvinMolBase
   {
     public:
     std::string id;
-    //std::vector<std::string> atomRefs;
     std::string title;
     std::string connect;
     std::string correspondence;
-    //std::vector<std::string> bondList;
 
-    //private:
-  
     std::string toString() const;
     
-    std::string role();
-
-    const std::vector<std::string> getBondList() const;
-    const std::vector<std::string> getAtomList() const;     
+    std::string role() const;    
+    bool hasAtomBondBlocks() const;
   };
 
-  
+
+  class MarvinSuperatomSgroupExpanded : public MarvinMolBase
+  {
+    public:
+    std::string id;
+    std::string title;
+
+    std::vector<MarvinAttachmentPoint *> attachmentPoints;
+    
+    ~MarvinSuperatomSgroupExpanded();
+    
+    std::string toString() const;
+    
+    std::string role() const;
+    bool hasAtomBondBlocks() const;
+  };
+
+  class MarvinMultipleSgroup : public MarvinMolBase
+  {
+    public:
+    std::string id;
+    std::string title;
+    
+    std::string toString() const;
+    
+    std::string role() const;
+    bool hasAtomBondBlocks() const;
+  };
+
   class MarvinSuperatomSgroup : public MarvinMolBase
   {
     public:
@@ -203,7 +228,8 @@ namespace RDKit
     
     ~MarvinSuperatomSgroup();
     
-    std::string role();
+    std::string role() const;
+    bool hasAtomBondBlocks() const;
   
     std::string toString() const;
   };
@@ -213,6 +239,7 @@ namespace RDKit
     public:
     std::string title;
     std::vector<std::string> atoms;
+    std::vector<std::string> bonds;
   };
   
   class MarvinMol : public MarvinMolBase
@@ -221,12 +248,15 @@ namespace RDKit
 
     std::vector<MarvinSuperatomSgroup *> superatomSgroups;
     std::vector<MarvinSruSgroup *>  sruSgroups;
+    std::vector<MarvinSuperatomSgroupExpanded *>  superatomSgroupsExpanded;
+    std::vector<MarvinMultipleSgroup *>  multipleSgroups;
     std::vector<MarvinSuperInfo *> superInfos;  // used in convertng superatomSgroups to mol-type CTs
 
     ~MarvinMol();
   
-    std::string role();
-  
+    std::string role() const;
+    bool hasAtomBondBlocks() const;
+
     static bool atomRefInAtoms(MarvinAtom *a, std::string b );
 
     static bool bondRefInBonds(MarvinBond *a, std::string b );
@@ -307,4 +337,3 @@ namespace RDKit
 }
 
 #endif //RD_MARVINDEFS_H
-

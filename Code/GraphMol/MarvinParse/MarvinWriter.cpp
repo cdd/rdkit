@@ -24,7 +24,6 @@
 #include <RDGeneral/LocaleSwitcher.h>
 #include <RDGeneral/Invariant.h>
 
-
 #include <boost/format.hpp>
 #include <boost/dynamic_bitset.hpp>
 #include <RDGeneral/BadFileException.h>
@@ -610,7 +609,27 @@ namespace RDKit
             for (auto atomIndex : sgroup.getAtoms())
                 marvinSuperInfo->atoms.push_back(marvinMol->atoms[atomIndex]->id);
           }
-            
+
+          if (type == "MUL")
+          {
+                              
+            auto marvinMultipleSgroup =new MarvinMultipleSgroup();
+            marvinMol->multipleSgroups.push_back(marvinMultipleSgroup);
+
+            std::string titleValue;
+            if (!sgroup.getPropIfPresent("MULT", titleValue) && !sgroup.getPropIfPresent("LABEL", titleValue)) 
+              throw MarvinWriterException("Title not found for a MultipleSgroup"); 
+            marvinMultipleSgroup->title = titleValue;
+              
+            marvinMultipleSgroup->id = "sg" + std::to_string(++sruSgCount);
+            marvinMultipleSgroup->molID  = 'm' + std::to_string(++tempMolCount);
+
+            for (auto atomIndex : sgroup.getAtoms())
+            {
+                marvinMultipleSgroup->atoms.push_back(marvinMol->atoms[atomIndex]);
+                marvinMol->atoms[atomIndex]->sgroupRef =  marvinMultipleSgroup->id;
+            }
+          }
         }
 
         // convert the superInfos to supergroups
@@ -943,7 +962,6 @@ namespace RDKit
   std::string ChemicalReactionToMrvBlock(const ChemicalReaction &rxn) 
   {
     MarvinCMLWriter marvinCMLWriter;
-
 
     auto marvinRxn = marvinCMLWriter.ChemicalReactionToMarvinRxn(&rxn);
     std::string res = marvinRxn->toString();

@@ -15,7 +15,6 @@
 #include <GraphMol/FileParsers/MolFileStereochem.h>
 #include "MarvinParser.h"
 
-
 #include <GraphMol/ChemReactions/Reaction.h>
 #include <GraphMol/ChemReactions/ReactionParser.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
@@ -26,14 +25,12 @@
 
 using namespace RDKit;
 
-
 enum LoadAs
 {
   LoadAsMolOrRxn
   ,LoadAsMol
   ,LoadAsRxn
 };
-
 
 class MolOrRxnTest
 {
@@ -175,8 +172,6 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
     TEST_ASSERT(localVars.smilesMol->getNumAtoms() == smilesTest->atomCount);
     TEST_ASSERT(localVars.smilesMol->getNumBonds() == smilesTest->bondCount);
 
-
-
     BOOST_LOG(rdInfoLog) << "done" << std::endl;   
   } 
   catch (const std::exception &e) 
@@ -274,7 +269,6 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
         nError=0;
       }
 
-      //printf("nWarn: %d nError: %d\n", nWarn,nError);
       TEST_ASSERT(nWarn == rxnTest->warnings);
       TEST_ASSERT(nError == rxnTest->errors);
 
@@ -334,7 +328,6 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
 
 }
 
-
 void testRegistrationFile(std::string filename)
 {
   std::string rdbase = getenv("RDBASE");
@@ -388,9 +381,7 @@ void testRegistrationFile(std::string filename)
       {
         //printf("%s\n", mrvLine.c_str());
         try
-        {
-    
-        
+        {       
           bool isReaction = false;
           void *mrvMolOrRxn = MrvBlockParser(mrvLine, isReaction, false, false);
           if (isReaction)
@@ -431,11 +422,9 @@ void testRegistrationFile(std::string filename)
   }
 }
 
-
 void RunTests() 
 {
-  //testRegistrationFile("registrationData.txt");
-
+  testRegistrationFile("registrationData.txt");
   // first the molecule tests
 
   std::list<MolTest> molFileNames
@@ -461,9 +450,9 @@ void RunTests()
     ,  MolTest("AnyBond.mrv", true, LoadAsMolOrRxn, 4, 3)
     ,  MolTest("cisBenzene.mrv", true, LoadAsMolOrRxn, 6, 6)
     ,  MolTest("DativeBond.mrv", true, LoadAsMolOrRxn, 6, 5)
-   // ,  MolTest("MultipleSgroup.mrv", true, LoadAsMolOrRxn, 75, 74)
-   // ,  MolTest("SgroupExpanded.mrv", true, LoadAsMolOrRxn, 5, 4)
-   // ,  MolTest("SgroupMultAttach.mrv", true, LoadAsMolOrRxn, 42, 45)  
+    ,  MolTest("MultipleSgroup.mrv", true, LoadAsMolOrRxn, 75, 74)
+    ,  MolTest("SgroupExpanded.mrv", true, LoadAsMolOrRxn, 5, 4)
+    ,  MolTest("SgroupMultAttach.mrv", true, LoadAsMolOrRxn, 44, 45)  
     ,  MolTest("MarvinMissingX2.mrv", true, LoadAsMolOrRxn, 12, 11)  // should fail - missing atom X2 coord
     ,  MolTest("MarvinMissingY2.mrv", true, LoadAsMolOrRxn, 12, 11)  // should fail - missing atom Y2 coord
     ,  MolTest("ketback03.mrv", false, LoadAsMolOrRxn, 31,33)  // should fail - this is a reaction

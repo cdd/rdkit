@@ -424,19 +424,19 @@ void testRegistrationFile(std::string filename)
 
 void RunTests() 
 {
-  testRegistrationFile("registrationData.txt");
+  //testRegistrationFile("registrationData.txt");
   // first the molecule tests
 
   std::list<MolTest> molFileNames
   {
-    MolTest("ketback01.mrv", true, LoadAsMolOrRxn, 11, 11)
-    ,  MolTest("ketback01.mrv", true, LoadAsMol, 11, 11)
-    ,  MolTest("ketback01.mrv", false, LoadAsRxn, 11, 11)  // should fail
-    ,  MolTest("ketback02.mrv", true, LoadAsMolOrRxn, 9, 9)
-    ,  MolTest("ketback07.mrv", true, LoadAsMolOrRxn, 12, 11)
-    ,  MolTest("ketback10.mrv", true, LoadAsMolOrRxn, 10, 10)
+    MolTest("marvin01.mrv", true, LoadAsMolOrRxn, 11, 11)
+    ,  MolTest("marvin01.mrv", true, LoadAsMol, 11, 11)
+    ,  MolTest("marvin01.mrv", false, LoadAsRxn, 11, 11)  // should fail
+    ,  MolTest("marvin02.mrv", true, LoadAsMolOrRxn, 9, 9)
+    ,  MolTest("marvin07.mrv", true, LoadAsMolOrRxn, 12, 11)
+    ,  MolTest("marvin10.mrv", true, LoadAsMolOrRxn, 10, 10)
     ,  MolTest("marvin06.mrv", true, LoadAsMolOrRxn, 11, 11)
-    ,  MolTest("ketback12.mrv", true, LoadAsMolOrRxn, 31, 33)
+    ,  MolTest("marvin12.mrv", true, LoadAsMolOrRxn, 31, 33)
     ,  MolTest("EmptyMol.mrv", true, LoadAsMolOrRxn, 0, 0)
     ,  MolTest("Sparse.mrv", true, LoadAsMolOrRxn, 0, 0)
     ,  MolTest("Sparse2.mrv", true, LoadAsMolOrRxn, 0, 0)
@@ -453,9 +453,9 @@ void RunTests()
     ,  MolTest("MultipleSgroup.mrv", true, LoadAsMolOrRxn, 75, 74)
     ,  MolTest("SgroupExpanded.mrv", true, LoadAsMolOrRxn, 5, 4)
     ,  MolTest("SgroupMultAttach.mrv", true, LoadAsMolOrRxn, 44, 45)  
-    ,  MolTest("MarvinMissingX2.mrv", true, LoadAsMolOrRxn, 12, 11)  // should fail - missing atom X2 coord
-    ,  MolTest("MarvinMissingY2.mrv", true, LoadAsMolOrRxn, 12, 11)  // should fail - missing atom Y2 coord
-    ,  MolTest("ketback03.mrv", false, LoadAsMolOrRxn, 31,33)  // should fail - this is a reaction
+    ,  MolTest("MarvinMissingX2.mrv", true, LoadAsMolOrRxn, 12, 11)  
+    ,  MolTest("MarvinMissingY2.mrv", true, LoadAsMolOrRxn, 12, 11)  
+    ,  MolTest("marvin03.mrv", false, LoadAsMolOrRxn, 31,33)  // should fail - this is a reaction
     ,  MolTest("MarvinBadMissingMolID.mrv", false, LoadAsMolOrRxn, 12, 11)  // should fail - no molId
     ,  MolTest("MarvinBadMissingAtomID.mrv", false, LoadAsMolOrRxn, 12, 11)  // should fail - missing atom Id
     ,  MolTest("MarvinBadX2.mrv", false, LoadAsMolOrRxn, 12, 11)  // should fail -
@@ -498,17 +498,16 @@ void RunTests()
 
   std::list<RxnTest> rxnFileNames
   {
-      RxnTest("ketback03.mrv", true, LoadAsMolOrRxn, 1, 1, 1, 2, 0),
-      RxnTest("ketback03.mrv", true, LoadAsRxn, 1, 1, 1, 2, 0),
-      RxnTest("ketback03.mrv", false, LoadAsMol, 1, 1, 1, 2, 0),  // should fail
-      RxnTest("ketback04.mrv", true, LoadAsMolOrRxn, 2, 1, 2, 4, 0),
-      RxnTest("ketback08.mrv", true, LoadAsMolOrRxn, 2, 3, 2, 4, 0),
-      RxnTest("ketback09.mrv", true, LoadAsMolOrRxn, 2, 3, 2, 4, 0),
-      RxnTest("ketback11.mrv", true, LoadAsMolOrRxn, 2, 0, 1, 0, 0),
+      RxnTest("marvin03.mrv", true, LoadAsMolOrRxn, 1, 1, 1, 2, 0),
+      RxnTest("marvin03.mrv", true, LoadAsRxn, 1, 1, 1, 2, 0),
+      RxnTest("marvin03.mrv", false, LoadAsMol, 1, 1, 1, 2, 0),  // should fail
+      RxnTest("marvin04.mrv", true, LoadAsMolOrRxn, 2, 1, 2, 4, 0),
+      RxnTest("marvin08.mrv", true, LoadAsMolOrRxn, 2, 3, 2, 4, 0),
+      RxnTest("marvin09.mrv", true, LoadAsMolOrRxn, 2, 3, 2, 4, 0),
+      RxnTest("marvin11.mrv", true, LoadAsMolOrRxn, 2, 0, 1, 0, 0),
       RxnTest("marvin05.mrv", true, LoadAsMolOrRxn, 2, 1, 1, 3, 0),
       RxnTest("EmptyRxn.mrv", true, LoadAsMolOrRxn, 0, 0, 0, 0, 0),
-      RxnTest("ketback01.mrv", false, LoadAsMolOrRxn, 2, 1, 1, 3,
-              0)  // should fail - this is a mol file
+      RxnTest("marvin01.mrv", false, LoadAsMolOrRxn, 2, 1, 1, 3, 0)  // should fail - this is a mol file
       ,
       RxnTest("aspirineSynthesisWithAttributes.mrv", true, LoadAsMolOrRxn,
               2, 0, 1, 3, 0)  // should fail - this is a mol file

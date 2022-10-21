@@ -751,9 +751,9 @@ namespace RDKit
       }
 
     
-      if(coordsExist)   // no connections to take the dummy atom coord from
+      if(coordsExist)   
       {
-        if (marvinSuperatomSgroup->attachmentPoints.size() > 0) 
+        if (marvinSuperatomSgroup->attachmentPoints.size() > 0) // Any attachment points?  if so we use the center of the attached atoms in teh supergroup
         {
           // put the new dummy atom at the center of the removed group
 
@@ -762,7 +762,7 @@ namespace RDKit
         }
         else
         {
-          // should not happen - there are not atoms in the supergroup
+          // No attachments to the supergroup - (probably all atoms in the mol are in the supergroup) - doesn't matter where we put the dummy atom
           dummyParentAtom->x2 = 0.0;
           dummyParentAtom->y2 =  0.0;
         }

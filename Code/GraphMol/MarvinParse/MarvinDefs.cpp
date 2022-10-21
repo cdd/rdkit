@@ -213,6 +213,24 @@ namespace RDKit
     return atomList;
   }
 
+  bool MarvinMolBase::hasCoords() const
+  {
+    for (auto atom: atoms)
+      if (atom->x2 == DBL_MAX || atom->y2 == DBL_MAX)
+        return false;
+
+    return true;
+  }
+
+  void MarvinMolBase::removeCoords()
+  {
+    for (auto atom: atoms)
+    {
+      atom->x2 = DBL_MAX;
+      atom->y2 = DBL_MAX;
+    }
+  }
+
    
   std::string MarvinSruSgroup::toString() const
   {
@@ -515,22 +533,62 @@ namespace RDKit
 
       //  remove and delete the dummy atoms from the parent.
 
-      std::vector<MarvinBond *> orphanedBonds;   // list of bonds that contain dummy atoms to be removed
+      bool coordExist = (*subMolIter)->hasCoords() && hasCoords();
       auto dummyAtomIter = find_if(atoms.begin(), atoms.end(), [subMolIter](const MarvinAtom *arg) { 
                         return arg->sgroupRef == (*subMolIter)->id; });
-      if (dummyAtomIter != atoms.end())
+      if (dummyAtomIter == atoms.end())
+        throw FileParseException("No contracted atom found for a superatomSgroup");
+    
+      // get a list of the bonds that will need to be fixed after the copy of atoms and bonds
+
+      std::vector<MarvinAttachmentPoint *> orphanedBonds;
+      RDGeom::Point3D centerOfGroup;
+      for (auto orphanedBond = bonds.begin(); orphanedBond != bonds.end() ; ++orphanedBond)
       {
-
-        // get a list of the bonds that willl need to be fixed after the copy of atoms and bonds
-
-        for (auto orphanedBond = bonds.begin(); orphanedBond != bonds.end() ; ++orphanedBond)
+        std::string attachedAtomId = "";
+        if ((*orphanedBond)->atomRefs2[0] == (*dummyAtomIter)->id)
+          attachedAtomId = (*orphanedBond)->atomRefs2[1];
+        else if ((*orphanedBond)->atomRefs2[1] == (*dummyAtomIter)->id)
+          attachedAtomId = (*orphanedBond)->atomRefs2[0];
+       
+        if (attachedAtomId != "")
         {
-          if ((*orphanedBond)->atomRefs2[0] == (*dummyAtomIter)->id || (*orphanedBond)->atomRefs2[1] == (*dummyAtomIter)->id)
-            orphanedBonds.push_back(*orphanedBond);
+          auto attachmentPoint = find_if((*subMolIter)->attachmentPoints.begin(), (*subMolIter)->attachmentPoints.end(), [orphanedBond](const MarvinAttachmentPoint *arg) { 
+                        return arg->bond == (*orphanedBond)->id; });
+          if (attachmentPoint == (*subMolIter)->attachmentPoints.end())
+             throw FileParseException("No attachment point found for bond to the conedensed atom in a superatomSgroup");
+          orphanedBonds.push_back(*attachmentPoint);
+          
+          auto subMolAtomIndex = (*subMolIter)->getAtomIndex((*attachmentPoint)->atom);
+          if (subMolAtomIndex < 0)
+            throw FileParseException("Attachment atom not found in the superatomsGroup");
+          MarvinAtom *attachedAtom = (*subMolIter)->atoms[subMolAtomIndex];
+          if (coordExist)
+          {
+            centerOfGroup.x += attachedAtom->x2;
+            centerOfGroup.y += attachedAtom->y2;
+          }
         }
-        delete *dummyAtomIter;  // get rid of the MolAtom
-        atoms.erase(dummyAtomIter);   // get rid of the atoms pointer to the old dummy atom
       }
+
+      if (coordExist)
+      {
+        centerOfGroup.x /= orphanedBonds.size();
+        centerOfGroup.y /= orphanedBonds.size();
+        RDGeom::Point3D offset;
+        offset.x = (*dummyAtomIter)->x2 - centerOfGroup.x;
+        offset.y = (*dummyAtomIter)->y2 - centerOfGroup.y;
+
+        for (auto atom : (*subMolIter)->atoms)
+        {
+          atom->x2 += offset.x;
+          atom->y2 += offset.y;
+        }
+      }
+
+      delete *dummyAtomIter;  // get rid of the MolAtom
+      atoms.erase(dummyAtomIter);   // get rid of the atoms pointer to the old dummy atom
+
 
       // add the atoms and bonds from the super group to the parent
 
@@ -581,25 +639,9 @@ namespace RDKit
           throw FileParseException(err.str());
         }
 
-        // remove the fixed bond from the list of orphan bonds - it is no longer orphaned
-
-        auto orphanedBond = find_if(orphanedBonds.begin(), orphanedBonds.end(), [attachIter](const MarvinBond *arg) { 
-                        return arg->id == (*attachIter)->bond; });
-        if (orphanedBond == orphanedBonds.end())
-          throw FileParseException("attachment bond fixed was not in the list of orphaned bonds"); 
-
-        orphanedBonds.erase(orphanedBond);
-
         delete *attachIter;         
       }
       
-      //  make sure all orphaned bonds were corrected
-
-      if (orphanedBonds.size() > 0)
-        throw FileParseException("A bond that was to a deleted SgroupRef atom was not fixed"); 
-
-      // clean up - delete the super atom mols and the attach points
-
       (*subMolIter)->attachmentPoints.clear();
       (*subMolIter)->atoms.clear();
       (*subMolIter)->bonds.clear();
@@ -632,6 +674,8 @@ namespace RDKit
       marvinSuperatomSgroup->title = marvinSuperInfo->title;
       marvinSuperatomSgroup->id = "nsg" + std::to_string(superGroupsAdded);  // n in nsg ensures no colllision with other sgs already in the mol 
 
+      bool coordsExist = hasCoords();  // we have to check before we add the dummy atom  - it will not have coords (yet)
+
       // add the dummy atom into the parent
 
       MarvinAtom *dummyParentAtom = new MarvinAtom();
@@ -647,14 +691,15 @@ namespace RDKit
         int index = this->getAtomIndex(atom);
         MarvinAtom *atomToMove = this->atoms[index];
         marvinSuperatomSgroup->atoms.push_back(atomToMove);
-        this->atoms.erase(this->atoms.begin() + index);     
+
+        this->atoms.erase(this->atoms.begin() + index);  
       }
 
       // move the bonds of the group
       
       int attachmentPointsAdded = 0;
       MarvinAtom *atomPtr = NULL;
-      bool coordsHaveBeenSet = false;
+      RDGeom::Point3D centerOfGroup;
 
       for (auto bond : this->bonds)
       {
@@ -666,10 +711,12 @@ namespace RDKit
         else if(atom1InGroup || atom2InGroup ) // one is in so this is a connection point
         {
           // fix the bonds to the dummy atom and add an attachment point
+
           if (atom1InGroup)
           {
             atomPtr = marvinSuperatomSgroup->atoms[marvinSuperatomSgroup->getAtomIndex((bond)->atomRefs2[0])];       
             (bond)->atomRefs2[0] = newAtomName;
+
           }
           else 
           {
@@ -679,21 +726,19 @@ namespace RDKit
               
           atomPtr->sgroupAttachmentPoint = std::to_string(++attachmentPointsAdded);
 
-          // fix the dummyatom coords
-
-          if (!coordsHaveBeenSet)  
-          {
-            dummyParentAtom->x2 = atomPtr->x2;
-            dummyParentAtom->y2 = atomPtr->y2;
-            coordsHaveBeenSet = true;
-          }
           // add an attachentPoint structure
 
           auto marvinAttachmentPoint = new MarvinAttachmentPoint();
           marvinSuperatomSgroup->attachmentPoints.push_back(marvinAttachmentPoint);
           marvinAttachmentPoint->atom = atomPtr->id;
           marvinAttachmentPoint->bond = bond->id;;
-          marvinAttachmentPoint->order = std::to_string(attachmentPointsAdded);        
+          marvinAttachmentPoint->order = std::to_string(attachmentPointsAdded); 
+
+          if (coordsExist)
+          {
+            centerOfGroup.x += atomPtr->x2;
+            centerOfGroup.y += atomPtr->y2;
+          }       
         }
       }
 
@@ -706,14 +751,14 @@ namespace RDKit
       }
 
     
-      if(!coordsHaveBeenSet)   // no connections to take the dummy atom coord from
+      if(coordsExist)   // no connections to take the dummy atom coord from
       {
-        if (marvinSuperatomSgroup->atoms.size() > 0) 
+        if (marvinSuperatomSgroup->attachmentPoints.size() > 0) 
         {
-          // use the coords of the first atom in the super group
+          // put the new dummy atom at the center of the removed group
 
-          dummyParentAtom->x2 = marvinSuperatomSgroup->atoms[0]->x2;
-          dummyParentAtom->y2 = marvinSuperatomSgroup->atoms[0]->y2;
+          dummyParentAtom->x2 = centerOfGroup.x / marvinSuperatomSgroup->attachmentPoints.size();
+          dummyParentAtom->y2 = centerOfGroup.y / marvinSuperatomSgroup->attachmentPoints.size();
         }
         else
         {

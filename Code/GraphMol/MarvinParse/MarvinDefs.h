@@ -173,7 +173,10 @@ namespace RDKit
     int getBondIndex(std::string id);  
 
     const std::vector<std::string> getBondList() const;
-    const std::vector<std::string> getAtomList() const;         
+    const std::vector<std::string> getAtomList() const;    
+
+    bool hasCoords() const;  
+    void removeCoords();
   };
 
   class MarvinSruSgroup : public MarvinMolBase

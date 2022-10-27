@@ -22,7 +22,6 @@
 #include <string>
 #include <fstream>
 #include <boost/lexical_cast.hpp>
-//#include "boost/filesystem.hpp"   // includes all needed Boost.Filesystem declarations
 #include <filesystem>
 
 using namespace RDKit;
@@ -181,11 +180,6 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
       std::string expectedSdfName =fName + ".expected.sdf";
       std::string outMolStr =  MolToMolBlock(*localVars.smilesMol, true, 0, true, true);
 
-      // std::ofstream  out;
-      // out.open(expectedSdfName);
-      // out << outMolStr;
-      // out.close();
-
       std::stringstream  expectedMolStr;
       std::ifstream  in;
       in.open(expectedSdfName);
@@ -198,12 +192,6 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
     {
       std::string expectedMrvName =fName + ".expected.mrv";
       std::string outMolStr = MolToMrvBlock(*localVars.smilesMol,true, -1, true);
-
-      // std::ofstream  out;
-      // out.open(expectedMrvName);
-      // out << outMolStr;
-      // out.close();
-
 
       std::stringstream  expectedMolStr;
       std::ifstream  in;

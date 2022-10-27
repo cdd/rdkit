@@ -22,6 +22,7 @@
 #include <string>
 #include <fstream>
 #include <boost/lexical_cast.hpp>
+#include <filesystem>
 
 using namespace RDKit;
 
@@ -35,6 +36,7 @@ enum LoadAs
 class MolOrRxnTest
 {
   public:
+
 
   std::string fileName;
   bool expectedResult;
@@ -95,13 +97,15 @@ class RxnTest : public MolOrRxnTest
 class SmilesTest
 {
   public:
+  std::string name;
   std::string smiles;
   bool expectedResult;
   unsigned int atomCount;
   unsigned int bondCount;
 
-  SmilesTest(std::string smilesInit, bool expectedResultInit, int atomCountInit, int bondCountInit)
-    : smiles(smilesInit)
+  SmilesTest(std::string nameInit, std::string smilesInit, bool expectedResultInit, int atomCountInit, int bondCountInit)
+    : name(nameInit)
+    , smiles(smilesInit)
     , expectedResult(expectedResultInit)
     ,atomCount(atomCountInit)
     , bondCount(bondCountInit)
@@ -119,7 +123,6 @@ void *GetMolOrReaction(const MolOrRxnTest *molOrRxnTest, bool &isReaction)
   std::string rdbase = getenv("RDBASE");
   std::string fName =
       rdbase + "/Code/GraphMol/MarvinParse/test_data/" + molOrRxnTest->fileName;
-  std::string ofName = fName + ".sdf";
 
   switch(molOrRxnTest->loadAs)
   {
@@ -141,7 +144,9 @@ void *GetMolOrReaction(const MolOrRxnTest *molOrRxnTest, bool &isReaction)
 void testSmilesToMarvin(const SmilesTest *smilesTest)
 {
   BOOST_LOG(rdInfoLog) << "testing smiles to marin " << std::endl;
-  
+  std::string rdbase = getenv("RDBASE");
+  std::string fName = rdbase + "/Code/GraphMol/MarvinParse/test_data/" + smilesTest->name;
+
   class LocalVars  // protext against mem leak on error
   {
    public:
@@ -162,7 +167,6 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
 
     localVars.smilesMol = SmilesToMol(smilesTest->smiles, smilesParserParams);
     std::string mrvBlock = MolToMrvBlock(*localVars.smilesMol, true, -1, true);
-    //printf("MolToMrvBlock(*smilesMol, true, -1, true) -> %s\n",mrvBlock.c_str());
 
     delete localVars.smilesMol;
     localVars.smilesMol = NULL;
@@ -172,6 +176,31 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
     TEST_ASSERT(localVars.smilesMol->getNumAtoms() == smilesTest->atomCount);
     TEST_ASSERT(localVars.smilesMol->getNumBonds() == smilesTest->bondCount);
 
+    {
+      std::string expectedSdfName =fName + ".expected.sdf";
+      std::string outMolStr =  MolToMolBlock(*localVars.smilesMol, true, 0, true, true);
+
+      std::stringstream  expectedMolStr;
+      std::ifstream  in;
+      in.open(expectedSdfName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      TEST_ASSERT(expectedStr == outMolStr); 
+    }
+
+    {
+      std::string expectedMrvName =fName + ".expected.mrv";
+      std::string outMolStr = MolToMrvBlock(*localVars.smilesMol,true, -1, true);
+
+      std::stringstream  expectedMolStr;
+      std::ifstream  in;
+      in.open(expectedMrvName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      TEST_ASSERT(expectedStr == outMolStr); 
+    }
     BOOST_LOG(rdInfoLog) << "done" << std::endl;   
   } 
   catch (const std::exception &e) 
@@ -190,9 +219,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
   BOOST_LOG(rdInfoLog) << "testing marvin parsing" << std::endl;
 
   std::string rdbase = getenv("RDBASE");
-  std::string fName =
-      rdbase + "/Code/GraphMol/MarvinParse/test_data/" + molOrRxnTest->fileName;
-  std::string ofName = fName + ".sdf";
+  std::string fName = rdbase + "/Code/GraphMol/MarvinParse/test_data/" + molOrRxnTest->fileName;
 
   class LocalVars  // protext against mem leak on error
   {
@@ -229,31 +256,14 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
       // reaction test
 
       auto rxn = (ChemicalReaction *)localVars.molOrRxn;
-      std::string ofName = fName + ".rxn";
-      std::string outMolStr = ChemicalReactionToRxnBlock(*rxn, false, true);
-      {
-        std::ofstream  out;
-        out.open(ofName);
-        out << outMolStr << "\n";
-      }
+      auto rxnTest = (RxnTest *)molOrRxnTest;
 
-      ofName =  fName + ".OUT.mrv";
-      outMolStr = ChemicalReactionToMrvBlock(*rxn);
-      {
-        std::ofstream  out;
-        out.open(ofName);
-        out << outMolStr << "\n";
-      }
+      // check for errors
 
       unsigned int nWarn=0, nError=0;
 
       TEST_ASSERT(rxn!= NULL);
 
-      //printf("rxnTest->reactantCount): %d rxnTest->productCount: %d rxnTest->agentCount: %d\n", rxnTest->reactantCount, rxnTest->productCount, rxnTest->agentCount);
-      //printf("rxn->getNumReactantTemplates(): %d >getNumProductTemplates(): %d rxn->getNumAgentTemplates(): %d\n",
-      //    rxn->getNumReactantTemplates(), rxn->getNumProductTemplates(), rxn->getNumAgentTemplates());
-
-      auto rxnTest = (RxnTest *)molOrRxnTest;
       TEST_ASSERT(rxn->getNumReactantTemplates() == rxnTest->reactantCount);
       TEST_ASSERT(rxn->getNumProductTemplates() == rxnTest->productCount);
       TEST_ASSERT(rxn->getNumAgentTemplates() == rxnTest->agentCount);
@@ -272,6 +282,30 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
       TEST_ASSERT(nWarn == rxnTest->warnings);
       TEST_ASSERT(nError == rxnTest->errors);
 
+      {
+        std::string outMolStr = ChemicalReactionToRxnBlock(*rxn, false, true);
+        std::string expectedRxnName = fName + ".expected.rxn";
+        std::stringstream  expectedMolStr;
+        std::ifstream  in;
+        in.open(expectedRxnName);
+        expectedMolStr << in.rdbuf();
+        std::string expectedStr = expectedMolStr.str();
+
+        TEST_ASSERT(expectedStr == outMolStr); 
+      }
+
+      {
+        std::string outMolStr = ChemicalReactionToMrvBlock(*rxn);
+        std::string expectedRxnName = fName + ".expected.mrv";
+        std::stringstream  expectedMolStr;
+        std::ifstream  in;
+        in.open(expectedRxnName);
+        expectedMolStr << in.rdbuf();
+        std::string expectedStr = expectedMolStr.str();
+
+        TEST_ASSERT(expectedStr == outMolStr); 
+      }
+
       BOOST_LOG(rdInfoLog) << "done" << std::endl;
     }
     else
@@ -279,43 +313,46 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
       // mol  test
 
       auto mol = (RWMol *)localVars.molOrRxn;
-
-      std::string outMolStr;
-      std::string ofName = fName + ".sdf";
-      outMolStr =  MolToMolBlock(*mol, true, 0, true, true);
-      {
-        std::ofstream  out;
-        out.open(ofName);
-        out << outMolStr << "\n";
-      }
-
-      ofName =  fName + ".OUT.mrv";
-      outMolStr = MolToMrvBlock(*mol,true, -1, true);
-      {
-        std::ofstream  out;
-        out.open(ofName);
-        out << outMolStr << "\n";
-      }
-
-      // MolOps::sanitizeMol(*m);
+      auto molTest = (MolTest *)molOrRxnTest;
       TEST_ASSERT(mol != NULL);
 
-      auto molTest = (MolTest *)molOrRxnTest;
 
-      // if (mol->getNumAtoms() != molTest->atomCount)
-      //   printf("mol->getNumAtoms(): %d    molTest->atomCount: %d\n" ,mol->getNumAtoms(), molTest->atomCount);
-      // if (mol->getNumBonds() != molTest->bondCount)
-      //   printf("mol->getNumBonds(): %d    molTest->bondCount: %d\n" ,mol->getNumBonds(), molTest->bondCount);
       TEST_ASSERT(mol->getNumAtoms() == molTest->atomCount)
       TEST_ASSERT(mol->getNumBonds() == molTest->bondCount)
+
+     
+      {
+        std::string expectedMrvName =fName + ".expected.sdf";
+        std::string outMolStr =  MolToMolBlock(*mol, true, 0, true, true);
+
+        std::stringstream  expectedMolStr;
+        std::ifstream  in;
+        in.open(expectedMrvName);
+        expectedMolStr << in.rdbuf();
+        std::string expectedStr = expectedMolStr.str();
+
+        TEST_ASSERT(expectedStr == outMolStr); 
+      }
+
+      {
+        std::string expectedMrvName =fName + ".expected.mrv";
+        std::string outMolStr = MolToMrvBlock(*mol,true, -1, true);
+
+        std::string expectedRxnName = fName + ".expected.sdf";
+        std::stringstream  expectedMolStr;
+        std::ifstream  in;
+        in.open(expectedMrvName);
+        expectedMolStr << in.rdbuf();
+        std::string expectedStr = expectedMolStr.str();
+
+        TEST_ASSERT(expectedStr == outMolStr); 
+      }
 
       BOOST_LOG(rdInfoLog) << "done" << std::endl;
     }
   }
   catch(const std::exception& e)
   {
-
-
     if(molOrRxnTest->expectedResult != false)
         throw;
     return;
@@ -325,106 +362,12 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
   TEST_ASSERT(molOrRxnTest->expectedResult == true);
 
   return;
-
 }
 
-void testRegistrationFile(std::string filename)
-{
-  std::string rdbase = getenv("RDBASE");
-  std::string fName = rdbase + "/Code/GraphMol/MarvinParse/test_data/" + filename;
-  std::string ofName;
-  std::ifstream inStream(fName.c_str());
-  if (!inStream || (inStream.bad()))
-  {
-    std::ostringstream errout;
-    errout << "Bad input file " << fName;
-    throw BadFileException(errout.str());
-  }
-
-  ofName = fName + ".OUT.mrv";
-  std::ofstream out;
-  out.open(ofName);
-
-  bool activelyReading = false;
-  std::string oneLine, mrvLine="", lastId;
-
-  while (!inStream.eof()) {
-    std::getline(inStream, oneLine);
-    if (!oneLine.empty() && oneLine[oneLine.size() - 1] == '\n')
-      oneLine.erase(oneLine.size() - 1);
-    if(!oneLine.empty() && oneLine[oneLine.size() - 1] == '\r')
-        oneLine.erase(oneLine.size() - 1);
-    if (!oneLine.empty() && oneLine[oneLine.size() - 1] == '\n')
-      oneLine.erase(oneLine.size() - 1);
-
-    if (oneLine.substr(0, 4) == " id:") 
-    {
-      //printf("%s\n", oneLine.c_str());
-      lastId = oneLine;
-      continue;
-    }
-
-    if (oneLine.substr(0, 5) == "mrv: ") 
-    {
-      if (oneLine == "mrv: NULL") 
-        continue;
-
-      oneLine = oneLine.substr(5);
-      activelyReading = true;
-    }
-
-    if (activelyReading)
-    {
-      mrvLine += oneLine;
-      std::size_t found = oneLine.find("</cml>");
-      if (found != std::string::npos) 
-      {
-        //printf("%s\n", mrvLine.c_str());
-        try
-        {       
-          bool isReaction = false;
-          void *mrvMolOrRxn = MrvBlockParser(mrvLine, isReaction, false, false);
-          if (isReaction)
-          {
-            // reaction test
-
-            auto rxn = (ChemicalReaction *)mrvMolOrRxn;
-
-            std::string outMolStr = ChemicalReactionToMrvBlock(*rxn);
-            out << outMolStr << "\n\n";
-            delete rxn;
-          } 
-          else 
-          {
-            // mol test
-
-            auto mol = (RWMol *)mrvMolOrRxn;
-
-            std::string outMolStr = MolToMrvBlock(*mol, true, -1, false);
-            out << outMolStr << "\n\n";
-            delete mol;
-          }
-
-          activelyReading = false;
-          mrvLine = "";
-        }          
-        catch (const std::exception &e) 
-        {
-          //std::cerr << e.what() << '\n';
-          printf("\n%s\n", lastId.c_str());
-          printf("%s\n", mrvLine.c_str());
-          printf("ERror: %s\n", e.what());
-          activelyReading = false;
-          mrvLine = "";
-        }
-      }
-    }
-  }
-}
 
 void RunTests() 
 {
-  //testRegistrationFile("registrationData.txt");
+ 
   // first the molecule tests
 
   std::list<MolTest> molFileNames
@@ -524,12 +467,12 @@ void RunTests()
 
    std::list<SmilesTest> smiFileNames
    {
-      SmilesTest("N[C@@H]([O-])c1cc[13c]cc1",true,9,9)
+      SmilesTest("Smiles1","N[C@@H]([O-])c1cc[13c]cc1",true,9,9)
    };
 
   for (std::list<SmilesTest>::const_iterator it = smiFileNames.begin(); it != smiFileNames.end(); ++it) 
   {
-    printf("Test\n\n %s\n\n", it->smiles.c_str());
+    printf("Test\n\n %s\n\n", it->name.c_str());
     testSmilesToMarvin(&*it);
   }
 }

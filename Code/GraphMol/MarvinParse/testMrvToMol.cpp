@@ -179,7 +179,6 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
     {
       std::string expectedSdfName =fName + ".expected.sdf";
       std::string outMolStr =  MolToMolBlock(*localVars.smilesMol, true, 0, true, true);
-
       std::stringstream  expectedMolStr;
       std::ifstream  in;
       in.open(expectedSdfName);
@@ -192,7 +191,6 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
     {
       std::string expectedMrvName =fName + ".expected.mrv";
       std::string outMolStr = MolToMrvBlock(*localVars.smilesMol,true, -1, true);
-
       std::stringstream  expectedMolStr;
       std::ifstream  in;
       in.open(expectedMrvName);
@@ -324,7 +322,6 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
       {
         std::string expectedMrvName =fName + ".expected.sdf";
         std::string outMolStr =  MolToMolBlock(*mol, true, 0, true, true);
-
         std::stringstream  expectedMolStr;
         std::ifstream  in;
         in.open(expectedMrvName);
@@ -337,8 +334,6 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
       {
         std::string expectedMrvName =fName + ".expected.mrv";
         std::string outMolStr = MolToMrvBlock(*mol,true, -1, true);
-
-        std::string expectedRxnName = fName + ".expected.sdf";
         std::stringstream  expectedMolStr;
         std::ifstream  in;
         in.open(expectedMrvName);
@@ -372,7 +367,9 @@ void RunTests()
 
   std::list<MolTest> molFileNames
   {
-    MolTest("marvin01.mrv", true, LoadAsMolOrRxn, 11, 11)
+    MolTest("SnCl2.mrv", true, LoadAsMolOrRxn, 3, 2)
+    ,  MolTest("SnH2Cl2.mrv", true, LoadAsMolOrRxn, 3, 2)
+    ,  MolTest("marvin01.mrv", true, LoadAsMolOrRxn, 11, 11)
     ,  MolTest("marvin01.mrv", true, LoadAsMol, 11, 11)
     ,  MolTest("marvin01.mrv", false, LoadAsRxn, 11, 11)  // should fail
     ,  MolTest("marvin02.mrv", true, LoadAsMolOrRxn, 9, 9)

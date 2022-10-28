@@ -77,8 +77,11 @@ namespace RDKit
     : x2(DBL_MAX)
     , y2(DBL_MAX)
     , formalCharge(0)
+    , mrvValence(-1)
+    , hydrogenCount(-1)
     , mrvMap(0)
     , rgroupRef (-1)   // indicates that it was not specified
+
   {
   }
 
@@ -119,6 +122,12 @@ namespace RDKit
     if (mrvAlias != "")
       out << " mrvAlias=\"" << mrvAlias << "\"";
 
+    if (mrvValence >= 0)
+      out << " mrvValence=\"" << mrvValence << "\"";
+
+    if (hydrogenCount > 0)
+      out << " hydrogenCount=\"" << hydrogenCount << "\"";
+
     if (mrvStereoGroup != "")
       out << " mrvStereoGroup=\"" << mrvStereoGroup << "\"";
 
@@ -138,6 +147,55 @@ namespace RDKit
 
     return out.str();
   }     
+
+  const std::string MarvinBond::getBondType() const
+  {
+    std::string tempQueryType = boost::algorithm::to_upper_copy(queryType);
+    std::string tempOrder = boost::algorithm::to_upper_copy(order);
+    std::string tempConvention = boost::algorithm::to_upper_copy(convention);
+
+    if (tempQueryType != "")
+    {
+      if (tempQueryType == "SD" || tempQueryType == "SA"|| tempQueryType == "DA" || tempQueryType == "ANY")
+        return tempQueryType;
+      else
+      {
+        std::ostringstream err;
+        err      << "unrecognized query bond type " << queryType << " in MRV File ";
+        throw FileParseException(err.str());
+      } 
+    }
+    else if (tempConvention != "")// if no query type, check for convention 
+    {
+      if (tempConvention == "CXN:COORD")
+        return "DATIVE";
+      else
+      {
+          std::ostringstream err;
+          err      << "unrecognized convention " << convention << " in MRV File ";
+          throw FileParseException(err.str());
+      } 
+    }      
+    else if (tempOrder != "") // if no query type not conventtion,  so check for order
+    {
+      if (tempOrder == "1" || tempOrder == "2" || tempOrder == "3" || tempOrder == "A")
+      {
+        return tempOrder;      
+      }
+      else
+      {
+          std::ostringstream err;
+          err      << "unrecognized bond type " << order << " in MRV File ";
+          throw FileParseException(err.str());
+      } 
+    }
+    else
+    {
+        std::ostringstream err;
+        err      << "bond must have one of:  order, queryType, or convention in MRV File ";
+        throw FileParseException(err.str());
+    }       
+}
 
   bool MarvinBond::isEqual(const MarvinAtom& other) const
   {
@@ -231,7 +289,53 @@ namespace RDKit
     }
   }
 
-   
+  int MarvinMolBase::getExplicitValence(const MarvinAtom &marvinAtom) const
+  {
+    unsigned int resTimes10=0;   // calculated as 10 * the actual value so we can use int match, and have 1.5 order bonds
+
+    for (auto bondPtr : bonds)
+    {
+      if (bondPtr->atomRefs2[0] != marvinAtom.id && bondPtr->atomRefs2[1] != marvinAtom.id)
+        continue;  // this bond is NOT to the atom
+
+      std::string tempConvention = boost::algorithm::to_upper_copy(bondPtr->convention);
+      std::string marvinBondType = bondPtr->getBondType();
+
+      if (marvinBondType == "SD" || marvinBondType == "SA" || marvinBondType == "DA")
+      {
+        resTimes10 += 15;   // really 1.5 order bond
+      }
+      else if (marvinBondType == "ANY")
+      {
+        resTimes10 += 10;   // no good answer for Any bonds - treat as a single bond
+      }
+      else if (marvinBondType == "DATIVE")
+      {
+        // if (bondPtr->atomRefs2[1] == marvinAtom.id) //second atom of dative bond count as 1 (first atom is zero)
+        //   resTimes10 += 10;  // really 1 order bond
+      }
+      else if (marvinBondType == "1")
+      {
+          resTimes10 += 10; // really 1 order bond
+      }
+      else if (marvinBondType == "2")
+      {
+         resTimes10 += 20;   // really 2 order bond 
+      }
+      else if (marvinBondType == "3")
+      {
+        resTimes10 += 30;  // really 3 order bond
+      }
+      else if (marvinBondType == "A")
+      {
+         resTimes10 += 15;   // really 1.5 order bond
+      }
+    }
+
+    return resTimes10/10;
+  }
+
+ 
   std::string MarvinSruSgroup::toString() const
   {
     std::ostringstream out;

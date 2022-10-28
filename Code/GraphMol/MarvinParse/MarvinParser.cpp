@@ -192,8 +192,8 @@ namespace RDKit
 
       return true;
     }
-    
-    Atom *molAtomFromMarvinAtom(MarvinAtom *marvinAtom)
+
+    Atom *molAtomFromMarvinAtom(const MarvinAtom *marvinAtom, const MarvinMolBase *marvinMolBase)
     {
       Atom *res = NULL;
 
@@ -201,7 +201,7 @@ namespace RDKit
       {
         std::string symb = marvinAtom->elementType;
         boost::trim(symb);
-        
+
         if (symb == "*") 
         {
           auto *query = new QueryAtom(0);   // wHAT IS AUTO *
@@ -265,15 +265,36 @@ namespace RDKit
           res->setProp(common_properties::_hasMassQuery, true);
         }
 
+        // mrvValence and hydrogenCount both set the number of explicit hydrogens
+        // if both are present, they must agreee
+
+        if (marvinAtom->hydrogenCount >= 0)
+          res->setNumExplicitHs(marvinAtom->hydrogenCount);
+
+        if (marvinAtom->mrvValence >= 0)
+        {
+          res->setNoImplicit(true);
+        
+          int explicitValence = marvinMolBase->getExplicitValence(*marvinAtom);
+          if (explicitValence > marvinAtom->mrvValence) 
+            throw FileParseException("atom has specified valence (" + std::to_string(marvinAtom->mrvValence) +  ") smaller than the drawn valence");
+          
+          int hCount = marvinAtom->mrvValence - explicitValence;
+          if (marvinAtom->hydrogenCount >= 0)
+          {
+            if (marvinAtom->hydrogenCount != hCount)
+              throw FileParseException("mrvValence and hydrogenCount both specified for an atom, and they do not agree");
+          }
+          else
+            res->setNumExplicitHs(hCount); 
+        }
+
         if (marvinAtom->radical != "")
           res->setNumRadicalElectrons(marvinRadicalToRadicalElectrons.at(marvinAtom->radical));
 
         //  we no not get parity (chirality) frommarvin file
         // res->setProp(common_properties::molParity, parity);
         // res->setProp(common_properties::molStereoCare, stereoCare);
-
-        // total valence is not parsed from marvin file
-        // res->setProp(common_properties::molTotValence, totValence);
 
         // rxnRole is not parsed from marvin file
         // res->setProp(common_properties::molRxnRole, rxnRole);
@@ -308,103 +329,68 @@ namespace RDKit
         Bond::BondType type;
 
         // if there is a query type, that takes precidence over the bond type
-        std::string tempQueryType = boost::algorithm::to_upper_copy(marvinBond->queryType);
-        std::string tempOrder = boost::algorithm::to_upper_copy(marvinBond->order);
-        std::string tempConvention = boost::algorithm::to_upper_copy(marvinBond->convention);
+        
+        std::string marvinBondType = marvinBond->getBondType();
 
-        if (tempQueryType != "")
+        if (marvinBondType == "SD")
         {
-          if (tempQueryType == "SD")
-          {
-            bType = 5;
-            type = Bond::UNSPECIFIED;
-            bond = new QueryBond;
-            bond->setQuery(makeSingleOrDoubleBondQuery());
-          }
-          else if (tempQueryType == "SA")
-          {
-            bType = 6;
-            type = Bond::UNSPECIFIED;
-            bond = new QueryBond;
-            bond->setQuery(makeSingleOrAromaticBondQuery());
-          }
-          else if (tempQueryType == "DA")
-          {
-            bType = 7;
-            type = Bond::UNSPECIFIED;
-            bond = new QueryBond;
-            bond->setQuery(makeDoubleOrAromaticBondQuery());
-          }
-          else if (tempQueryType == "ANY")
-          {
-            bType = 8;
-            type = Bond::UNSPECIFIED;
-            bond = new QueryBond;
-            bond->setQuery(makeBondNullQuery());
-          }
-          else
-          {
-            std::ostringstream err;
-            err      << "unrecognized query bond type " << marvinBond->queryType << " in MRV File ";
-            throw FileParseException(err.str());
-          } 
+          bType = 5;
+          type = Bond::UNSPECIFIED;
+          bond = new QueryBond;
+          bond->setQuery(makeSingleOrDoubleBondQuery());
         }
-        else if (tempConvention != "")// if no query type, check for convention 
+        else if (marvinBondType == "SA")
         {
-          if (tempConvention == "CXN:COORD")
-          {
-            bond = new Bond();
-            type = Bond::DATIVE;
+          bType = 6;
+          type = Bond::UNSPECIFIED;
+          bond = new QueryBond;
+          bond->setQuery(makeSingleOrAromaticBondQuery());
+        }
+        else if (marvinBondType == "DA")
+        {
+          bType = 7;
+          type = Bond::UNSPECIFIED;
+          bond = new QueryBond;
+          bond->setQuery(makeDoubleOrAromaticBondQuery());
+        }
+        else if (marvinBondType == "ANY")
+        {
+          bType = 8;
+          type = Bond::UNSPECIFIED;
+          bond = new QueryBond;
+          bond->setQuery(makeBondNullQuery());
+        }
+        else if (marvinBondType == "DATIVE")
+        {
+          bond = new Bond();
+          type = Bond::DATIVE;
+          bType = 1;
+        }
+        else if (marvinBondType == "1")
+        {
+            type = Bond::SINGLE;
+            bond = new Bond;
             bType = 1;
-          }
-          else
-          {
-              std::ostringstream err;
-              err      << "unrecognized convention " << marvinBond->convention << " in MRV File ";
-              throw FileParseException(err.str());
-          } 
-        }      
-        else if (tempOrder != "") // if no query type not conventtion,  so check for order
-        {
-          if (tempOrder == "1")
-          {
-              type = Bond::SINGLE;
-              bond = new Bond;
-              bType = 1;
-          }
-          else if (tempOrder == "2")
-          {
-              type = Bond::DOUBLE;
-              bond = new Bond;
-              bType = 2;
-          }
-          else if (tempOrder == "3")
-          {
-              type = Bond::TRIPLE;
-              bond = new Bond;
-              bType = 3;
-          }
-          else if (tempOrder == "A")
-          {
-              bType = 4;
-              type = Bond::AROMATIC;
-              bond = new Bond;
-          }
-          else
-          {
-              std::ostringstream err;
-              err      << "unrecognized bond type " << marvinBond->order << " in MRV File ";
-              throw FileParseException(err.str());
-          } 
         }
-        else
+        else if (marvinBondType == "2")
         {
-            std::ostringstream err;
-            err      << "bond must have one of:  order, queryType, or convention in MRV File ";
-            throw FileParseException(err.str());
-        }       
-
-
+            type = Bond::DOUBLE;
+            bond = new Bond;
+            bType = 2;
+        }
+        else if (marvinBondType == "3")
+        {
+            type = Bond::TRIPLE;
+            bond = new Bond;
+            bType = 3;
+        }
+        else if (marvinBondType == "A")
+        {
+            bType = 4;
+            type = Bond::AROMATIC;
+            bond = new Bond;
+        }
+       
         bond->setBeginAtomIdx(idx1);
         bond->setEndAtomIdx(idx2);
         bond->setBondType(type);
@@ -506,7 +492,7 @@ namespace RDKit
 
         for (i = 0, atomIter = marvinMol->atoms.begin() ; atomIter != marvinMol->atoms.end();  ++i, ++atomIter)
         {		  
-          Atom *atom = molAtomFromMarvinAtom(*atomIter);
+          Atom *atom = molAtomFromMarvinAtom(*atomIter, marvinMol);
           unsigned int aid = mol->addAtom(atom, false, true);
 
           if (conf != NULL)
@@ -1095,6 +1081,33 @@ namespace RDKit
               else 
                 mrvAtom->isotope = 0;
 
+              std::string valenceStr = v.second.get<std::string>("<xmlattr>.mrvValence", "");
+              if (valenceStr != "")
+              {
+                if (!getCleanInt(valenceStr, mrvAtom->mrvValence) || mrvAtom->mrvValence <=0)
+                {
+                  std::ostringstream err;
+                  err << "The value for mrvValence must be a positive number in MRV file";
+                  throw FileParseException(err.str()); 
+                }
+              }
+              else 
+                mrvAtom->mrvValence = -1;
+
+              std::string hCountStr = v.second.get<std::string>("<xmlattr>.hydrogenCount", "");
+              if (hCountStr != "")
+              {
+                if (!getCleanInt(hCountStr, mrvAtom->hydrogenCount) || mrvAtom->hydrogenCount < 0)
+                {
+                  std::ostringstream err;
+                  err << "The value for mrvValence must be a non-negative number in MRV file";
+                  throw FileParseException(err.str()); 
+                }
+              }
+              else 
+                mrvAtom->hydrogenCount = -1;
+
+
               mrvAtom->mrvAlias = v.second.get<std::string>("<xmlattr>.mrvAlias", "");
 
               mrvAtom->rgroupRef = v.second.get<int>("<xmlattr>.rgroupRef", -1);
@@ -1154,6 +1167,14 @@ namespace RDKit
             std::string radical = atomArray.get<std::string>("<xmlattr>.radical", "");
             boost::algorithm::split(radicals,radical,boost::algorithm::is_space());
 
+            std::vector<std::string> hydrogenCounts;
+            std::string hydrogenCount = atomArray.get<std::string>("<xmlattr>.hydrogenCount", "");
+            boost::algorithm::split(hydrogenCounts,hydrogenCount,boost::algorithm::is_space());
+
+            std::vector<std::string> mrvValences;
+            std::string mrvValence = atomArray.get<std::string>("<xmlattr>.mrvValence", "");
+            boost::algorithm::split(mrvValences,mrvValence,boost::algorithm::is_space());
+
             std::vector<std::string> mrvAliases;
             std::string mrvAlias = atomArray.get<std::string>("<xmlattr>.mrvAlias", "");
             boost::algorithm::split(mrvAliases,mrvAlias,boost::algorithm::is_space());
@@ -1212,7 +1233,22 @@ namespace RDKit
               else
                 mrvAtom->isotope = 0;
             
+              if (mrvValence != "" && mrvValences.size() > i)
+              {
+                if (!getCleanInt(mrvValences[i], mrvAtom->mrvValence) )
+                  throw FileParseException("The value for mrvValences must be an integer in MRV file"); 
+              }
+              else
+                mrvAtom->mrvValence = -1;
             
+              if (hydrogenCount != "" && hydrogenCounts.size() > i)
+              {
+                if (!getCleanInt(hydrogenCounts[i], mrvAtom->hydrogenCount) )
+                  throw FileParseException("The value for mrvValences must be an integer in MRV file"); 
+              }
+              else
+                mrvAtom->hydrogenCount = -1;
+
               if (radical != "" && radicals.size() > i)
               {
                 mrvAtom->radical = radicals[i];

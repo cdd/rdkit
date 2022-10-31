@@ -418,6 +418,20 @@ namespace RDKit
 
   private:
 
+    bool hasNonDefaultValence(const Atom *atom) 
+    {
+      if (atom->getNumRadicalElectrons() != 0) 
+        return true;
+
+      if (atom->hasQuery()) 
+        return false;
+
+      if (atom->getAtomicNum() == 1 || SmilesWrite::inOrganicSubset(atom->getAtomicNum())) 
+        return false;
+     
+      return true;
+    }
+
     MarvinMol *MolToMarvinMol(RWMol *mol, int &molCount, int &atomCount, int &bondCount, int &sgCount, int confId=(-1))
     {
       //molCount is the starting and ending molCount - used when called from a rxn
@@ -467,8 +481,39 @@ namespace RDKit
           GetMarvinAtomInfo(atom, marvinAtom);
           
           marvinAtom->formalCharge = atom->getFormalCharge();
+
+          unsigned int nRadEs = atom->getNumRadicalElectrons();
+          if (nRadEs != 0)
+            marvinAtom->radical = radicalElectronsToMarvinRadical.at(nRadEs);
+
           if (marvinAtom->isElement())
+          {
             marvinAtom->isotope = atom->getIsotope();
+
+            if (marvinAtom->radical == "" && hasNonDefaultValence(atom)) 
+            {
+              if (atom->getTotalDegree() == 0)
+              {
+                // Specify zero valence for elements/metals without neighbors
+                // or hydrogens (degree 0) instead of writing them as radicals.
+                marvinAtom->mrvValence = (-1);
+              } 
+              else 
+              {
+                // if there are explicit Hs , mark them in the atom
+
+                if (atom->getNoImplicit() && atom->getNumExplicitHs() > 0)
+                  marvinAtom->hydrogenCount = atom->getNumExplicitHs();
+
+                else
+                {
+                  unsigned int totalValence = atom->getTotalValence();
+                  if (totalValence != 15) 
+                    marvinAtom->mrvValence = totalValence%15;  
+                }
+              }
+            }
+          }
           
           if (!atom->getPropIfPresent(common_properties::molAtomMapNumber, marvinAtom->mrvMap))
             marvinAtom->mrvMap=0;
@@ -485,10 +530,7 @@ namespace RDKit
             marvinAtom->y2 = DBL_MAX;
           }
     
-          unsigned int nRadEs = atom->getNumRadicalElectrons();
-          if (nRadEs != 0)
-            marvinAtom->radical = radicalElectronsToMarvinRadical.at(nRadEs);
-
+ 
           // atom maps for rxns
 
           if (!atom->getPropIfPresent(common_properties::molAtomMapNumber, marvinAtom->mrvMap)) 

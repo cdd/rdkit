@@ -117,6 +117,8 @@ namespace RDKit
     int formalCharge;
     std::string radical;
     int isotope;
+    int mrvValence;
+    int hydrogenCount;
     std::string mrvAlias;
     std::string mrvStereoGroup;
     int mrvMap;
@@ -148,7 +150,9 @@ namespace RDKit
     bool isEqual(const MarvinAtom& other) const;
     
     bool operator==(const MarvinAtom& rhs) const;
-    
+
+    const std::string getBondType() const;
+
     std::string toString() const;
   };
 
@@ -161,6 +165,8 @@ namespace RDKit
 
     virtual std::string role() const = 0;
     virtual bool hasAtomBondBlocks() const = 0;
+
+    int getExplicitValence(const MarvinAtom &marvinAtom) const;
 
     MarvinMolBase()
     {

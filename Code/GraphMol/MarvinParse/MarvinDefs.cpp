@@ -68,7 +68,7 @@ namespace RDKit
   {
     std::ostringstream out;
 
-    out << "<AttachmentPoint atom=\"" << atom << "\" order=\"" << order << "\" bond=\"" << bond << "\"/>";
+    out << "<attachmentPoint atom=\"" << atom << "\" order=\"" << order << "\" bond=\"" << bond << "\"/>";
 
     return out.str();
   }

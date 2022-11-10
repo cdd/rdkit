@@ -179,6 +179,7 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
     {
       std::string expectedSdfName =fName + ".expected.sdf";
       std::string outMolStr =  MolToMolBlock(*localVars.smilesMol, true, 0, true, true);
+
       std::stringstream  expectedMolStr;
       std::ifstream  in;
       in.open(expectedSdfName);
@@ -191,6 +192,7 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
     {
       std::string expectedMrvName =fName + ".expected.mrv";
       std::string outMolStr = MolToMrvBlock(*localVars.smilesMol,true, -1, true);
+
       std::stringstream  expectedMolStr;
       std::ifstream  in;
       in.open(expectedMrvName);
@@ -307,13 +309,12 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
       BOOST_LOG(rdInfoLog) << "done" << std::endl;
     }
     else
-    {
+    {   
       // mol  test
 
       auto mol = (RWMol *)localVars.molOrRxn;
       auto molTest = (MolTest *)molOrRxnTest;
       TEST_ASSERT(mol != NULL);
-
 
       TEST_ASSERT(mol->getNumAtoms() == molTest->atomCount)
       TEST_ASSERT(mol->getNumBonds() == molTest->bondCount)
@@ -334,6 +335,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
       {
         std::string expectedMrvName =fName + ".expected.mrv";
         std::string outMolStr = MolToMrvBlock(*mol,true, -1, true);
+        std::string expectedRxnName = fName + ".expected.sdf";
         std::stringstream  expectedMolStr;
         std::ifstream  in;
         in.open(expectedMrvName);
@@ -367,7 +369,9 @@ void RunTests()
 
   std::list<MolTest> molFileNames
   {
-    MolTest("SnCl2.mrv", true, LoadAsMolOrRxn, 3, 2)
+    MolTest("ChiralTest2.mrv", true, LoadAsMolOrRxn, 46, 47)
+    ,  MolTest("ChiralTest.mrv", true, LoadAsMolOrRxn, 8, 7)
+    ,  MolTest("SnCl2.mrv", true, LoadAsMolOrRxn, 3, 2)
     ,  MolTest("SnH2Cl2.mrv", true, LoadAsMolOrRxn, 3, 2)
     ,  MolTest("marvin01.mrv", true, LoadAsMolOrRxn, 11, 11)
     ,  MolTest("marvin01.mrv", true, LoadAsMol, 11, 11)
@@ -474,15 +478,18 @@ void RunTests()
   }
 }
 
+
 int main(int argc, char *argv[]) 
 {
   (void)argc;
   (void)argv;
   //  std::locale::global(std::locale("de_DE.UTF-8"));
 
+
   RDLog::InitLogs();
   BOOST_LOG(rdInfoLog) << " ---- Running with POSIX locale ----- "
                         << std::endl;
+
   RunTests();  // run with C locale
 
   return 0;

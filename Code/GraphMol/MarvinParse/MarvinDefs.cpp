@@ -355,6 +355,36 @@ namespace RDKit
   {
     return false;
   } 
+  
+  
+  std::string MarvinDataSgroup::toString() const
+  {
+    std::ostringstream out;
+
+    out << "<molecule molID=\"" << molID << "\" id=\"" << id << "\" role=\"DataSgroup\" atomRefs=\"" << boost::algorithm::join(getAtomList()," ") << "\" context=\"" << context 
+    <<"\" fieldName=\"" << fieldName << "\" placement=\"" << placement << "\" unitsDisplayed=\"" << unitsDisplayed << "\" fieldData=\"" << fieldData;
+  
+    if (units != "")
+      out << "\" units=\"" << units;
+    
+    if (queryType != "" && queryOp != "")
+      out << "\" queryType=\"" << queryType << "\" queryOp=\"" << boost::property_tree::xml_parser::encode_char_entities(queryOp);
+
+    out << "\" x=\"" << x << "\" y=\"" << y << "\"/>";
+
+    return out.str();
+  }
+
+  std::string MarvinDataSgroup::role() const
+  {
+    return std::string("DataSgroup");
+  } 
+
+  bool MarvinDataSgroup::hasAtomBondBlocks() const
+  {
+    return false;
+  } 
+  
 
   std::string MarvinMultipleSgroup::role() const
   {
@@ -479,6 +509,9 @@ namespace RDKit
     for (std::vector<MarvinSuperatomSgroupExpanded *>::iterator it = superatomSgroupsExpanded.begin(); it != superatomSgroupsExpanded.end(); ++it)
       delete(*it);
 
+    for (std::vector<MarvinDataSgroup *>::iterator it =dataSgroups.begin(); it != dataSgroups.end(); ++it)
+      delete(*it);
+
     for (std::vector<MarvinSuperInfo *>::iterator it = superInfos.begin(); it != superInfos.end(); ++it)
       delete(*it);
   }
@@ -532,11 +565,18 @@ namespace RDKit
       marvinMultipleSgroup->id = newId;
     }
 
-    for (MarvinSruSgroup *marvinmarvinSruSGgroup : this->sruSgroups)         
+    for (MarvinSruSgroup *marvinSruSGgroup : this->sruSgroups)         
     {
       std::string newId = "sg" + std::to_string(++sgCount);
-      sgMap[marvinmarvinSruSGgroup->id] = newId;
-      marvinmarvinSruSGgroup->id = newId;
+      sgMap[marvinSruSGgroup->id] = newId;
+      marvinSruSGgroup->id = newId;
+    }
+
+    for (MarvinDataSgroup *marvinDataSGgroup : this->dataSgroups)         
+    {
+      std::string newId = "sg" + std::to_string(++sgCount);
+      sgMap[marvinDataSGgroup->id] = newId;
+      marvinDataSGgroup->id = newId;
     }
 
 
@@ -902,6 +942,8 @@ namespace RDKit
     for (std::vector<MarvinMultipleSgroup *>::const_iterator it = multipleSgroups.begin();  it != multipleSgroups.end(); ++it)
       out << (*it)->toString();
     for (std::vector<MarvinSruSgroup *>::const_iterator it = sruSgroups.begin();  it != sruSgroups.end(); ++it)
+      out << (*it)->toString();
+    for (std::vector<MarvinDataSgroup *>::const_iterator it = dataSgroups.begin();  it != dataSgroups.end(); ++it)
       out << (*it)->toString();
     
     out <<"</molecule>";

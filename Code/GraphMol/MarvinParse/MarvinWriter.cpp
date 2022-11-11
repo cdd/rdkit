@@ -641,6 +641,39 @@ namespace RDKit
             }
           }
 
+          else if (type == "DAT")
+          {                             
+            auto marvinDataSgroup =new MarvinDataSgroup();
+            marvinMol->dataSgroups.push_back(marvinDataSgroup);
+
+            marvinDataSgroup->id = "sg" + std::to_string(++sruSgCount);
+            marvinDataSgroup->molID  = 'm' + std::to_string(++tempMolCount);
+            marvinDataSgroup->fieldName = sgroup.getProp<std::string>(std::string("FIELDNAME"));
+            if (sgroup.hasProp(std::string("QUERYTYPE")))
+              marvinDataSgroup->queryType = sgroup.getProp<std::string>(std::string("QUERYTYPE"));
+            if (sgroup.hasProp(std::string("QUERYOP")))
+              marvinDataSgroup->queryOp = sgroup.getProp<std::string>(std::string("QUERYOP"));
+            std::vector<std::string> fieldDatas = sgroup.getProp<std::vector<std::string>>(std::string("DATAFIELDS"));
+            marvinDataSgroup->fieldData = boost::algorithm::join(fieldDatas,"\n");
+            marvinDataSgroup->units = sgroup.getProp<std::string>(std::string("UNITS"));
+
+            marvinDataSgroup->x = sgroup.getProp<double>(std::string("X"));
+            marvinDataSgroup->y = sgroup.getProp<double>(std::string("Y"));
+            marvinDataSgroup->context = sgroup.getProp<std::string>(std::string("CONTEXT"));
+            marvinDataSgroup->placement = sgroup.getProp<std::string>(std::string("PLACEMENT"));
+            marvinDataSgroup->unitsDisplayed = sgroup.getProp<std::string>(std::string("UNITSDISPLAYED"));
+
+
+        
+            for (auto atomIndex : sgroup.getAtoms())
+            {
+                marvinDataSgroup->atoms.push_back(marvinMol->atoms[atomIndex]);
+                marvinMol->atoms[atomIndex]->sgroupRef =  marvinDataSgroup->id;
+            }
+            
+            
+          }
+
           else if (type == "SUP")
           {
             auto marvinSuperInfo =new MarvinSuperInfo();

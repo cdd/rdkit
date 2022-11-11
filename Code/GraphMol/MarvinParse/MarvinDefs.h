@@ -199,6 +199,28 @@ namespace RDKit
     bool hasAtomBondBlocks() const;
   };
 
+  class MarvinDataSgroup : public MarvinMolBase
+  {
+    public:
+    std::string id;
+    std::string context;
+    std::string fieldName;
+    std::string placement;
+    std::string unitsDisplayed;
+    std::string queryType;
+    std::string queryOp;
+    std::string fieldData;
+    std::string units;
+    double x;
+    double y;
+
+    std::string toString() const;
+    
+    std::string role() const;    
+    bool hasAtomBondBlocks() const;
+  };
+
+
 
   class MarvinSuperatomSgroupExpanded : public MarvinMolBase
   {
@@ -259,6 +281,7 @@ namespace RDKit
     std::vector<MarvinSruSgroup *>  sruSgroups;
     std::vector<MarvinSuperatomSgroupExpanded *>  superatomSgroupsExpanded;
     std::vector<MarvinMultipleSgroup *>  multipleSgroups;
+    std::vector<MarvinDataSgroup *> dataSgroups;
     std::vector<MarvinSuperInfo *> superInfos;  // used in convertng superatomSgroups to mol-type CTs
 
     ~MarvinMol();

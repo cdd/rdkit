@@ -15,6 +15,8 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <sstream>
+#include<iomanip>
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/xml_parser.hpp>
@@ -705,6 +707,57 @@ namespace RDKit
             addSubstanceGroup(*mol, sgroup);
         }
 
+        //Now the data groups
+        
+        for ( std::vector<MarvinDataSgroup *>::iterator dataIter = marvinMol->dataSgroups.begin() ; dataIter != marvinMol->dataSgroups.end() ; ++dataIter, ++sequenceId)
+        {
+          std::string typ = "DAT";         
+          SubstanceGroup sgroup = SubstanceGroup(mol, typ);
+          sgroup.setProp<unsigned int>("index", sequenceId);
+
+          void (SubstanceGroup::*sGroupAddIndexedElement)(const unsigned int) = nullptr;
+          sGroupAddIndexedElement = &SubstanceGroup::addAtomWithIdx;
+
+          std::vector<MarvinAtom *>::const_iterator atomIter;
+          for (atomIter = (*dataIter)->atoms.begin(); atomIter != (*dataIter)->atoms.end(); ++atomIter)
+          {
+            int atomIndex = marvinMol->getAtomIndex((*atomIter)->id);
+            (sgroup.*sGroupAddIndexedElement)(atomIndex);
+          }
+          
+          sgroup.setProp("FIELDNAME", (*dataIter)->fieldName);
+        
+          if ((*dataIter)->queryType != "") {
+            sgroup.setProp("QUERYTYPE", (*dataIter)->queryType);
+          }
+          if ((*dataIter)->queryOp != "") {
+            sgroup.setProp("QUERYOP", (*dataIter)->queryOp);
+          }
+
+          std::ostringstream out;
+          //out << setfill('0') << setw(10) << setprecision(4) << (*dataIter)->x << width(10) << precision(4) << (*dataIter)->y << "DRU   ALL  0       0";
+          out << std::fixed << std::setw(10) << std::setprecision(4) << (*dataIter)->x << std::fixed << std::setw(10) << std::setprecision(4) << (*dataIter)->y  << "DRU   ALL  0       0";
+
+          sgroup.setProp("FIELDDISP", out.str());  // really not used by RDKIT
+
+          std::vector<std::string> fieldDatas;
+          fieldDatas.push_back((*dataIter)->fieldData);
+          sgroup.setProp("DATAFIELDS", fieldDatas);
+
+          // The following props are not part of the RDKit structure for MOL files, but we save them so that we can round-trip the MRV
+
+          sgroup.setProp("UNITS", (*dataIter)->units);
+          sgroup.setProp("UNITSDISPLAYED", (*dataIter)->unitsDisplayed);
+          sgroup.setProp("CONTEXT", (*dataIter)->context);
+          sgroup.setProp("PLACEMENT", (*dataIter)->placement);
+          sgroup.setProp("X", (*dataIter)->x);
+          sgroup.setProp("Y", (*dataIter)->y);
+
+          if (sgroup.getIsValid())
+            addSubstanceGroup(*mol, sgroup);
+        }
+
+
         mol->clearAllAtomBookmarks();
         mol->clearAllBondBookmarks();
 
@@ -998,6 +1051,65 @@ namespace RDKit
             if (marvinMultipleSgroup->title == "")
               throw FileParseException("Expected  title for a MultipleSgroup definition in MRV file");            
           }
+          else if (role == "DataSgroup")
+          {
+            MarvinDataSgroup *marvinDataSgroup = new MarvinDataSgroup();
+            res = marvinDataSgroup;
+            
+            marvinDataSgroup->id = molTree.get<std::string>("<xmlattr>.id", "");
+
+            std::string atomRefsStr = molTree.get<std::string>("<xmlattr>.atomRefs", "");
+            if (atomRefsStr == "")
+              throw FileParseException("Expected  atomRefs for a DataSgroup definition in MRV file");
+
+            std::vector<std::string> atomList;
+            boost::algorithm::split(atomList, atomRefsStr, boost::algorithm::is_space());
+            for (std::vector<std::string>::const_iterator it = atomList.begin() ;  it != atomList.end(); ++it)
+            {
+              auto atomIter = find_if(parentMol->atoms.begin(), parentMol->atoms.end(), [it](const MarvinAtom *arg) { 
+                            return arg->id == *it; });
+              if (atomIter == parentMol->atoms.end())
+                throw FileParseException("AtomRef specification for an MultipleSgroup group definition was not found in the atom array in MRV file");
+              marvinDataSgroup->atoms.push_back(*atomIter);
+            }
+
+            marvinDataSgroup->context = molTree.get<std::string>("<xmlattr>.context", "");
+            if (marvinDataSgroup->context == "")
+              throw FileParseException("Expected context for a MultipleSgroup definition in MRV file");       
+            
+            marvinDataSgroup->fieldName = molTree.get<std::string>("<xmlattr>.fieldName", "");
+            if (marvinDataSgroup->fieldName == "")
+              throw FileParseException("Expected fieldName for a MultipleSgroup definition in MRV file");                      
+
+            marvinDataSgroup->placement = molTree.get<std::string>("<xmlattr>.placement", "");
+            if (marvinDataSgroup->placement == "")
+              throw FileParseException("Expected placement for a MultipleSgroup definition in MRV file");                      
+
+            marvinDataSgroup->unitsDisplayed = molTree.get<std::string>("<xmlattr>.unitsDisplayed", "");
+            if (marvinDataSgroup->unitsDisplayed == "")
+              throw FileParseException("Expected unitsDisplayed for a MultipleSgroup definition in MRV file");                      
+
+            marvinDataSgroup->queryType = molTree.get<std::string>("<xmlattr>.queryType", "");
+            marvinDataSgroup->queryOp = molTree.get<std::string>("<xmlattr>.queryOp", "");
+            marvinDataSgroup->units = molTree.get<std::string>("<xmlattr>.units", "");
+                         
+
+            marvinDataSgroup->fieldData = molTree.get<std::string>("<xmlattr>.fieldData", "");
+            if (marvinDataSgroup->fieldData == "")
+              throw FileParseException("Expected fieldData for a MultipleSgroup definition in MRV file");                      
+           
+            std::string x = molTree.get<std::string>("<xmlattr>.x", "");
+            std::string y = molTree.get<std::string>("<xmlattr>.y", "");
+            
+            if (x == "")
+              throw FileParseException("Expected x for a MultipleSgroup definition in MRV file"); 
+            if (!getCleanDouble(x, marvinDataSgroup->x))
+                  throw FileParseException("The value for x must be a floating point value in MRV file");  
+            if (y == "")
+              throw FileParseException("Expected y for a MultipleSgroup definition in MRV file"); 
+            if (!getCleanDouble(y, marvinDataSgroup->y))
+                  throw FileParseException("The value for y must be a floating point value in MRV file");  
+          }
           else
             throw FileParseException("Unexpected role " + role + " in MRV file");
         }
@@ -1100,7 +1212,7 @@ namespace RDKit
                 if (!getCleanInt(hCountStr, mrvAtom->hydrogenCount) || mrvAtom->hydrogenCount < 0)
                 {
                   std::ostringstream err;
-                  err << "The value for mrvValence must be a non-negative number in MRV file";
+                  err << "The value for hydrogenCount must be a non-negative number in MRV file";
                   throw FileParseException(err.str()); 
                 }
               }
@@ -1244,7 +1356,7 @@ namespace RDKit
               if (hydrogenCount != "" && hydrogenCounts.size() > i)
               {
                 if (!getCleanInt(hydrogenCounts[i], mrvAtom->hydrogenCount) )
-                  throw FileParseException("The value for mrvValences must be an integer in MRV file"); 
+                  throw FileParseException("The value for hydrogenCount must be an integer in MRV file"); 
               }
               else
                 mrvAtom->hydrogenCount = -1;
@@ -1445,6 +1557,8 @@ namespace RDKit
                 ((MarvinMol *)res)->superatomSgroupsExpanded.push_back((MarvinSuperatomSgroupExpanded *)subMol);
               else if (subMol->role() == "MultipleSgroup")
                 ((MarvinMol *)res)->multipleSgroups.push_back((MarvinMultipleSgroup *)subMol);
+              else if (subMol->role() == "DataSgroup")
+                ((MarvinMol *)res)->dataSgroups.push_back((MarvinDataSgroup *)subMol);
               else  
                 throw FileParseException("Unexpected role while parsing sub-molecues in MRV file");
             }

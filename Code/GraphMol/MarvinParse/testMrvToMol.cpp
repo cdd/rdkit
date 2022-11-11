@@ -335,7 +335,6 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
       {
         std::string expectedMrvName =fName + ".expected.mrv";
         std::string outMolStr = MolToMrvBlock(*mol,true, -1, true);
-        std::string expectedRxnName = fName + ".expected.sdf";
         std::stringstream  expectedMolStr;
         std::ifstream  in;
         in.open(expectedMrvName);
@@ -399,6 +398,7 @@ void RunTests()
     ,  MolTest("SgroupMultAttach.mrv", true, LoadAsMolOrRxn, 44, 45)  
     ,  MolTest("MarvinMissingX2.mrv", true, LoadAsMolOrRxn, 12, 11)  
     ,  MolTest("MarvinMissingY2.mrv", true, LoadAsMolOrRxn, 12, 11)  
+    ,  MolTest("DataSgroup.mrv", true, LoadAsMolOrRxn, 7, 6)
     ,  MolTest("marvin03.mrv", false, LoadAsMolOrRxn, 31,33)  // should fail - this is a reaction
     ,  MolTest("MarvinBadMissingMolID.mrv", false, LoadAsMolOrRxn, 12, 11)  // should fail - no molId
     ,  MolTest("MarvinBadMissingAtomID.mrv", false, LoadAsMolOrRxn, 12, 11)  // should fail - missing atom Id

@@ -57,7 +57,6 @@ int SequenceRule::recursiveCompare(const Edge *a, const Edge *b) const {
   {
     auto leftToGo = (startTimePoint + std::chrono::seconds(CIPLabeler::getTimeOutInSeconds()))  - clock::now();
     if (leftToGo <= std::chrono::seconds(0)){
-      //printf("Expired\n");
       throw CipLabelerTimeoutException();
     }
   }

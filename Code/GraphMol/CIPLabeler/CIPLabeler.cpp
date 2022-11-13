@@ -163,6 +163,10 @@ void label(std::vector<std::unique_ptr<Configuration>> &configs) {
   }
 }
 
+
+static unsigned int timeOutInSeconds = 0;
+
+
 }  // namespace
 
 void assignCIPLabels(ROMol &mol, const boost::dynamic_bitset<> &atoms,
@@ -179,6 +183,17 @@ void assignCIPLabels(ROMol &mol) {
   bonds.set();
   assignCIPLabels(mol, atoms, bonds);
 }
+
+void setTimeOutInSeconds(int newVal)
+{
+    timeOutInSeconds = newVal;
+}
+
+int getTimeOutInSeconds()
+{
+    return timeOutInSeconds;
+}
+
 
 }  // namespace CIPLabeler
 }  // namespace RDKit

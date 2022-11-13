@@ -10,13 +10,16 @@
 //
 
 #include "SequenceRule.h"
+#include "../CIPLabeler.h"
 
 #include "../CIPMol.h"
 
 namespace RDKit {
 namespace CIPLabeler {
 
-SequenceRule::SequenceRule() = default;
+SequenceRule::SequenceRule(){
+    startTimePoint = clock::now();
+}
 
 SequenceRule::~SequenceRule() = default;
 
@@ -49,6 +52,16 @@ const Sort *SequenceRule::getSorter() const {
 }
 
 int SequenceRule::recursiveCompare(const Edge *a, const Edge *b) const {
+  
+  if (CIPLabeler::getTimeOutInSeconds() > 0)
+  {
+    auto leftToGo = (startTimePoint + std::chrono::seconds(CIPLabeler::getTimeOutInSeconds()))  - clock::now();
+    if (leftToGo <= std::chrono::seconds(0)){
+      //printf("Expired\n");
+      throw CipLabelerTimeoutException();
+    }
+  }
+
   int cmp = compare(a, b);
   if (cmp != 0) {
     return cmp;

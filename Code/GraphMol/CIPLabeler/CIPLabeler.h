@@ -20,6 +20,25 @@ class ROMol;
 
 namespace CIPLabeler {
 
+
+RDKIT_CIPLABELER_EXPORT void setTimeOutInSeconds(int newVal);
+RDKIT_CIPLABELER_EXPORT int getTimeOutInSeconds();
+
+
+/*
+  Some very symmetrical mols can cause pseudo infinite processing (e.g. bukcy-ball)
+  To avoid this a timeout can be set by the caller with setTimeOutInSeconds()
+  If that timeout is exceeded, the folloowing error is thrown
+*/
+
+class CipLabelerTimeoutException : public std::runtime_error {
+ public:
+  explicit CipLabelerTimeoutException()
+      : std::runtime_error("CipLabelerTimeoutException"){};
+};
+
+
+
 /**
  * Calculate Stereochemical labels based on an accurate implementation
  * of the CIP rules.

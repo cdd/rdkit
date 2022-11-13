@@ -660,8 +660,19 @@ M  END
   REQUIRE(mol);
   bool caughtIt = false;
   try {
-    CIPLabeler::setTimeOutInSeconds(5);
-    CIPLabeler::assignCIPLabels(*mol);
+    CIPLabeler::assignCIPLabels(*mol, 5);
+  }
+  catch(const CIPLabeler::CipLabelerTimeoutException &e)
+  {
+    caughtIt = true;
+  } 
+  CHECK(caughtIt);
+
+  // try a second call to test that the timer is reset
+
+  caughtIt = false;   
+  try {
+    CIPLabeler::assignCIPLabels(*mol, 5);
   }
   catch(const CIPLabeler::CipLabelerTimeoutException &e)
   {

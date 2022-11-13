@@ -13,8 +13,8 @@
 #include <stdexcept>
 #include <memory>
 #include <vector>
-#include <chrono>
-
+//#include <chrono>
+#include "../CIPLabeler.h"
 
 #include "../Descriptor.h"
 #include "../Edge.h"
@@ -24,8 +24,6 @@
 
 namespace RDKit {
 namespace CIPLabeler {
-
-using clock = std::chrono::system_clock;
 
 class CIPMol;
 
@@ -37,8 +35,6 @@ inline int three_way_comparison(const T &x, const T &y) {
 }  // namespace
 
 class SequenceRule {
- private:
-  clock::time_point startTimePoint;
 
  public:
   SequenceRule();

@@ -163,37 +163,34 @@ void label(std::vector<std::unique_ptr<Configuration>> &configs) {
   }
 }
 
-
-static unsigned int timeOutInSeconds = 0;
-
+static std::chrono::system_clock::time_point cipTimeOut = std::chrono::system_clock::time_point::max();
 
 }  // namespace
 
 void assignCIPLabels(ROMol &mol, const boost::dynamic_bitset<> &atoms,
-                     const boost::dynamic_bitset<> &bonds) {
+                     const boost::dynamic_bitset<> &bonds, unsigned int timeOutInSeconds) {
+  if (timeOutInSeconds != 0)
+    cipTimeOut  = std::chrono::system_clock::now() +  std::chrono::seconds(timeOutInSeconds);
+  else
+    cipTimeOut = std::chrono::system_clock::time_point::max();
+
   CIPMol cipmol{mol};
   auto configs = findConfigs(cipmol, atoms, bonds);
   label(configs);
 }
 
-void assignCIPLabels(ROMol &mol) {
+void assignCIPLabels(ROMol &mol, unsigned int timeOutInSeconds) {
   boost::dynamic_bitset<> atoms(mol.getNumAtoms());
   boost::dynamic_bitset<> bonds(mol.getNumBonds());
   atoms.set();
   bonds.set();
-  assignCIPLabels(mol, atoms, bonds);
+  assignCIPLabels(mol, atoms, bonds, timeOutInSeconds);
 }
 
-void setTimeOutInSeconds(int newVal)
+std::chrono::system_clock::time_point &getCipTimeOut() 
 {
-    timeOutInSeconds = newVal;
+    return cipTimeOut;
 }
-
-int getTimeOutInSeconds()
-{
-    return timeOutInSeconds;
-}
-
 
 }  // namespace CIPLabeler
 }  // namespace RDKit

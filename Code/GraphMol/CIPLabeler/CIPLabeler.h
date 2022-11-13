@@ -14,16 +14,15 @@
 
 #include <RDGeneral/export.h>
 
+#include <chrono>
+
 namespace RDKit {
 
 class ROMol;
 
 namespace CIPLabeler {
 
-
-RDKIT_CIPLABELER_EXPORT void setTimeOutInSeconds(int newVal);
-RDKIT_CIPLABELER_EXPORT int getTimeOutInSeconds();
-
+RDKIT_CIPLABELER_EXPORT std::chrono::system_clock::time_point &getCipTimeOut();
 
 /*
   Some very symmetrical mols can cause pseudo infinite processing (e.g. bukcy-ball)
@@ -59,7 +58,7 @@ class CipLabelerTimeoutException : public std::runtime_error {
  *   \note Labels will be stored under the common_properties::_CIPCode
  *          property of the relevant atoms/bonds.
  */
-RDKIT_CIPLABELER_EXPORT void assignCIPLabels(ROMol &mol);
+RDKIT_CIPLABELER_EXPORT void assignCIPLabels(ROMol &mol, unsigned int timeOutInSeconds = 0);
 
 /**
  * Overload that allows selecting which atoms and/or bonds will be labeled.
@@ -73,6 +72,7 @@ RDKIT_CIPLABELER_EXPORT void assignCIPLabels(ROMol &mol);
  */
 RDKIT_CIPLABELER_EXPORT void assignCIPLabels(
     ROMol &mol, const boost::dynamic_bitset<> &atoms,
-    const boost::dynamic_bitset<> &bonds);
+    const boost::dynamic_bitset<> &bonds, 
+    unsigned int timeOutInSeconds = 0);
 }  // namespace CIPLabeler
 }  // namespace RDKit

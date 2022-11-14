@@ -163,33 +163,38 @@ void label(std::vector<std::unique_ptr<Configuration>> &configs) {
   }
 }
 
-static std::chrono::system_clock::time_point cipTimeOut = std::chrono::system_clock::time_point::max();
+//static std::chrono::system_clock::time_point cipTimeOut = std::chrono::system_clock::time_point::max();
+static unsigned int remainingCallCount=0;
+
+
 
 }  // namespace
 
 void assignCIPLabels(ROMol &mol, const boost::dynamic_bitset<> &atoms,
-                     const boost::dynamic_bitset<> &bonds, unsigned int timeOutInSeconds) {
-  if (timeOutInSeconds != 0)
-    cipTimeOut  = std::chrono::system_clock::now() +  std::chrono::seconds(timeOutInSeconds);
+                     const boost::dynamic_bitset<> &bonds, unsigned int maxRecursiveIterations) {
+
+  if (maxRecursiveIterations != 0)
+    remainingCallCount  = maxRecursiveIterations;
   else
-    cipTimeOut = std::chrono::system_clock::time_point::max();
+    remainingCallCount = UINT_MAX;  // really big - will never be hit
+  
 
   CIPMol cipmol{mol};
   auto configs = findConfigs(cipmol, atoms, bonds);
   label(configs);
 }
 
-void assignCIPLabels(ROMol &mol, unsigned int timeOutInSeconds) {
+void assignCIPLabels(ROMol &mol, unsigned int maxRecursiveIterations) {
   boost::dynamic_bitset<> atoms(mol.getNumAtoms());
   boost::dynamic_bitset<> bonds(mol.getNumBonds());
   atoms.set();
   bonds.set();
-  assignCIPLabels(mol, atoms, bonds, timeOutInSeconds);
+  assignCIPLabels(mol, atoms, bonds, maxRecursiveIterations);
 }
 
-std::chrono::system_clock::time_point &getCipTimeOut() 
+bool checkRemainingCallCount()
 {
-    return cipTimeOut;
+  return (--remainingCallCount) >0 ;
 }
 
 }  // namespace CIPLabeler

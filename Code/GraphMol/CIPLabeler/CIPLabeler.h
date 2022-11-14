@@ -22,7 +22,7 @@ class ROMol;
 
 namespace CIPLabeler {
 
-RDKIT_CIPLABELER_EXPORT std::chrono::system_clock::time_point &getCipTimeOut();
+RDKIT_CIPLABELER_EXPORT bool checkRemainingCallCount();
 
 /*
   Some very symmetrical mols can cause pseudo infinite processing (e.g. bukcy-ball)
@@ -30,10 +30,10 @@ RDKIT_CIPLABELER_EXPORT std::chrono::system_clock::time_point &getCipTimeOut();
   If that timeout is exceeded, the folloowing error is thrown
 */
 
-class CipLabelerTimeoutException : public std::runtime_error {
+class MaxIterationsExceeded : public std::runtime_error {
  public:
-  explicit CipLabelerTimeoutException()
-      : std::runtime_error("CipLabelerTimeoutException"){};
+  explicit MaxIterationsExceeded()
+      : std::runtime_error("MaxIterationsExceeded"){};
 };
 
 
@@ -58,7 +58,7 @@ class CipLabelerTimeoutException : public std::runtime_error {
  *   \note Labels will be stored under the common_properties::_CIPCode
  *          property of the relevant atoms/bonds.
  */
-RDKIT_CIPLABELER_EXPORT void assignCIPLabels(ROMol &mol, unsigned int timeOutInSeconds = 0);
+RDKIT_CIPLABELER_EXPORT void assignCIPLabels(ROMol &mol, unsigned int maxRecursiveIterations = 0);
 
 /**
  * Overload that allows selecting which atoms and/or bonds will be labeled.
@@ -73,6 +73,6 @@ RDKIT_CIPLABELER_EXPORT void assignCIPLabels(ROMol &mol, unsigned int timeOutInS
 RDKIT_CIPLABELER_EXPORT void assignCIPLabels(
     ROMol &mol, const boost::dynamic_bitset<> &atoms,
     const boost::dynamic_bitset<> &bonds, 
-    unsigned int timeOutInSeconds = 0);
+    unsigned int maxRecursiveIterations = 0);  // A value of 1,250,000 take about 1 second.  Most strucutres requires less than 10,000 iterations 
 }  // namespace CIPLabeler
 }  // namespace RDKit

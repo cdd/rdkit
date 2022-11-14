@@ -50,9 +50,8 @@ const Sort *SequenceRule::getSorter() const {
 
 int SequenceRule::recursiveCompare(const Edge *a, const Edge *b) const {
   
-  
-  if (CIPLabeler::getCipTimeOut() - std::chrono::system_clock::now() <= std::chrono::seconds(0)){
-    throw CipLabelerTimeoutException();
+  if (!CIPLabeler::checkRemainingCallCount()){
+    throw MaxIterationsExceeded();
   }
 
   int cmp = compare(a, b);

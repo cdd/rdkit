@@ -24,7 +24,7 @@ using RDKit::CIPLabeler::assignCIPLabels;
 void assignCIPLabelsWrapHelper(RDKit::ROMol &mol,
                                const python::object &atomsToLabel,
                                const python::object &bondsToLabel,
-                               unsigned int timeOutInSeconds) {
+                               unsigned int maxRecursiveIterations) {
   auto atoms = pythonObjectToDynBitset(atomsToLabel, mol.getNumAtoms());
   auto bonds = pythonObjectToDynBitset(bondsToLabel, mol.getNumBonds());
 
@@ -34,7 +34,7 @@ void assignCIPLabelsWrapHelper(RDKit::ROMol &mol,
     bonds.set();
   }
 
-  assignCIPLabels(mol, atoms, bonds,timeOutInSeconds);
+  assignCIPLabels(mol, atoms, bonds,maxRecursiveIterations);
 }
 
 BOOST_PYTHON_MODULE(rdCIPLabeler) {
@@ -49,12 +49,22 @@ BOOST_PYTHON_MODULE(rdCIPLabeler) {
       "Implementation.\nJ. Chem. Inf. Model. 2018, 58, 1755-1765.\n";
 
   std::string docString =
-      "New implementation of Stereo assignment using a true CIP ranking";
+      "New implementation of Stereo assignment using a true CIP ranking.\n\
+       On return:  The molecule to contains CIP flags\n\
+       Errors:  when maxRecursiveIterations is exceeded, throws a MaxIterationsExceeded error\n\
+  ARGUMENTS:\n\
+\n\
+    - mol: the molecule\n\
+    - atomsToLabel: (optional) list of atoms to label\n\
+    - bondsToLabel: (optional) list of bonds to label\n\
+    - maxRecursiveIterations: (optional) protects against pseudo-infinite recursiion for highly symmetical structures.\n\
+       A value of 1,250,000 take about 1 second.  Most strucutres requires less than 10,000 iterations (0 = default - no limit)\n";
 
   python::def(
       "AssignCIPLabels", assignCIPLabelsWrapHelper,
-      (python::arg("mol"), python::arg("atomsToLabel") = python::object(),
+      (python::arg("mol"), 
+       python::arg("atomsToLabel") = python::object(),
        python::arg("bondsToLabel") = python::object(),
-       python::arg("timeOutInSeconds") = 0),
+       python::arg("maxRecursiveIterations") = 0),
       docString.c_str());
 }

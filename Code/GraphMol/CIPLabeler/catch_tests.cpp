@@ -660,9 +660,9 @@ M  END
   REQUIRE(mol);
   bool caughtIt = false;
   try {
-    CIPLabeler::assignCIPLabels(*mol, 5);
+    CIPLabeler::assignCIPLabels(*mol, 100000);
   }
-  catch(const CIPLabeler::CipLabelerTimeoutException &e)
+  catch(const CIPLabeler::MaxIterationsExceeded &e)
   {
     caughtIt = true;
   } 
@@ -672,9 +672,9 @@ M  END
 
   caughtIt = false;   
   try {
-    CIPLabeler::assignCIPLabels(*mol, 5);
+    CIPLabeler::assignCIPLabels(*mol, 100000);
   }
-  catch(const CIPLabeler::CipLabelerTimeoutException &e)
+  catch(const CIPLabeler::MaxIterationsExceeded &e)
   {
     caughtIt = true;
   }    

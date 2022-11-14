@@ -15,13 +15,16 @@
 
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/CIPLabeler/CIPLabeler.h>
+#include <GraphMol/FileParsers/FileParsers.h>
+
 
 namespace python = boost::python;
 using RDKit::CIPLabeler::assignCIPLabels;
 
 void assignCIPLabelsWrapHelper(RDKit::ROMol &mol,
                                const python::object &atomsToLabel,
-                               const python::object &bondsToLabel) {
+                               const python::object &bondsToLabel,
+                               unsigned int timeOutInSeconds) {
   auto atoms = pythonObjectToDynBitset(atomsToLabel, mol.getNumAtoms());
   auto bonds = pythonObjectToDynBitset(bondsToLabel, mol.getNumBonds());
 
@@ -31,7 +34,7 @@ void assignCIPLabelsWrapHelper(RDKit::ROMol &mol,
     bonds.set();
   }
 
-  assignCIPLabels(mol, atoms, bonds);
+  assignCIPLabels(mol, atoms, bonds,timeOutInSeconds);
 }
 
 BOOST_PYTHON_MODULE(rdCIPLabeler) {
@@ -51,6 +54,7 @@ BOOST_PYTHON_MODULE(rdCIPLabeler) {
   python::def(
       "AssignCIPLabels", assignCIPLabelsWrapHelper,
       (python::arg("mol"), python::arg("atomsToLabel") = python::object(),
-       python::arg("bondsToLabel") = python::object()),
+       python::arg("bondsToLabel") = python::object(),
+       python::arg("timeOutInSeconds") = 0),
       docString.c_str());
 }

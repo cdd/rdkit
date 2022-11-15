@@ -58,7 +58,9 @@ BOOST_PYTHON_MODULE(rdCIPLabeler) {
     - atomsToLabel: (optional) list of atoms to label\n\
     - bondsToLabel: (optional) list of bonds to label\n\
     - maxRecursiveIterations: (optional) protects against pseudo-infinite recursiion for highly symmetical structures.\n\
-       A value of 1,250,000 take about 1 second.  Most strucutres requires less than 10,000 iterations (0 = default - no limit)\n";
+       A value of 1,250,000 take about 1 second.  Most strucutres requires less than 10,000 iterations.\n\
+       A peptide with MW~3000 took about 100 iterations, and a 20,000 mw protein took about 600 iterations\n\
+      (0 = default - no limit)\n";
 
   python::def(
       "AssignCIPLabels", assignCIPLabelsWrapHelper,

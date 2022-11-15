@@ -163,8 +163,7 @@ void label(std::vector<std::unique_ptr<Configuration>> &configs) {
   }
 }
 
-//static std::chrono::system_clock::time_point cipTimeOut = std::chrono::system_clock::time_point::max();
-static unsigned int remainingCallCount=0;
+thread_local unsigned int remainingCallCount=0;
 
 
 
@@ -192,7 +191,7 @@ void assignCIPLabels(ROMol &mol, unsigned int maxRecursiveIterations) {
   assignCIPLabels(mol, atoms, bonds, maxRecursiveIterations);
 }
 
-bool checkRemainingCallCount()
+bool decrementRemainingCallCountAndCheck()
 {
   return (--remainingCallCount) >0 ;
 }

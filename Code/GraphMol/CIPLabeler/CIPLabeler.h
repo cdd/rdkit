@@ -22,12 +22,12 @@ class ROMol;
 
 namespace CIPLabeler {
 
-RDKIT_CIPLABELER_EXPORT bool checkRemainingCallCount();
+RDKIT_CIPLABELER_EXPORT bool decrementRemainingCallCountAndCheck();
 
 /*
-  Some very symmetrical mols can cause pseudo infinite processing (e.g. bukcy-ball)
-  To avoid this a timeout can be set by the caller with setTimeOutInSeconds()
-  If that timeout is exceeded, the folloowing error is thrown
+  Some very symmetrical mols can cause pseudo infinite processing (e.g. dodecahedrane)
+  To avoid this a maxinum number of iterations can be set by the caller as a parameter to assignCIPLabels
+  If that maximum value is exceeded, the following error is thrown
 */
 
 class MaxIterationsExceeded : public std::runtime_error {
@@ -74,5 +74,6 @@ RDKIT_CIPLABELER_EXPORT void assignCIPLabels(
     ROMol &mol, const boost::dynamic_bitset<> &atoms,
     const boost::dynamic_bitset<> &bonds, 
     unsigned int maxRecursiveIterations = 0);  // A value of 1,250,000 take about 1 second.  Most strucutres requires less than 10,000 iterations 
+                                                // a peptide with MW~3000 took about 100 iterations, and a 20,000 mw protein took about 600 iterations
 }  // namespace CIPLabeler
 }  // namespace RDKit

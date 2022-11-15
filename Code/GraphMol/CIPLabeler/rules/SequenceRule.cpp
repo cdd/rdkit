@@ -50,7 +50,7 @@ const Sort *SequenceRule::getSorter() const {
 
 int SequenceRule::recursiveCompare(const Edge *a, const Edge *b) const {
   
-  if (!CIPLabeler::checkRemainingCallCount()){
+  if (!CIPLabeler::decrementRemainingCallCountAndCheck()){
     throw MaxIterationsExceeded();
   }
 

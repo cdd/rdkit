@@ -194,12 +194,6 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
       if (outMolStr == "")
         outMolStr =  MolToMolBlock(*localVars.smilesMol, true, 0,false, true);  // try without kekule'ing
 
-      {
-        std::string outSdfName =fName + ".NEW.sdf";
-        std::ofstream  out;
-        out.open(outSdfName);
-        out << outMolStr;
-      }
       std::stringstream  expectedMolStr;
       std::ifstream  in;
       in.open(expectedSdfName);
@@ -227,12 +221,6 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
       if (outMolStr == "")
         outMolStr = MolToMrvBlock(*localVars.smilesMol,true, -1,false);  // try without kekule'ing
 
-      {       
-        std::string outmrvName =fName + ".NEW.mrv";
-        std::ofstream  out;
-        out.open(outmrvName);
-        out << outMolStr;
-      }
       std::stringstream  expectedMolStr;
       std::ifstream  in;
       in.open(expectedMrvName);
@@ -325,11 +313,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
       {
         std::string outMolStr = ChemicalReactionToRxnBlock(*rxn, false, true);
         std::string expectedRxnName = fName + ".expected.rxn";
-        {
-          std::ofstream  out;
-          out.open(fName + ".NEW.rxn");
-          out << outMolStr;
-        }
+
         std::stringstream  expectedMolStr;
         std::ifstream  in;
         in.open(expectedRxnName);
@@ -342,11 +326,6 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
       {
         std::string outMolStr = ChemicalReactionToMrvBlock(*rxn);
         std::string expectedRxnName = fName + ".expected.mrv";
-        {
-          std::ofstream  out;
-          out.open(fName + ".NEW.mrv");
-          out << outMolStr;
-        }
         std::stringstream  expectedMolStr;
         std::ifstream  in;
         in.open(expectedRxnName);
@@ -388,12 +367,6 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
         if (outMolStr == "")
           outMolStr =  MolToMolBlock(*mol, true, 0,false, true);  // try without kekule'ing
 
-  
-        {
-          std::ofstream  out;
-          out.open(fName + ".NEW.sdf");
-          out << outMolStr;
-        }
         std::stringstream  expectedMolStr;
         std::ifstream  in;
         in.open(expectedMrvName);
@@ -421,13 +394,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
         }
         if (outMolStr == "")
           outMolStr = MolToMrvBlock(*mol,true, -1,false);  // try without kekule'ing
-
-
-        {
-          std::ofstream  out;
-          out.open(fName + ".NEW.mrv");
-          out << outMolStr;
-        }
+  
         std::stringstream  expectedMolStr;
         std::ifstream  in;
         in.open(expectedMrvName);
@@ -461,42 +428,42 @@ void RunTests()
 
   std::list<MolTest> molFileNames
   {
-    // MolTest("radical_value.mrv", true, LoadAsMolOrRxn, 3, 2)
-    // ,  MolTest("emptyOneLineAtomList.mrv", true, LoadAsMolOrRxn, 0, 0)
-    // ,  MolTest("mrvValence_value.mrv", true, LoadAsMolOrRxn, 3, 2)
-    // ,  MolTest("ChiralTest2.mrv", true, LoadAsMolOrRxn, 46, 47)
-    // ,  MolTest("ChiralTest.mrv", true, LoadAsMolOrRxn, 8, 7)
-    // ,  MolTest("SnCl2.mrv", true, LoadAsMolOrRxn, 3, 2)
-    // ,  MolTest("SnH2Cl2.mrv", true, LoadAsMolOrRxn, 3, 2)
-    // ,  MolTest("marvin01.mrv", true, LoadAsMolOrRxn, 11, 11)
-    // ,  MolTest("marvin01.mrv", true, LoadAsMol, 11, 11)
-    // ,  MolTest("marvin01.mrv", false, LoadAsRxn, 11, 11)  // should fail
-    // ,  MolTest("marvin02.mrv", true, LoadAsMolOrRxn, 9, 9)
-    // ,  MolTest("marvin07.mrv", true, LoadAsMolOrRxn, 12, 11)
-    // ,  MolTest("marvin10.mrv", true, LoadAsMolOrRxn, 10, 10)
-    // ,  MolTest("marvin06.mrv", true, LoadAsMolOrRxn, 11, 11)
-    // ,  MolTest("marvin12.mrv", true, LoadAsMolOrRxn, 31, 33)
-    // ,  MolTest("EmptyMol.mrv", true, LoadAsMolOrRxn, 0, 0)
-    // ,  MolTest("Sparse.mrv", true, LoadAsMolOrRxn, 0, 0)
-    // ,  MolTest("Sparse2.mrv", true, LoadAsMolOrRxn, 0, 0)
-    // ,  MolTest("Sparse3.mrv", true, LoadAsMolOrRxn, 0, 0)
-    // ,  MolTest("MarvinNoCoords.mrv", true, LoadAsMolOrRxn, 6, 6)
-    // ,  MolTest("aspirin.mrv", true, LoadAsMolOrRxn, 13, 13)
-    // ,  MolTest("MarvinStereoGroupsZeros.mrv", true, LoadAsMolOrRxn, 8, 8)
-    // ,  MolTest("MarvinStereoGroupsAbs.mrv", true, LoadAsMolOrRxn, 8, 8)
-    // ,  MolTest("triphenylphosphine.mrv", true, LoadAsMolOrRxn, 19, 21)
-    // ,  MolTest("MarvinOldSuperGroupTest.mrv", true, LoadAsMolOrRxn, 89, 93)
-    // ,  MolTest("RadicalTests.mrv", true, LoadAsMolOrRxn, 9, 9)
-    // ,  MolTest("AnyBond.mrv", true, LoadAsMolOrRxn, 4, 3)
-    // ,  MolTest("cisBenzene.mrv", true, LoadAsMolOrRxn, 6, 6)
-    // ,  MolTest("DativeBond.mrv", true, LoadAsMolOrRxn, 6, 5)
-    // ,  MolTest("MultipleSgroup.mrv", true, LoadAsMolOrRxn, 75, 74)
-    // ,  MolTest("SgroupExpanded.mrv", true, LoadAsMolOrRxn, 5, 4)
-    // ,  MolTest("SgroupMultAttach.mrv", true, LoadAsMolOrRxn, 44, 45)  
-    // ,  MolTest("MarvinMissingX2.mrv", true, LoadAsMolOrRxn, 12, 11)  
-    // ,  MolTest("MarvinMissingY2.mrv", true, LoadAsMolOrRxn, 12, 11)  
-    // ,  MolTest("DataSgroup.mrv", true, LoadAsMolOrRxn, 7, 6)
-      MolTest("MulticenterSgroup.mrv", true, LoadAsMolOrRxn, 17, 16)
+    MolTest("radical_value.mrv", true, LoadAsMolOrRxn, 3, 2)
+    ,  MolTest("emptyOneLineAtomList.mrv", true, LoadAsMolOrRxn, 0, 0)
+    ,  MolTest("mrvValence_value.mrv", true, LoadAsMolOrRxn, 3, 2)
+    ,  MolTest("ChiralTest2.mrv", true, LoadAsMolOrRxn, 46, 47)
+    ,  MolTest("ChiralTest.mrv", true, LoadAsMolOrRxn, 8, 7)
+    ,  MolTest("SnCl2.mrv", true, LoadAsMolOrRxn, 3, 2)
+    ,  MolTest("SnH2Cl2.mrv", true, LoadAsMolOrRxn, 3, 2)
+    ,  MolTest("marvin01.mrv", true, LoadAsMolOrRxn, 11, 11)
+    ,  MolTest("marvin01.mrv", true, LoadAsMol, 11, 11)
+    ,  MolTest("marvin01.mrv", false, LoadAsRxn, 11, 11)  // should fail
+    ,  MolTest("marvin02.mrv", true, LoadAsMolOrRxn, 9, 9)
+    ,  MolTest("marvin07.mrv", true, LoadAsMolOrRxn, 12, 11)
+    ,  MolTest("marvin10.mrv", true, LoadAsMolOrRxn, 10, 10)
+    ,  MolTest("marvin06.mrv", true, LoadAsMolOrRxn, 11, 11)
+    ,  MolTest("marvin12.mrv", true, LoadAsMolOrRxn, 31, 33)
+    ,  MolTest("EmptyMol.mrv", true, LoadAsMolOrRxn, 0, 0)
+    ,  MolTest("Sparse.mrv", true, LoadAsMolOrRxn, 0, 0)
+    ,  MolTest("Sparse2.mrv", true, LoadAsMolOrRxn, 0, 0)
+    ,  MolTest("Sparse3.mrv", true, LoadAsMolOrRxn, 0, 0)
+    ,  MolTest("MarvinNoCoords.mrv", true, LoadAsMolOrRxn, 6, 6)
+    ,  MolTest("aspirin.mrv", true, LoadAsMolOrRxn, 13, 13)
+    ,  MolTest("MarvinStereoGroupsZeros.mrv", true, LoadAsMolOrRxn, 8, 8)
+    ,  MolTest("MarvinStereoGroupsAbs.mrv", true, LoadAsMolOrRxn, 8, 8)
+    ,  MolTest("triphenylphosphine.mrv", true, LoadAsMolOrRxn, 19, 21)
+    ,  MolTest("MarvinOldSuperGroupTest.mrv", true, LoadAsMolOrRxn, 89, 93)
+    ,  MolTest("RadicalTests.mrv", true, LoadAsMolOrRxn, 9, 9)
+    ,  MolTest("AnyBond.mrv", true, LoadAsMolOrRxn, 4, 3)
+    ,  MolTest("cisBenzene.mrv", true, LoadAsMolOrRxn, 6, 6)
+    ,  MolTest("DativeBond.mrv", true, LoadAsMolOrRxn, 6, 5)
+    ,  MolTest("MultipleSgroup.mrv", true, LoadAsMolOrRxn, 75, 74)
+    ,  MolTest("SgroupExpanded.mrv", true, LoadAsMolOrRxn, 5, 4)
+    ,  MolTest("SgroupMultAttach.mrv", true, LoadAsMolOrRxn, 44, 45)  
+    ,  MolTest("MarvinMissingX2.mrv", true, LoadAsMolOrRxn, 12, 11)  
+    ,  MolTest("MarvinMissingY2.mrv", true, LoadAsMolOrRxn, 12, 11)  
+    ,  MolTest("DataSgroup.mrv", true, LoadAsMolOrRxn, 7, 6)
+    ,  MolTest("MulticenterSgroup.mrv", true, LoadAsMolOrRxn, 17, 16)
     ,  MolTest("GenericSgroup.mrv", true, LoadAsMolOrRxn, 13, 13)
     ,  MolTest("MonomerSgroup.mrv", true, LoadAsMolOrRxn, 4, 3)
     ,  MolTest("marvin03.mrv", false, LoadAsMolOrRxn, 31,33)  // should fail - this is a reaction

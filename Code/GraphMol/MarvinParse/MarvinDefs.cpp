@@ -406,6 +406,80 @@ namespace RDKit
     return out.str();
   }
 
+  std::string MarvinMulticenterSgroup::role() const
+  {
+    return std::string("MulticenterSgroup");
+  } 
+
+  bool MarvinMulticenterSgroup::hasAtomBondBlocks() const
+  {
+    return false;
+  } 
+
+  std::string MarvinMulticenterSgroup::toString() const
+  {
+     // <molecule molID="m2" id="sg1" role="MulticenterSgroup" atomRefs="a2 a6 a5 a4 a3" center="a18"/>
+    std::ostringstream out;
+
+    out << "<molecule molID=\"" << molID << "\" id=\"" << id << "\" role=\"MulticenterSgroup\" atomRefs=\"" << boost::algorithm::join(getAtomList()," ") << "\" center=\"" 
+    << center->id << "\"/>";
+
+    return out.str();
+  }
+  
+  std::string MarvinGenericSgroup::role() const
+  {
+    return std::string("GenericSgroup");
+  } 
+
+  bool MarvinGenericSgroup::hasAtomBondBlocks() const
+  {
+    return false;
+  } 
+
+  std::string MarvinGenericSgroup::toString() const
+  {
+     // <molecule molID="m2" id="sg1" role="MulticenterSgroup" atomRefs="a2 a6 a5 a4 a3" center="a18"/>
+    std::ostringstream out;
+
+    out << "<molecule molID=\"" << molID << "\" id=\"" << id << "\" role=\"GenericSgroup\" atomRefs=\"" << boost::algorithm::join(getAtomList()," ")  << "\"/>";
+
+    return out.str();
+  }
+
+  std::string MarvinMonomerSgroup::role() const
+  {
+    return std::string("MonomerSgroup");
+  } 
+
+  bool MarvinMonomerSgroup::hasAtomBondBlocks() const
+  {
+    return false;
+  } 
+
+  std::string MarvinMonomerSgroup::toString() const
+  {
+// <molecule id="sg1" role="MonomerSgroup" title="mon" charge="onAtoms" molID="m2" atomRefs="a2 a1 a3 a4">
+      //     <MBracket type="SQUARE" orientation="DOUBLE">
+      //         <MPoint x="-0.8726666666666667" y="1.078"></MPoint>
+      //         <MPoint x="1.2833333333333334" y="1.078"></MPoint>
+      //         <MPoint x="1.2833333333333334" y="-1.078"></MPoint>
+      //         <MPoint x="-0.8726666666666667" y="-1.078"></MPoint>
+      //     </MBracket>
+      // </molecule> 
+      
+    std::ostringstream out;
+
+    out << "<molecule molID=\"" << molID << "\" id=\"" << id << "\" role=\"MonomerSgroup\" atomRefs=\"" << boost::algorithm::join(getAtomList()," ")  
+    << "\" title=\"" << title << "\" charge=\"" << charge << "\"><MBracket type=\"SQUARE\" orientation=\"DOUBLE\"><MPoint x=\""
+    << bracket.upperLeft.x << "\" y=\"" << bracket.upperLeft.y << "\"></MPoint><MPoint x=\""
+    << bracket.lowerRight.x << "\" y=\"" << bracket.upperLeft.y << "\"></MPoint><MPoint x=\""
+    << bracket.upperLeft.x << "\" y=\"" << bracket.lowerRight.y << "\"></MPoint><MPoint x=\""
+    << bracket.lowerRight.x <<"\" y=\"" << bracket.lowerRight.y << "\"></MPoint></MBracket></molecule>";
+
+    return out.str();
+  }
+
   MarvinSuperatomSgroupExpanded::~MarvinSuperatomSgroupExpanded()
   {
     for ( std::vector<MarvinAttachmentPoint *>::iterator it = attachmentPoints.begin(); it != attachmentPoints.end(); ++it)
@@ -508,8 +582,13 @@ namespace RDKit
       delete(*it);
     for (std::vector<MarvinSuperatomSgroupExpanded *>::iterator it = superatomSgroupsExpanded.begin(); it != superatomSgroupsExpanded.end(); ++it)
       delete(*it);
-
     for (std::vector<MarvinDataSgroup *>::iterator it =dataSgroups.begin(); it != dataSgroups.end(); ++it)
+      delete(*it);
+    for (std::vector<MarvinMulticenterSgroup *>::iterator it = multicenterSgroups.begin(); it != multicenterSgroups.end(); ++it)
+      delete(*it);
+    for (std::vector<MarvinGenericSgroup *>::iterator it = genericSgroups.begin(); it != genericSgroups.end(); ++it)
+      delete(*it);
+    for (std::vector<MarvinMonomerSgroup *>::iterator it = monomerSgroups.begin(); it != monomerSgroups.end(); ++it)
       delete(*it);
 
     for (std::vector<MarvinSuperInfo *>::iterator it = superInfos.begin(); it != superInfos.end(); ++it)
@@ -577,6 +656,27 @@ namespace RDKit
       std::string newId = "sg" + std::to_string(++sgCount);
       sgMap[marvinDataSGgroup->id] = newId;
       marvinDataSGgroup->id = newId;
+    }
+
+    for (MarvinMulticenterSgroup *marvinMulticenterSgroup : this->multicenterSgroups)         
+    {
+      std::string newId = "sg" + std::to_string(++sgCount);
+      sgMap[marvinMulticenterSgroup->id] = newId;
+      marvinMulticenterSgroup->id = newId;
+    }
+
+    for (MarvinGenericSgroup *marvinGenericSgroup : this->genericSgroups)         
+    {
+      std::string newId = "sg" + std::to_string(++sgCount);
+      sgMap[marvinGenericSgroup->id] = newId;
+      marvinGenericSgroup->id = newId;
+    }
+
+    for (MarvinMonomerSgroup *marvinMonomerSgroup : this->monomerSgroups)         
+    {
+      std::string newId = "sg" + std::to_string(++sgCount);
+      sgMap[marvinMonomerSgroup->id] = newId;
+      marvinMonomerSgroup->id = newId;
     }
 
 
@@ -686,6 +786,7 @@ namespace RDKit
       // get a list of the bonds that will need to be fixed after the copy of atoms and bonds
 
       std::vector<MarvinAttachmentPoint *> orphanedBonds;
+      RDGeom::Point3D centerOfAttachmentPoints;
       RDGeom::Point3D centerOfGroup;
       for (auto orphanedBond = bonds.begin(); orphanedBond != bonds.end() ; ++orphanedBond)
       {
@@ -709,19 +810,37 @@ namespace RDKit
           MarvinAtom *attachedAtom = (*subMolIter)->atoms[subMolAtomIndex];
           if (coordExist)
           {
-            centerOfGroup.x += attachedAtom->x2;
-            centerOfGroup.y += attachedAtom->y2;
+            centerOfAttachmentPoints.x += attachedAtom->x2;
+            centerOfAttachmentPoints.y += attachedAtom->y2;
           }
         }
       }
 
-      if (coordExist && orphanedBonds.size() > 0)
+      if (coordExist)
       {
-        centerOfGroup.x /= orphanedBonds.size();
-        centerOfGroup.y /= orphanedBonds.size();
         RDGeom::Point3D offset;
-        offset.x = (*dummyAtomIter)->x2 - centerOfGroup.x;
-        offset.y = (*dummyAtomIter)->y2 - centerOfGroup.y;
+
+        if (orphanedBonds.size() > 0)
+        {
+          centerOfAttachmentPoints.x /= orphanedBonds.size();
+          centerOfAttachmentPoints.y /= orphanedBonds.size();
+          offset.x = (*dummyAtomIter)->x2 - centerOfAttachmentPoints.x;
+          offset.y = (*dummyAtomIter)->y2 - centerOfAttachmentPoints.y;    
+        }
+        else // use the center of all atoms in the group
+        {
+          RDGeom::Point3D centerOfGroup;
+
+          for (auto atom : (*subMolIter)->atoms)
+          {
+            centerOfGroup.x += atom->x2;
+            centerOfGroup.y += atom->y2;
+          }
+          centerOfGroup.x /=  (*subMolIter)->atoms.size();
+          centerOfGroup.y /=  (*subMolIter)->atoms.size();
+          offset.x = (*dummyAtomIter)->x2 - centerOfGroup.x;
+          offset.y = (*dummyAtomIter)->y2 - centerOfGroup.y;
+        }
 
         for (auto atom : (*subMolIter)->atoms)
         {
@@ -729,7 +848,6 @@ namespace RDKit
           atom->y2 += offset.y;
         }
       }
-
       delete *dummyAtomIter;  // get rid of the MolAtom
       atoms.erase(dummyAtomIter);   // get rid of the atoms pointer to the old dummy atom
 
@@ -828,6 +946,8 @@ namespace RDKit
       dummyParentAtom->id = newAtomName;
       dummyParentAtom->sgroupRef = marvinSuperatomSgroup->id;
 
+      RDGeom::Point3D centerOfGroup;
+
       for (auto atom : marvinSuperInfo->atoms)
       {
         // Find the atom in the main structure
@@ -837,13 +957,18 @@ namespace RDKit
         marvinSuperatomSgroup->atoms.push_back(atomToMove);
 
         this->atoms.erase(this->atoms.begin() + index);  
+        if (coordsExist)  // get the center of all atoms in the group - we might use this if there are no attachement points
+        {
+          centerOfGroup.x += atomToMove->x2;
+          centerOfGroup.y += atomToMove->y2;
+        }     
       }
 
       // move the bonds of the group
       
       int attachmentPointsAdded = 0;
       MarvinAtom *atomPtr = NULL;
-      RDGeom::Point3D centerOfGroup;
+      RDGeom::Point3D centerOfAttachmentPoints;
 
       for (auto bond : this->bonds)
       {
@@ -880,8 +1005,8 @@ namespace RDKit
 
           if (coordsExist)
           {
-            centerOfGroup.x += atomPtr->x2;
-            centerOfGroup.y += atomPtr->y2;
+            centerOfAttachmentPoints.x += atomPtr->x2;
+            centerOfAttachmentPoints.y += atomPtr->y2;
           }       
         }
       }
@@ -901,14 +1026,14 @@ namespace RDKit
         {
           // put the new dummy atom at the center of the removed group
 
-          dummyParentAtom->x2 = centerOfGroup.x / marvinSuperatomSgroup->attachmentPoints.size();
-          dummyParentAtom->y2 = centerOfGroup.y / marvinSuperatomSgroup->attachmentPoints.size();
+          dummyParentAtom->x2 = centerOfAttachmentPoints.x / marvinSuperatomSgroup->attachmentPoints.size();
+          dummyParentAtom->y2 = centerOfAttachmentPoints.y / marvinSuperatomSgroup->attachmentPoints.size();
         }
         else
         {
-          // No attachments to the supergroup - (probably all atoms in the mol are in the supergroup) - doesn't matter where we put the dummy atom
-          dummyParentAtom->x2 = 0.0;
-          dummyParentAtom->y2 =  0.0;
+          // No attachments to the supergroup - (probably all atoms in the mol are in the supergroup) -use the center of all atoms in the group
+          dummyParentAtom->x2 = centerOfGroup.x / marvinSuperatomSgroup->atoms.size();
+          dummyParentAtom->y2 = centerOfGroup.y / marvinSuperatomSgroup->atoms.size();
         }
       }
     }
@@ -918,6 +1043,42 @@ namespace RDKit
 
     this->superInfos.clear();
   }
+
+
+  void MarvinMol::processMulticenterSgroups()
+  {
+    //This routine removes the MultiCenter groups - RDKit does not have a place to put them
+    // also removes the X atom (the center atom) and its bonds
+
+    for(std::vector<MarvinMulticenterSgroup *>::iterator subMolIter =  multicenterSgroups.begin() ; subMolIter != multicenterSgroups.end() ; ++subMolIter)
+    {
+  
+      //delete the bonds to the dummy atom
+      std::vector<MarvinBond *> orphanedBonds;  // list of bonds to delete
+      for (auto orphanedBond = bonds.begin(); orphanedBond != bonds.end() ; ++orphanedBond)
+      {
+        std::string attachedAtomId = "";
+        if ((*orphanedBond)->atomRefs2[0] == (*subMolIter)->center->id || (*orphanedBond)->atomRefs2[1] == (*subMolIter)->center->id)
+        {
+         orphanedBonds.push_back(*orphanedBond);
+        }
+      }
+      for (auto orphanedBond = orphanedBonds.begin(); orphanedBond != orphanedBonds.end() ; ++orphanedBond)
+      {
+        delete *orphanedBond;
+        auto orphanedBondIter = std::find(bonds.begin(), bonds.end(), *orphanedBond);
+        bonds.erase(orphanedBondIter);
+      }
+      
+      auto centerIter = std::find(atoms.begin(), atoms.end(), (*subMolIter)->center);
+      delete (*subMolIter)->center;  // get rid of the MolAtom
+      atoms.erase(centerIter);   // get rid of the atoms pointer to the old dummy atom
+
+      delete *subMolIter;
+    }
+    this->multicenterSgroups.clear();
+  }
+
 
   std::string MarvinMol::toString() const
   {
@@ -945,7 +1106,12 @@ namespace RDKit
       out << (*it)->toString();
     for (std::vector<MarvinDataSgroup *>::const_iterator it = dataSgroups.begin();  it != dataSgroups.end(); ++it)
       out << (*it)->toString();
-    
+    for (std::vector<MarvinMulticenterSgroup *>::const_iterator it = multicenterSgroups.begin();  it != multicenterSgroups.end(); ++it)
+      out << (*it)->toString();    
+    for (std::vector<MarvinGenericSgroup *>::const_iterator it = genericSgroups.begin();  it != genericSgroups.end(); ++it)
+      out << (*it)->toString();   
+    for (std::vector<MarvinMonomerSgroup *>::const_iterator it = monomerSgroups.begin();  it != monomerSgroups.end(); ++it)
+      out << (*it)->toString();    
     out <<"</molecule>";
     
     return out.str();
@@ -1013,6 +1179,18 @@ namespace RDKit
     }       
   }
 
+  void MarvinReaction::processMulticenterSgroups()
+  {
+    //This routine removes all multiCenter Sgroups
+
+    for (std::vector<MarvinMol *>::iterator molIter = reactants.begin() ; molIter != reactants.end() ; ++molIter)
+      (*molIter)->processMulticenterSgroups();
+    for (std::vector<MarvinMol *>::iterator molIter = agents.begin() ; molIter != agents.end() ; ++molIter)
+      (*molIter)->processMulticenterSgroups();
+    for (std::vector<MarvinMol *>::iterator molIter = products.begin() ; molIter != products.end() ; ++molIter)
+      (*molIter)->processMulticenterSgroups();
+  }
+
   std::string MarvinReaction::toString()
   {
     std::ostringstream out;
@@ -1047,6 +1225,16 @@ namespace RDKit
     out << "</MDocument></cml>";
     return out.str();
   }
+
+  MarvinRectangle::MarvinRectangle()
+  {
+    upperLeft.x = 0.0;
+    upperLeft.y = 0.0;
+    lowerRight.x = 0.0;
+    lowerRight.y = 0.0;
+    centerIsStale = true;
+  }
+
 
   MarvinRectangle::MarvinRectangle(double left, double right, double top, double bottom)
   {

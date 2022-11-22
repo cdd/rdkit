@@ -585,8 +585,6 @@ namespace RDKit
         // get all stereoGroups - add them to the correct atoms
         int orCount=0;
         int andCount=0;
-        int absCount=0;  // really should be only one, but maybe ...
-        int *stereoCount;
 
         for (const StereoGroup group : mol->getStereoGroups())
         {
@@ -595,21 +593,18 @@ namespace RDKit
           switch (group.getGroupType()) {
             case RDKit::StereoGroupType::STEREO_ABSOLUTE:
               stereoGroupType = "abs";
-              stereoCount = &absCount;
               break;
             case RDKit::StereoGroupType::STEREO_OR:
-              stereoGroupType = "or";
-              stereoCount = &orCount;
+              stereoGroupType = "or" + std::to_string(++orCount);
               break;
             case RDKit::StereoGroupType::STEREO_AND:
-                stereoGroupType = "and";
-                stereoCount = &andCount;
+                stereoGroupType = "and" + std::to_string(++andCount);
               break;
             default:
               throw MarvinWriterException("Unrecognized stereo group type"); 
           }
           for (auto &&atom : group.getAtoms()) 
-            marvinMol->atoms[atom->getIdx()]->mrvStereoGroup = stereoGroupType + std::to_string(++(*stereoCount));
+            marvinMol->atoms[atom->getIdx()]->mrvStereoGroup = stereoGroupType;
         }
 
         int  sruSgCount=0;
@@ -705,7 +700,82 @@ namespace RDKit
                 marvinMol->atoms[atomIndex]->sgroupRef =  marvinMultipleSgroup->id;
             }
           }
+
+          if (type == "GEN")
+          {
+                              
+            auto marvinGenericSgroup =new MarvinGenericSgroup();
+            marvinMol->genericSgroups.push_back(marvinGenericSgroup);
+
+          
+            marvinGenericSgroup->charge = "onAtoms";   // RDKit has not place to put the charge location value, so we assume onAtoms here
+              
+            marvinGenericSgroup->id = "sg" + std::to_string(++sruSgCount);
+            marvinGenericSgroup->molID  = 'm' + std::to_string(++tempMolCount);
+
+            for (auto atomIndex : sgroup.getAtoms())
+            {
+                MarvinAtom *marvinAtom = marvinMol->atoms[atomIndex];
+                marvinGenericSgroup->atoms.push_back(marvinAtom);
+                marvinAtom->sgroupRef =  marvinGenericSgroup->id;
+            }
+          }
+
+          if (type == "MON")
+          {
+                  // <molecule id="sg1" role="MonomerSgroup" title="mon" charge="onAtoms" molID="m2" atomRefs="a2 a1 a3 a4">
+      //     <MBracket type="SQUARE" orientation="DOUBLE">
+      //         <MPoint x="-0.8726666666666667" y="1.078"></MPoint>
+      //         <MPoint x="1.2833333333333334" y="1.078"></MPoint>
+      //         <MPoint x="1.2833333333333334" y="-1.078"></MPoint>
+      //         <MPoint x="-0.8726666666666667" y="-1.078"></MPoint>
+      //     </MBracket>
+      // </molecule>             
+            auto marvinMonomerSgroup =new MarvinMonomerSgroup();
+            marvinMol->monomerSgroups.push_back(marvinMonomerSgroup);
+
+            std::string titleValue;
+            if (!sgroup.getPropIfPresent("MULT", titleValue) && !sgroup.getPropIfPresent("LABEL", titleValue)) 
+              throw MarvinWriterException("Title not found for a MultipleSgroup"); 
+            marvinMonomerSgroup->title = titleValue;
+
+            marvinMonomerSgroup->charge = "onAtoms";   // RDKit has not place to put the charge location value, so we assume onAtoms here
+              
+            marvinMonomerSgroup->id = "sg" + std::to_string(++sruSgCount);
+            marvinMonomerSgroup->molID  = 'm' + std::to_string(++tempMolCount);
+            if (marvinMonomerSgroup->atoms.size() > 0)
+            {
+              marvinMonomerSgroup->bracket.upperLeft.x = marvinMonomerSgroup->atoms[0]->x2;
+              marvinMonomerSgroup->bracket.upperLeft.y = marvinMonomerSgroup->atoms[0]->y2;
+              marvinMonomerSgroup->bracket.lowerRight.x = marvinMonomerSgroup->atoms[0]->x2;
+              marvinMonomerSgroup->bracket.lowerRight.y = marvinMonomerSgroup->atoms[0]->y2;
+            }
+            for (auto atomIndex : sgroup.getAtoms())
+            {
+                MarvinAtom *marvinAtom = marvinMol->atoms[atomIndex];
+                marvinMonomerSgroup->atoms.push_back(marvinAtom);
+                marvinAtom->sgroupRef =  marvinMonomerSgroup->id;
+
+                if (marvinMonomerSgroup->bracket.upperLeft.x > marvinAtom->x2)
+                  marvinMonomerSgroup->bracket.upperLeft.x = marvinAtom->x2;
+                if (marvinMonomerSgroup->bracket.upperLeft.y < marvinAtom->y2)
+                  marvinMonomerSgroup->bracket.upperLeft.y = marvinAtom->y2;
+                if (marvinMonomerSgroup->bracket.lowerRight.x < marvinAtom->x2)
+                  marvinMonomerSgroup->bracket.lowerRight.x = marvinAtom->x2;
+                if (marvinMonomerSgroup->bracket.lowerRight.y > marvinAtom->y2)
+                  marvinMonomerSgroup->bracket.lowerRight.y = marvinAtom->y2;
+            }
+
+            if (marvinMonomerSgroup->atoms.size() > 0)
+            {
+              marvinMonomerSgroup->bracket.upperLeft.x -= 0.1;
+              marvinMonomerSgroup->bracket.upperLeft.y += 0.1;
+              marvinMonomerSgroup->bracket.lowerRight.x += 0.1;
+              marvinMonomerSgroup->bracket.lowerRight.y -= 0.1;
+            }
+          }
         }
+
 
         // convert the superInfos to supergroups
 

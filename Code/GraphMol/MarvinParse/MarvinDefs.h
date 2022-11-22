@@ -35,14 +35,17 @@ namespace RDKit
   const std::vector<std::string> marvinBondOrders{"1", "2", "3", "A"};
   const std::vector<std::string> marvinQueryBondsTypes{"SD", "SA", "DA", "Any"};
   const std::vector<std::string> marvinConventionTypes{"cxn:coord"};
-  const std::vector<std::string> marvinRadicalVals{"monovalent", "divalent", "divalent1", "trivalent4", "4", "0"};
+  const std::vector<std::string> marvinRadicalVals{"monovalent", "divalent", "divalent1", "divalent3", "trivalent","trivalent2","trivalent4", "4"};
   const std::map<std::string, int> marvinRadicalToRadicalElectrons{
-      {"0", 0},
       {"monovalent", 1},
       {"divalent", 2},
       {"divalent1", 2},
-      {"trivalent4", 3},
-      {"4", 4}};
+      {"divalent3", 2},
+      {"trivalent", 3},
+      {"trivalent2", 3},
+      {"trivalent4", 3}
+      };
+
   const std::map<int, std::string> radicalElectronsToMarvinRadical{
       {1, "monovalent"}, {2, "divalent"}, {3, "trivalent4"}, {4, "4"}};
 
@@ -94,12 +97,12 @@ namespace RDKit
     std::string toString() const;       
   };
 
-  
+
   class MarvinAttachmentPoint
   {
     public:
 
-    // <AttachmentPoint atom="a7" order="1" bond="b6"/>
+    // <attachmentPoint atom="a7" order="1" bond="b6"/>
     std::string atom;
     std::string bond;
     std::string order;
@@ -154,6 +157,34 @@ namespace RDKit
     const std::string getBondType() const;
 
     std::string toString() const;
+  };
+
+  class MarvinRectangle
+  {
+    private:
+    RDGeom::Point3D center;
+    bool centerIsStale;
+    
+    public:
+    RDGeom::Point3D upperLeft;
+    RDGeom::Point3D lowerRight;
+
+    MarvinRectangle();
+    MarvinRectangle(double left, double right, double top, double bottom);
+    MarvinRectangle(const RDGeom::Point3D &upperLeftInit, const RDGeom::Point3D &lowerRightInit);
+    MarvinRectangle(const std::vector<MarvinAtom *> atoms);
+    
+    void extend(const MarvinRectangle &otherRectangle);
+    
+    RDGeom::Point3D &getCenter();
+    
+    bool overlapsVertically(const MarvinRectangle &otherRectangle) const;
+    
+    bool overlapsVHorizontally(const MarvinRectangle &otherRectangle) const;
+
+    static bool compareRectanglesByX(MarvinRectangle &r1, MarvinRectangle &r2);
+    
+    static bool compareRectanglesByY(MarvinRectangle &r1, MarvinRectangle &r2);
   };
 
   class MarvinMolBase
@@ -250,6 +281,49 @@ namespace RDKit
     bool hasAtomBondBlocks() const;
   };
 
+  class MarvinMulticenterSgroup : public MarvinMolBase
+  {
+    // <molecule molID="m2" id="sg1" role="MulticenterSgroup" atomRefs="a2 a6 a5 a4 a3" center="a18"/>
+    public:
+    std::string id;
+        
+    std::string toString() const;
+    MarvinAtom *center;
+    std::string role() const;
+    bool hasAtomBondBlocks() const;
+  };
+
+  class MarvinGenericSgroup : public MarvinMolBase
+  {
+    // <molecule molID="m2" id="sg1" role="GenericSgroup" atomRefs="a1 a2 a3 a4 a5 a6 a7 a8 a9 a13 a10 a11 a12" charge="onAtoms"/></molecule>
+    public:
+    std::string id;
+    std::string charge;   // onAtoms or onBrackets
+    std::string toString() const;
+    std::string role() const;
+    bool hasAtomBondBlocks() const;
+  };
+
+  class MarvinMonomerSgroup : public MarvinMolBase
+  {
+      // <molecule id="sg1" role="MonomerSgroup" title="mon" charge="onAtoms" molID="m2" atomRefs="a2 a1 a3 a4">
+      //     <MBracket type="SQUARE" orientation="DOUBLE">
+      //         <MPoint x="-0.8726666666666667" y="1.078"></MPoint>
+      //         <MPoint x="1.2833333333333334" y="1.078"></MPoint>
+      //         <MPoint x="1.2833333333333334" y="-1.078"></MPoint>
+      //         <MPoint x="-0.8726666666666667" y="-1.078"></MPoint>
+      //     </MBracket>
+      // </molecule> 
+    public:
+    std::string id;
+    std::string title;
+    std::string charge;   // onAtoms or onBrackets
+    MarvinRectangle bracket;
+    std::string toString() const;
+    std::string role() const;
+    bool hasAtomBondBlocks() const;
+  };
+
   class MarvinSuperatomSgroup : public MarvinMolBase
   {
     public:
@@ -282,7 +356,11 @@ namespace RDKit
     std::vector<MarvinSuperatomSgroupExpanded *>  superatomSgroupsExpanded;
     std::vector<MarvinMultipleSgroup *>  multipleSgroups;
     std::vector<MarvinDataSgroup *> dataSgroups;
-    std::vector<MarvinSuperInfo *> superInfos;  // used in convertng superatomSgroups to mol-type CTs
+    std::vector<MarvinMulticenterSgroup *> multicenterSgroups;
+    std::vector<MarvinGenericSgroup *>genericSgroups;
+    std::vector<MarvinMonomerSgroup *>monomerSgroups;
+    std::vector<MarvinSuperInfo *> superInfos;  // used in converting superatomSgroups to mol-type CTs
+
 
     ~MarvinMol();
   
@@ -301,6 +379,8 @@ namespace RDKit
     void convertFromSuperAtoms();
     
     void convertToSuperAtoms();
+
+    void processMulticenterSgroups();
       
     std::string toString() const;
     
@@ -323,37 +403,11 @@ namespace RDKit
     
     void convertFromSuperAtoms();
     
-
     void convertToSuperAtoms();
+
+    void processMulticenterSgroups();
     
     std::string toString();
-  };
-
-  class MarvinRectangle
-  {
-    private:
-    RDGeom::Point3D center;
-    bool centerIsStale;
-    
-    public:
-    RDGeom::Point3D upperLeft;
-    RDGeom::Point3D lowerRight;
-
-    MarvinRectangle(double left, double right, double top, double bottom);
-    MarvinRectangle(const RDGeom::Point3D &upperLeftInit, const RDGeom::Point3D &lowerRightInit);
-    MarvinRectangle(const std::vector<MarvinAtom *> atoms);
-    
-    void extend(const MarvinRectangle &otherRectangle);
-    
-    RDGeom::Point3D &getCenter();
-    
-    bool overlapsVertically(const MarvinRectangle &otherRectangle) const;
-    
-    bool overlapsVHorizontally(const MarvinRectangle &otherRectangle) const;
-
-    static bool compareRectanglesByX(MarvinRectangle &r1, MarvinRectangle &r2);
-    
-    static bool compareRectanglesByY(MarvinRectangle &r1, MarvinRectangle &r2);
   };
 
   class MarvinStereoGroup

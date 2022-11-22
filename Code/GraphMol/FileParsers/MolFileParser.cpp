@@ -1687,6 +1687,10 @@ Bond *ParseMolFileBondLine(const std::string_view text, unsigned int line) {
       type = Bond::AROMATIC;
       res = new Bond;
       break;
+    case 9:
+      type = Bond::DATIVE;
+      res = new Bond;
+      break;
     case 0:
       type = Bond::UNSPECIFIED;
       res = new Bond;

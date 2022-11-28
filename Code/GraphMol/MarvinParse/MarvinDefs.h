@@ -130,6 +130,8 @@ namespace RDKit
     int rgroupRef;
 
     MarvinAtom();
+    MarvinAtom(const MarvinAtom &atomToCopy, std::string newId);
+
 
     bool operator==(const MarvinAtom& rhs) const;
     
@@ -149,6 +151,12 @@ namespace RDKit
     std::string bondStereo;
     std::string queryType;
     std::string convention;
+
+    MarvinBond()
+    {
+    }
+
+    MarvinBond(const MarvinBond &bondToCopy, std::string newId, std::string atomRef1, std::string atomRef2);
 
     bool isEqual(const MarvinAtom& other) const;
     
@@ -210,7 +218,8 @@ namespace RDKit
     int getBondIndex(std::string id);  
 
     const std::vector<std::string> getBondList() const;
-    const std::vector<std::string> getAtomList() const;    
+    const std::vector<std::string> getAtomList() const;
+    bool AnyOverLappingAtoms(const MarvinMolBase *otherMol) const;
 
     bool hasCoords() const;  
     void removeCoords();
@@ -272,9 +281,13 @@ namespace RDKit
   class MarvinMultipleSgroup : public MarvinMolBase
   {
     public:
+
     std::string id;
     std::string title;
-    
+    bool isExpanded = false;
+    std::vector<MarvinAtom *>parentAtoms;  // only used when expanded - it preparation for creating an RDKit mol
+    std::vector<MarvinBond *>bondsToAtomsNotInExpandedGroup;      // only when expanded
+
     std::string toString() const;
     
     std::string role() const;
@@ -381,6 +394,8 @@ namespace RDKit
     void convertToSuperAtoms();
 
     void processMulticenterSgroups();
+    void expandMultipleSgroups();
+    void contractMultipleSgroups();
       
     std::string toString() const;
     
@@ -404,6 +419,9 @@ namespace RDKit
     void convertFromSuperAtoms();
     
     void convertToSuperAtoms();
+
+    void expandMultipleSgroups();
+    
 
     void processMulticenterSgroups();
     

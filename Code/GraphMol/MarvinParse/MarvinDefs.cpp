@@ -33,11 +33,11 @@ namespace RDKit
     std::ostringstream out;
 
     out << "<MReactionSign id=\"" << id << "\" toptions=\"NOROT\" fontScale=\"14.0\" halign=\"CENTER\" valign=\"CENTER\" autoSize=\"true\">"
-      "<Field name=\"text\"><![CDATA[ {D font=SansSerif,size=18,bold}+ ]]></Field>"
+      "<Field name=\"text\"><![CDATA[ {D font=SansSerif,size=18,bold}+]]></Field>"
       "<MPoint x=\"" << x1 << "\" y=\"" << y1 << "\"/>"
       "<MPoint x=\"" << x2 << "\" y=\"" << y1 << "\"/>"
       "<MPoint x=\"" << x2 << "\" y=\"" << y2 << "\"/>"
-      "<MPoint x=\"" << x1 << "\" y=\"" << y2 << "/>"
+      "<MPoint x=\"" << x1 << "\" y=\"" << y2 << "\"/>"
       "</MReactionSign>";
 
     return out.str();
@@ -501,11 +501,7 @@ namespace RDKit
     std::ostringstream out;
 
     out << "<molecule molID=\"" << molID << "\" id=\"" << id << "\" role=\"MonomerSgroup\" atomRefs=\"" << boost::algorithm::join(getAtomList()," ")  
-    << "\" title=\"" << title << "\" charge=\"" << charge << "\"><MBracket type=\"SQUARE\" orientation=\"DOUBLE\"><MPoint x=\""
-    << bracket.upperLeft.x << "\" y=\"" << bracket.upperLeft.y << "\"></MPoint><MPoint x=\""
-    << bracket.lowerRight.x << "\" y=\"" << bracket.upperLeft.y << "\"></MPoint><MPoint x=\""
-    << bracket.upperLeft.x << "\" y=\"" << bracket.lowerRight.y << "\"></MPoint><MPoint x=\""
-    << bracket.lowerRight.x <<"\" y=\"" << bracket.lowerRight.y << "\"></MPoint></MBracket></molecule>";
+    << "\" title=\"" << title << "\" charge=\"" << charge << "\">" << bracket.toString() << "</molecule>";
 
     return out.str();
   }
@@ -1116,7 +1112,7 @@ namespace RDKit
       if (subMolPtr->isExpanded)
          continue;
 
-    //   // find the two bonds to atoms NOT in the group
+      // find the two bonds (or zero bonds) to atoms NOT in the group
 
 
       std::vector<std::string> originalConnectorAtoms;   // the bonds inthe parent that were to outside atoms BEFORE replication
@@ -1146,8 +1142,8 @@ namespace RDKit
       }
 
       //should be two bonds to the outside
-      if (subMolPtr->bondsToAtomsNotInExpandedGroup.size() != 2)
-        throw FileParseException("Error - there must be two bonds from the group to atoms not in the group");
+      if (subMolPtr->bondsToAtomsNotInExpandedGroup.size() != 2 && subMolPtr->bondsToAtomsNotInExpandedGroup.size() != 0)
+        throw FileParseException("Error - there must be zero or two bonds from the group to atoms not in the group");
 
       // find the hightest index of an atom in the Group - we will insert replicated atoms after that one
 
@@ -1165,7 +1161,8 @@ namespace RDKit
 
       std::vector<MarvinAtom *> atomsToAdd;
       std::vector<MarvinBond *> bondsToAdd;
-      connectorAtoms[1]  = originalConnectorAtoms[1];  // this one does NOT have an _# on it
+      if (subMolPtr->bondsToAtomsNotInExpandedGroup.size() == 2)
+        connectorAtoms[1]  = originalConnectorAtoms[1];  // this one does NOT have an _# on it
 
       for (int copyIndex = 2 ; copyIndex <= copyCount ; ++ copyIndex)  // start at 1, we already have the first copy
       {
@@ -1188,22 +1185,28 @@ namespace RDKit
 
         // add the bond from the last group to the new one
         
-        connectorAtoms[0] = originalConnectorAtoms[0] + "_" + std::to_string(copyIndex);
-        MarvinBond *connectorBond =  new MarvinBond( *subMolPtr->bondsToAtomsNotInExpandedGroup[0]
-            , subMolPtr->bondsToAtomsNotInExpandedGroup[0]->id + "_" + std::to_string(copyIndex) 
-            , connectorAtoms[0]
-            , connectorAtoms[1]);
-        bondsToAdd.push_back(connectorBond);
+        if (subMolPtr->bondsToAtomsNotInExpandedGroup.size() == 2)
+        {
+          connectorAtoms[0] = originalConnectorAtoms[0] + "_" + std::to_string(copyIndex);
+          MarvinBond *connectorBond =  new MarvinBond( *subMolPtr->bondsToAtomsNotInExpandedGroup[0]
+              , subMolPtr->bondsToAtomsNotInExpandedGroup[0]->id + "_" + std::to_string(copyIndex) 
+              , connectorAtoms[0]
+              , connectorAtoms[1]);
+          bondsToAdd.push_back(connectorBond);
 
-        // update connectorAtom[1] for the next pass (or the final bond to the outside atom)
+          // update connectorAtom[1] for the next pass (or the final bond to the outside atom)
 
-        connectorAtoms[1] = originalConnectorAtoms[1] + "_" + std::to_string(copyIndex);        
+          connectorAtoms[1] = originalConnectorAtoms[1] + "_" + std::to_string(copyIndex);        
+        }
       }
 
       // fix the bond to the second outside atom to reflect that it comes from the last replicate
 
-      subMolPtr->bondsToAtomsNotInExpandedGroup[1]->atomRefs2[0] = outsideConnectorAtom;
-      subMolPtr->bondsToAtomsNotInExpandedGroup[1]->atomRefs2[1] = connectorAtoms[1];
+      if (subMolPtr->bondsToAtomsNotInExpandedGroup.size() == 2)
+      {
+        subMolPtr->bondsToAtomsNotInExpandedGroup[1]->atomRefs2[0] = outsideConnectorAtom;
+        subMolPtr->bondsToAtomsNotInExpandedGroup[1]->atomRefs2[1] = connectorAtoms[1];
+      }
 
       //now add the new atoms and bonds
 
@@ -1266,19 +1269,27 @@ namespace RDKit
       {
           atoms.erase(std::find(atoms.begin(), atoms.end(), atomPtr));
           subMolPtr->atoms.erase(std::find(subMolPtr->atoms.begin(), subMolPtr->atoms.end(), atomPtr));  // also remove from the submol
+          delete atomPtr;
       }
+      atomsToDelete.clear();
 
       //remove the bonds
 
       for (MarvinBond *bondPtr : bondsToDelete)
+      {
           bonds.erase(std::find(bonds.begin(), bonds.end(), bondPtr));
+          delete bondPtr;
+      }
+      bondsToDelete.clear();
 
       // now fix the orphaned bond - The first gets the atoms from the second is was NOT removed.
       // the second orphaned bond is deleted
 
       orphanedBonds[0]->atomRefs2[0] = orphanedAtomIds[0];
       orphanedBonds[0]->atomRefs2[1] = orphanedAtomIds[1];
-      bonds.erase(std::find(bonds.begin(), bonds.end(), orphanedBonds[1]));  // delete the second orphaned atom
+      auto bondToDelete = std::find(bonds.begin(), bonds.end(), orphanedBonds[1]);
+      delete *bondToDelete;
+      bonds.erase(bondToDelete);  // delete the second orphaned atom
    
       subMolPtr->isExpanded = false;   
     }
@@ -1538,6 +1549,24 @@ namespace RDKit
     }
   }
 
+  MarvinRectangle::MarvinRectangle(const std::vector<MarvinRectangle> rects)
+  {
+    centerIsStale = true;
+
+    if (rects.size() == 0)
+      return;
+    upperLeft.x = DBL_MAX;
+    upperLeft.y = -DBL_MAX;
+    lowerRight.x = -DBL_MAX;
+    lowerRight.y = DBL_MAX;
+
+
+    for (auto rect : rects)
+    {
+      this->extend(rect);
+    }
+  }
+
   void MarvinRectangle::extend(const MarvinRectangle &otherRectangle)
   {  
     if (otherRectangle.upperLeft.x < upperLeft.x)
@@ -1584,9 +1613,9 @@ namespace RDKit
     return (r1.getCenter().x < r2.getCenter().x);
   }
 
-  bool MarvinRectangle::compareRectanglesByY(MarvinRectangle &r1, MarvinRectangle &r2)
+  bool MarvinRectangle::compareRectanglesByYReverse(MarvinRectangle &r1, MarvinRectangle &r2)
   {
-    return (r1.getCenter().y < r2.getCenter().y);
+    return (r1.getCenter().y > r2.getCenter().y);
   }
 
   MarvinStereoGroup::MarvinStereoGroup(StereoGroupType grouptypeInit, int groupNumberInit )

@@ -169,7 +169,7 @@ namespace RDKit
 
   class MarvinRectangle
   {
-    private:
+    protected:
     RDGeom::Point3D center;
     bool centerIsStale;
     
@@ -181,6 +181,7 @@ namespace RDKit
     MarvinRectangle(double left, double right, double top, double bottom);
     MarvinRectangle(const RDGeom::Point3D &upperLeftInit, const RDGeom::Point3D &lowerRightInit);
     MarvinRectangle(const std::vector<MarvinAtom *> atoms);
+    MarvinRectangle(const std::vector<MarvinRectangle> rects);
     
     void extend(const MarvinRectangle &otherRectangle);
     
@@ -192,7 +193,30 @@ namespace RDKit
 
     static bool compareRectanglesByX(MarvinRectangle &r1, MarvinRectangle &r2);
     
-    static bool compareRectanglesByY(MarvinRectangle &r1, MarvinRectangle &r2);
+    static bool compareRectanglesByYReverse(MarvinRectangle &r1, MarvinRectangle &r2);
+  };
+
+  class MarvinBracket : public MarvinRectangle
+  {
+    public:
+
+    MarvinBracket() {};
+    MarvinBracket(double left, double right, double top, double bottom) : MarvinRectangle(left, right, top, bottom) {};
+    MarvinBracket(const RDGeom::Point3D &upperLeftInit, const RDGeom::Point3D &lowerRightInit) : MarvinRectangle(upperLeftInit, lowerRightInit) {} ;
+    MarvinBracket(const std::vector<MarvinAtom *> atoms) : MarvinRectangle(atoms) {};
+
+    std::string toString() const
+    {
+      std::ostringstream out;
+
+      out << "<MBracket type=\"SQUARE\" orientation=\"DOUBLE\"><MPoint x=\""
+      << upperLeft.x << "\" y=\"" << upperLeft.y << "\"></MPoint><MPoint x=\""
+      << lowerRight.x << "\" y=\"" << upperLeft.y << "\"></MPoint><MPoint x=\""
+      << upperLeft.x << "\" y=\"" << lowerRight.y << "\"></MPoint><MPoint x=\""
+      << lowerRight.x <<"\" y=\"" << lowerRight.y << "\"></MPoint></MBracket>";
+
+      return out.str();
+    }
   };
 
   class MarvinMolBase
@@ -200,10 +224,12 @@ namespace RDKit
     public:
     std::string molID;
     std::vector<MarvinAtom *> atoms;
-    std::vector<MarvinBond *> bonds;      
-
+    std::vector<MarvinBond *> bonds;    
+    MarvinBracket bracket;    //  only used for derived classes that do not have their own atoms 
+  
     virtual std::string role() const = 0;
     virtual bool hasAtomBondBlocks() const = 0;
+
 
     int getExplicitValence(const MarvinAtom &marvinAtom) const;
 
@@ -285,7 +311,7 @@ namespace RDKit
     std::string id;
     std::string title;
     bool isExpanded = false;
-    std::vector<MarvinAtom *>parentAtoms;  // only used when expanded - it preparation for creating an RDKit mol
+    std::vector<MarvinAtom *>parentAtoms; 
     std::vector<MarvinBond *>bondsToAtomsNotInExpandedGroup;      // only when expanded
 
     std::string toString() const;
@@ -331,7 +357,6 @@ namespace RDKit
     std::string id;
     std::string title;
     std::string charge;   // onAtoms or onBrackets
-    MarvinRectangle bracket;
     std::string toString() const;
     std::string role() const;
     bool hasAtomBondBlocks() const;

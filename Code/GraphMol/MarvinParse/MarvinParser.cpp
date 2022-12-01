@@ -248,6 +248,7 @@ namespace RDKit
           catch (const Invar::Invariant &e) 
           {
             delete res;
+            res = NULL;
             throw FileParseException(e.what());
           }
         }
@@ -274,21 +275,25 @@ namespace RDKit
           res->setNumExplicitHs(marvinAtom->hydrogenCount);
 
         if (marvinAtom->mrvValence >= 0)
-        {
-          res->setNoImplicit(true);
-        
+        {        
           int explicitValence = marvinMolBase->getExplicitValence(*marvinAtom);
-          if (explicitValence > marvinAtom->mrvValence) 
-            throw FileParseException("atom has specified valence (" + std::to_string(marvinAtom->mrvValence) +  ") smaller than the drawn valence");
+          // if (explicitValence > marvinAtom->mrvValence) 
+          //   throw FileParseException("atom has specified valence (" + std::to_string(marvinAtom->mrvValence) +  ") smaller than the drawn valence");
           
           int hCount = marvinAtom->mrvValence - explicitValence;
-          if (marvinAtom->hydrogenCount >= 0)
+          if (hCount >=0)
           {
-            if (marvinAtom->hydrogenCount != hCount)
-              throw FileParseException("mrvValence and hydrogenCount both specified for an atom, and they do not agree");
+            if (marvinAtom->hydrogenCount >= 0)
+            {
+              if (marvinAtom->hydrogenCount != hCount)
+                throw FileParseException("mrvValence and hydrogenCount both specified for an atom, and they do not agree");
+            }
+            else
+            {
+              res->setNoImplicit(true);
+              res->setNumExplicitHs(hCount); 
+            }
           }
-          else
-            res->setNumExplicitHs(hCount); 
         }
 
         if (marvinAtom->radical != "")
@@ -314,6 +319,7 @@ namespace RDKit
       catch(const std::exception& e)
       {
         delete res;
+        res = NULL;
         throw;
       }
     }
@@ -1132,25 +1138,21 @@ namespace RDKit
               throw FileParseException("Expected context for a DataSgroup definition in MRV file");       
             
             marvinDataSgroup->fieldName = molTree.get<std::string>("<xmlattr>.fieldName", "");
-            if (marvinDataSgroup->fieldName == "")
-              throw FileParseException("Expected fieldName for a DataSgroup definition in MRV file");                      
-
             marvinDataSgroup->placement = molTree.get<std::string>("<xmlattr>.placement", "");
             if (marvinDataSgroup->placement == "")
               throw FileParseException("Expected placement for a DataSgroup definition in MRV file");                      
 
-            marvinDataSgroup->unitsDisplayed = molTree.get<std::string>("<xmlattr>.unitsDisplayed", "");
-            if (marvinDataSgroup->unitsDisplayed == "")
-              throw FileParseException("Expected unitsDisplayed for a DataSgroup definition in MRV file");                      
+            marvinDataSgroup->unitsDisplayed = molTree.get<std::string>("<xmlattr>.unitsDisplayed", "Unit not displayed");
+            std::string unitsDisplayed = boost::algorithm::to_lower_copy(marvinDataSgroup->unitsDisplayed);
+            if (unitsDisplayed != "unit displayed" && unitsDisplayed != "unit not displayed")
+              throw FileParseException("Expected unitsDisplayed  to be either \"Unit displayed\" or \"Unit not displayed\" for a DataSgroup definition in MRV file");                      
+
 
             marvinDataSgroup->queryType = molTree.get<std::string>("<xmlattr>.queryType", "");
             marvinDataSgroup->queryOp = molTree.get<std::string>("<xmlattr>.queryOp", "");
             marvinDataSgroup->units = molTree.get<std::string>("<xmlattr>.units", "");
                          
-
             marvinDataSgroup->fieldData = molTree.get<std::string>("<xmlattr>.fieldData", "");
-            if (marvinDataSgroup->fieldData == "")
-              throw FileParseException("Expected fieldData for a DataSgroup definition in MRV file");                      
            
             std::string x = molTree.get<std::string>("<xmlattr>.x", "");
             std::string y = molTree.get<std::string>("<xmlattr>.y", "");
@@ -1393,7 +1395,7 @@ namespace RDKit
               std::string valenceStr = v.second.get<std::string>("<xmlattr>.mrvValence", "");
               if (valenceStr != "")
               {
-                if (!getCleanInt(valenceStr, mrvAtom->mrvValence) || mrvAtom->mrvValence <=0)
+                if (!getCleanInt(valenceStr, mrvAtom->mrvValence) || mrvAtom->mrvValence <0)
                 {
                   std::ostringstream err;
                   err << "The value for mrvValence must be a positive number in MRV file";

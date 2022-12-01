@@ -602,18 +602,13 @@ namespace RDKit
           SubstanceGroup sgroup = SubstanceGroup(mol, typ);
           sgroup.setProp<unsigned int>("index", sequenceId);
 
-          void (SubstanceGroup::*sGroupAddIndexedElement)(const unsigned int) = nullptr;
-          sGroupAddIndexedElement = &SubstanceGroup::addAtomWithIdx;
-
-          void (SubstanceGroup::*sGroupAddIndexedElementBond)(const unsigned int) = nullptr;
-          sGroupAddIndexedElementBond = &SubstanceGroup::addBondWithIdx;
-
+  
           std::vector<std::string>::const_iterator atomIter;
           for (atomIter = (*superIter)->atoms.begin(); atomIter != (*superIter)->atoms.end(); ++atomIter)
-            (sgroup.*sGroupAddIndexedElement)(marvinMol->getAtomIndex(*atomIter));
+            sgroup.addAtomWithIdx(marvinMol->getAtomIndex(*atomIter));
           std::vector<std::string>::const_iterator superBondIter;
           for (superBondIter = (*superIter)->bonds.begin(); superBondIter != (*superIter)->bonds.end(); ++superBondIter)
-            (sgroup.*sGroupAddIndexedElementBond)(marvinMol->getBondIndex(*superBondIter));
+            sgroup.addBondWithIdx(marvinMol->getBondIndex(*superBondIter));
 
           sgroup.setProp("LABEL", (*superIter)->title);    
 
@@ -630,14 +625,11 @@ namespace RDKit
           SubstanceGroup sgroup = SubstanceGroup(mol, typ);
           sgroup.setProp<unsigned int>("index", sequenceId);
 
-          void (SubstanceGroup::*sGroupAddIndexedElement)(const unsigned int) = nullptr;
-          sGroupAddIndexedElement = &SubstanceGroup::addAtomWithIdx;
-
           std::vector<MarvinAtom *>::const_iterator atomIter;
           for (atomIter = (*supIter)->atoms.begin(); atomIter != (*supIter)->atoms.end(); ++atomIter)
           {
             int atomIndex = marvinMol->getAtomIndex((*atomIter)->id);
-            (sgroup.*sGroupAddIndexedElement)(atomIndex);
+            sgroup.addAtomWithIdx(atomIndex);
           }
           
           sgroup.setProp("LABEL", (*supIter)->title);
@@ -655,15 +647,26 @@ namespace RDKit
           SubstanceGroup sgroup = SubstanceGroup(mol, typ);
           sgroup.setProp<unsigned int>("index", sequenceId);
 
-          void (SubstanceGroup::*sGroupAddIndexedElement)(const unsigned int) = nullptr;
-          sGroupAddIndexedElement = &SubstanceGroup::addAtomWithIdx;
-
-          std::vector<MarvinAtom *>::const_iterator atomIter;
-          for (atomIter = (*multIter)->atoms.begin(); atomIter != (*multIter)->atoms.end(); ++atomIter)
+          for (auto atomPtr : (*multIter)->atoms)
           {
-            int atomIndex = marvinMol->getAtomIndex((*atomIter)->id);
-            (sgroup.*sGroupAddIndexedElement)(atomIndex);
+            int atomIndex = marvinMol->getAtomIndex(atomPtr->id);
+            sgroup.addAtomWithIdx(atomIndex);
           }
+
+          for (auto atomPtr : (*multIter)->parentAtoms)
+          {
+            int atomIndex = marvinMol->getAtomIndex(atomPtr->id);
+            sgroup.addParentAtomWithIdx(atomIndex);   
+          }
+
+          // the connection bonds
+
+          for (auto bondptr : (*multIter)->bondsToAtomsNotInExpandedGroup)
+          {
+            int bondIndex = marvinMol->getBondIndex(bondptr->id);
+            sgroup.addBondWithIdx(bondIndex);   
+          }
+
           sgroup.setProp("MULT", (*multIter)->title);
 
           if (sgroup.getIsValid())
@@ -681,24 +684,18 @@ namespace RDKit
 
           sgroup.setProp("CONNECT", (*sruIter)->connect);
 
-          void (SubstanceGroup::*sGroupAddIndexedElement)(const unsigned int) = nullptr;
-          sGroupAddIndexedElement = &SubstanceGroup::addAtomWithIdx;
-
-          void (SubstanceGroup::*sGroupAddIndexedElementBond)(const unsigned int) = nullptr;
-          sGroupAddIndexedElementBond = &SubstanceGroup::addBondWithIdx;
-
           std::vector<MarvinAtom *>::const_iterator atomIter;
           for (atomIter = (*sruIter)->atoms.begin(); atomIter != (*sruIter)->atoms.end(); ++atomIter)
           {
             int atomIndex = marvinMol->getAtomIndex((*atomIter)->id);
-            (sgroup.*sGroupAddIndexedElement)(atomIndex);
+            sgroup.addAtomWithIdx(atomIndex);
           }
           std::vector<MarvinBond *>::const_iterator bondIter;
           for (bondIter = (*sruIter)->bonds.begin(); bondIter != (*sruIter)->bonds.end(); ++bondIter)
           {
             //int bondIndex = marvinMol->getBondIndex((*bondIter)) + 1;
             int bondIndex = marvinMol->getBondIndex((*bondIter)->id);
-            (sgroup.*sGroupAddIndexedElementBond)(bondIndex);
+            sgroup.addBondWithIdx(bondIndex);
           }
           sgroup.setProp("LABEL", (*sruIter)->title);
 
@@ -714,14 +711,11 @@ namespace RDKit
           SubstanceGroup sgroup = SubstanceGroup(mol, typ);
           sgroup.setProp<unsigned int>("index", sequenceId);
 
-          void (SubstanceGroup::*sGroupAddIndexedElement)(const unsigned int) = nullptr;
-          sGroupAddIndexedElement = &SubstanceGroup::addAtomWithIdx;
-
           std::vector<MarvinAtom *>::const_iterator atomIter;
           for (atomIter = (*dataIter)->atoms.begin(); atomIter != (*dataIter)->atoms.end(); ++atomIter)
           {
             int atomIndex = marvinMol->getAtomIndex((*atomIter)->id);
-            (sgroup.*sGroupAddIndexedElement)(atomIndex);
+            sgroup.addAtomWithIdx(atomIndex);
           }
           
           sgroup.setProp("FIELDNAME", (*dataIter)->fieldName);
@@ -775,14 +769,11 @@ namespace RDKit
           SubstanceGroup sgroup = SubstanceGroup(mol, typ);
           sgroup.setProp<unsigned int>("index", sequenceId);
 
-          void (SubstanceGroup::*sGroupAddIndexedElement)(const unsigned int) = nullptr;
-          sGroupAddIndexedElement = &SubstanceGroup::addAtomWithIdx;
-
           std::vector<MarvinAtom *>::const_iterator atomIter;
           for (atomIter = (*genIter)->atoms.begin(); atomIter != (*genIter)->atoms.end(); ++atomIter)
           {
             int atomIndex = marvinMol->getAtomIndex((*atomIter)->id);
-            (sgroup.*sGroupAddIndexedElement)(atomIndex);
+            sgroup.addAtomWithIdx(atomIndex);
           }
           
           // note: there is no place to put the change="onAtoms" flag
@@ -800,14 +791,11 @@ namespace RDKit
           SubstanceGroup sgroup = SubstanceGroup(mol, typ);
           sgroup.setProp<unsigned int>("index", sequenceId);
 
-          void (SubstanceGroup::*sGroupAddIndexedElement)(const unsigned int) = nullptr;
-          sGroupAddIndexedElement = &SubstanceGroup::addAtomWithIdx;
-
           std::vector<MarvinAtom *>::const_iterator atomIter;
           for (atomIter = (*monIter)->atoms.begin(); atomIter != (*monIter)->atoms.end(); ++atomIter)
           {
             int atomIndex = marvinMol->getAtomIndex((*atomIter)->id);
-            (sgroup.*sGroupAddIndexedElement)(atomIndex);
+            sgroup.addAtomWithIdx(atomIndex);
           }
           sgroup.setProp("LABEL", (*monIter)->title);
 
@@ -910,6 +898,7 @@ namespace RDKit
         marvinMol = (MarvinMol *)parseMarvinMolecule(molTree);
         marvinMol->convertFromSuperAtoms();
         marvinMol->processMulticenterSgroups();
+        marvinMol->expandMultipleSgroups();
 
         RWMol* mol = parseMolecule(marvinMol , sanitize, removeHs);
 
@@ -1087,6 +1076,9 @@ namespace RDKit
           }
           else if (role == "MultipleSgroup")
           {
+            // first make sure this can be made into a proper MultipleSgroup.
+            // To be valid, the title must be a positive integer and there must be exactly two bonds the connect to the repeating group
+
             MarvinMultipleSgroup *marvinMultipleSgroup = new MarvinMultipleSgroup();
             res = marvinMultipleSgroup;
             
@@ -1105,11 +1097,13 @@ namespace RDKit
               if (atomIter == parentMol->atoms.end())
                 throw FileParseException("AtomRef specification for an MultipleSgroup group definition was not found in the atom array in MRV file");
               marvinMultipleSgroup->atoms.push_back(*atomIter);
+              marvinMultipleSgroup->parentAtoms.push_back(*atomIter);
             }
 
             marvinMultipleSgroup->title = molTree.get<std::string>("<xmlattr>.title", "");
-            if (marvinMultipleSgroup->title == "")
-              throw FileParseException("Expected  title for a MultipleSgroup definition in MRV file");            
+            int testInt;
+            if (marvinMultipleSgroup->title == ""  || !getCleanInt(marvinMultipleSgroup->title, testInt) || testInt <= 0)
+              throw FileParseException("Expected a positive integer title for a MultipleSgroup definition in MRV file");            
           }
           else if (role == "DataSgroup")
           {
@@ -1129,25 +1123,25 @@ namespace RDKit
               auto atomIter = find_if(parentMol->atoms.begin(), parentMol->atoms.end(), [it](const MarvinAtom *arg) { 
                             return arg->id == *it; });
               if (atomIter == parentMol->atoms.end())
-                throw FileParseException("AtomRef specification for an MultipleSgroup group definition was not found in the atom array in MRV file");
+                throw FileParseException("AtomRef specification for an DataSgroup group definition was not found in the atom array in MRV file");
               marvinDataSgroup->atoms.push_back(*atomIter);
             }
 
             marvinDataSgroup->context = molTree.get<std::string>("<xmlattr>.context", "");
             if (marvinDataSgroup->context == "")
-              throw FileParseException("Expected context for a MultipleSgroup definition in MRV file");       
+              throw FileParseException("Expected context for a DataSgroup definition in MRV file");       
             
             marvinDataSgroup->fieldName = molTree.get<std::string>("<xmlattr>.fieldName", "");
             if (marvinDataSgroup->fieldName == "")
-              throw FileParseException("Expected fieldName for a MultipleSgroup definition in MRV file");                      
+              throw FileParseException("Expected fieldName for a DataSgroup definition in MRV file");                      
 
             marvinDataSgroup->placement = molTree.get<std::string>("<xmlattr>.placement", "");
             if (marvinDataSgroup->placement == "")
-              throw FileParseException("Expected placement for a MultipleSgroup definition in MRV file");                      
+              throw FileParseException("Expected placement for a DataSgroup definition in MRV file");                      
 
             marvinDataSgroup->unitsDisplayed = molTree.get<std::string>("<xmlattr>.unitsDisplayed", "");
             if (marvinDataSgroup->unitsDisplayed == "")
-              throw FileParseException("Expected unitsDisplayed for a MultipleSgroup definition in MRV file");                      
+              throw FileParseException("Expected unitsDisplayed for a DataSgroup definition in MRV file");                      
 
             marvinDataSgroup->queryType = molTree.get<std::string>("<xmlattr>.queryType", "");
             marvinDataSgroup->queryOp = molTree.get<std::string>("<xmlattr>.queryOp", "");
@@ -1156,17 +1150,17 @@ namespace RDKit
 
             marvinDataSgroup->fieldData = molTree.get<std::string>("<xmlattr>.fieldData", "");
             if (marvinDataSgroup->fieldData == "")
-              throw FileParseException("Expected fieldData for a MultipleSgroup definition in MRV file");                      
+              throw FileParseException("Expected fieldData for a DataSgroup definition in MRV file");                      
            
             std::string x = molTree.get<std::string>("<xmlattr>.x", "");
             std::string y = molTree.get<std::string>("<xmlattr>.y", "");
             
             if (x == "")
-              throw FileParseException("Expected x for a MultipleSgroup definition in MRV file"); 
+              throw FileParseException("Expected x for a DataSgroup definition in MRV file"); 
             if (!getCleanDouble(x, marvinDataSgroup->x))
                   throw FileParseException("The value for x must be a floating point value in MRV file");  
             if (y == "")
-              throw FileParseException("Expected y for a MultipleSgroup definition in MRV file"); 
+              throw FileParseException("Expected y for a DataSgroup definition in MRV file"); 
             if (!getCleanDouble(y, marvinDataSgroup->y))
                   throw FileParseException("The value for y must be a floating point value in MRV file");  
           }
@@ -1684,7 +1678,7 @@ namespace RDKit
               if (!boost::algorithm::contains(marvinConventionTypes, std::vector<std::string>{mrvBond->convention} ))
               {
                 std::ostringstream err;
-                err << "Expected one of  " << boost::algorithm::join(marvinConventionTypes,", ") << " for conention for an bond definition in MRV file";
+                err << "Expected one of  " << boost::algorithm::join(marvinConventionTypes,", ") << " for convention for an bond definition in MRV file";
                 throw FileParseException(err.str());
               }
             }
@@ -1813,6 +1807,7 @@ namespace RDKit
         marvinReaction= parseMarvinReaction(rxnTree, documentTree);
         marvinReaction->convertFromSuperAtoms();
         marvinReaction->processMulticenterSgroups();
+        marvinReaction->expandMultipleSgroups();
 
         // get each reactant
 

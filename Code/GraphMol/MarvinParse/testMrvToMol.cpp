@@ -312,6 +312,15 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
 
       {
         std::string outMolStr = ChemicalReactionToRxnBlock(*rxn, false, true);
+
+        // code to create the expected files for new or changed tests
+
+        // {
+        //   std::ofstream  out;
+        //   out.open(fName + ".NEW.rxn");
+        //   out << outMolStr;       
+        // }
+
         std::string expectedRxnName = fName + ".expected.rxn";
 
         std::stringstream  expectedMolStr;
@@ -325,6 +334,15 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
 
       {
         std::string outMolStr = ChemicalReactionToMrvBlock(*rxn);
+        
+        // code to create the expected files for new or changed tests
+
+        // {
+        //   std::ofstream  out;
+        //   out.open(fName + ".NEW.mrv");
+        //   out << outMolStr;       
+        // }
+
         std::string expectedRxnName = fName + ".expected.mrv";
         std::stringstream  expectedMolStr;
         std::ifstream  in;
@@ -367,6 +385,14 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
         if (outMolStr == "")
           outMolStr =  MolToMolBlock(*mol, true, 0,false, true);  // try without kekule'ing
 
+        // code to create the expected files for new or changed tests
+
+        // {
+        //   std::ofstream  out;
+        //   out.open(fName + ".NEW.sdf");
+        //   out << outMolStr;       
+        // }
+
         std::stringstream  expectedMolStr;
         std::ifstream  in;
         in.open(expectedMrvName);
@@ -394,7 +420,14 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
         }
         if (outMolStr == "")
           outMolStr = MolToMrvBlock(*mol,true, -1,false);  // try without kekule'ing
-  
+        // code to create the expected files for new or changed tests
+
+        // {
+        //   std::ofstream  out;
+        //   out.open(fName + ".NEW.mrv");
+        //   out << outMolStr;       
+        // } 
+        
         std::stringstream  expectedMolStr;
         std::ifstream  in;
         in.open(expectedMrvName);
@@ -457,7 +490,7 @@ void RunTests()
     ,  MolTest("AnyBond.mrv", true, LoadAsMolOrRxn, 4, 3)
     ,  MolTest("cisBenzene.mrv", true, LoadAsMolOrRxn, 6, 6)
     ,  MolTest("DativeBond.mrv", true, LoadAsMolOrRxn, 6, 5)
-    ,  MolTest("MultipleSgroup.mrv", true, LoadAsMolOrRxn, 75, 74)
+    ,  MolTest("MultipleSgroup.mrv", true, LoadAsMolOrRxn, 123, 122)
     ,  MolTest("SgroupExpanded.mrv", true, LoadAsMolOrRxn, 5, 4)
     ,  MolTest("SgroupMultAttach.mrv", true, LoadAsMolOrRxn, 44, 45)  
     ,  MolTest("MarvinMissingX2.mrv", true, LoadAsMolOrRxn, 12, 11)  

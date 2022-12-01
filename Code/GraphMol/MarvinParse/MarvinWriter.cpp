@@ -699,6 +699,10 @@ namespace RDKit
                 marvinMultipleSgroup->atoms.push_back(marvinMol->atoms[atomIndex]);
                 marvinMol->atoms[atomIndex]->sgroupRef =  marvinMultipleSgroup->id;
             }
+            for (auto atomIndex : sgroup.getParentAtoms())
+                marvinMultipleSgroup->parentAtoms.push_back(marvinMol->atoms[atomIndex]);
+                
+            marvinMultipleSgroup->isExpanded = true;
           }
 
           if (type == "GEN")
@@ -780,6 +784,7 @@ namespace RDKit
         // convert the superInfos to supergroups
 
         marvinMol->convertToSuperAtoms();
+        marvinMol->contractMultipleSgroups();
         marvinMol->cleanUpNumbering(molCount, atomCount, bondCount, sgCount);
 
         return marvinMol;

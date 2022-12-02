@@ -13,6 +13,7 @@
 #include <GraphMol/FileParsers/SequenceParsers.h>
 #include <GraphMol/FileParsers/SequenceWriters.h>
 #include <GraphMol/FileParsers/MolFileStereochem.h>
+#include <GraphMol/Depictor/RDDepictor.h>
 #include "MarvinParser.h"
 
 #include <GraphMol/ChemReactions/Reaction.h>
@@ -194,6 +195,12 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
       if (outMolStr == "")
         outMolStr =  MolToMolBlock(*localVars.smilesMol, true, 0,false, true);  // try without kekule'ing
 
+      // code to generate the expected files
+      // {
+      //   std::ofstream  out;
+      //   out.open(fName + ".NEW.sdf");
+      //   out << outMolStr;
+      // }
       std::stringstream  expectedMolStr;
       std::ifstream  in;
       in.open(expectedSdfName);
@@ -221,6 +228,12 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
       if (outMolStr == "")
         outMolStr = MolToMrvBlock(*localVars.smilesMol,true, -1,false);  // try without kekule'ing
 
+      // code to genertae the expected files
+      // {
+      //   std::ofstream  out;
+      //   out.open(fName + ".NEW.mrv");
+      //   out << outMolStr;
+      // }
       std::stringstream  expectedMolStr;
       std::ifstream  in;
       in.open(expectedMrvName);
@@ -461,7 +474,11 @@ void RunTests()
 
   std::list<MolTest> molFileNames
   {
-    MolTest("radical_value.mrv", true, LoadAsMolOrRxn, 3, 2)
+    //MolTest("RgroupBad.mrv", true, LoadAsMolOrRxn, 14, 14)
+    MolTest("valenceLessThanDrawn.mrv", true, LoadAsMolOrRxn, 14, 14)
+    , MolTest("data_sgroup_no_fieldname.mrv", true, LoadAsMolOrRxn, 4, 3)
+    , MolTest("data_sgroup_empty_field_data.mrv", true, LoadAsMolOrRxn, 2, 1)
+    , MolTest("radical_value.mrv", true, LoadAsMolOrRxn, 3, 2)
     ,  MolTest("emptyOneLineAtomList.mrv", true, LoadAsMolOrRxn, 0, 0)
     ,  MolTest("mrvValence_value.mrv", true, LoadAsMolOrRxn, 3, 2)
     ,  MolTest("ChiralTest2.mrv", true, LoadAsMolOrRxn, 46, 47)
@@ -499,6 +516,8 @@ void RunTests()
     ,  MolTest("MulticenterSgroup.mrv", true, LoadAsMolOrRxn, 17, 16)
     ,  MolTest("GenericSgroup.mrv", true, LoadAsMolOrRxn, 13, 13)
     ,  MolTest("MonomerSgroup.mrv", true, LoadAsMolOrRxn, 4, 3)
+    ,  MolTest("MultipleSgroupParentInMiddleOfAtomBlock.mrv", true, LoadAsMolOrRxn, 23, 22)
+    ,  MolTest("EmbeddedSgroups.mrv", false, LoadAsMolOrRxn, 14, 14) // should fail embedded sgroup has an X (unkown) atom
     ,  MolTest("marvin03.mrv", false, LoadAsMolOrRxn, 31,33)  // should fail - this is a reaction
     ,  MolTest("MarvinBadMissingMolID.mrv", false, LoadAsMolOrRxn, 12, 11)  // should fail - no molId
     ,  MolTest("MarvinBadMissingAtomID.mrv", false, LoadAsMolOrRxn, 12, 11)  // should fail - missing atom Id
@@ -543,6 +562,7 @@ void RunTests()
 
   std::list<RxnTest> rxnFileNames
   {
+      RxnTest("BadReactionSign.mrv", true, LoadAsMolOrRxn, 2, 0, 1, 3, 0),
       RxnTest("bondArray_node.mrv", true, LoadAsMolOrRxn, 2, 4, 1, 3, 0),
       RxnTest("marvin03.mrv", true, LoadAsMolOrRxn, 1, 1, 1, 2, 0),
       RxnTest("marvin03.mrv", true, LoadAsRxn, 1, 1, 1, 2, 0),
@@ -553,10 +573,9 @@ void RunTests()
       RxnTest("marvin11.mrv", true, LoadAsMolOrRxn, 2, 0, 1, 0, 0),
       RxnTest("marvin05.mrv", true, LoadAsMolOrRxn, 2, 1, 1, 3, 0),
       RxnTest("EmptyRxn.mrv", true, LoadAsMolOrRxn, 0, 0, 0, 0, 0),
+      RxnTest("mrvValenceZero.mrv", true, LoadAsMolOrRxn, 3, 0, 1, 4, 0),
       RxnTest("condition_coordinates_mpoint.mrv", true, LoadAsMolOrRxn, 1, 0, 1, 0, 0), 
-      RxnTest("marvin01.mrv", false, LoadAsMolOrRxn, 2, 1, 1, 3, 0)  // should fail - this is a mol file
-
-      ,
+      RxnTest("marvin01.mrv", false, LoadAsMolOrRxn, 2, 1, 1, 3, 0),  // should fail - this is a mol file
       RxnTest("aspirineSynthesisWithAttributes.mrv", true, LoadAsMolOrRxn,
               2, 0, 1, 3, 0)  // should fail - this is a mol file
   };
@@ -572,12 +591,14 @@ void RunTests()
 
    std::list<SmilesTest> smiFileNames
    {
-      SmilesTest("Smiles1","N[C@@H]([O-])c1cc[13c]cc1",true,9,9)
+      SmilesTest("BigMacrocycle","C[C@@H]1CCCCCCCCC(=O)OCCN[C@H](C)CCCCCCCCC(=O)OCCN[C@H](C)CCCCCCCCC(=O)OCCN1", true, 48,48)
+      , SmilesTest("Smiles1","N[C@@H]([O-])c1cc[13c]cc1",true,9,9)
    };
 
   for (std::list<SmilesTest>::const_iterator it = smiFileNames.begin(); it != smiFileNames.end(); ++it) 
   {
     printf("Test\n\n %s\n\n", it->name.c_str());
+    //RDDepict::preferCoordGen = true;
     testSmilesToMarvin(&*it);
   }
 }

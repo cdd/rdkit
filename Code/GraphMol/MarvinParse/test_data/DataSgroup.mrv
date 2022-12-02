@@ -22,8 +22,8 @@
                     <bond id="b6" atomRefs2="a5 a7" order="1"/>
                 </bondArray>
                 <molecule molID="m2" id="sg1" role="DataSgroup" atomRefs="a1 a2 a3 a4 a5 a6 a7" context="Fragment" fieldName="TestFrag" x="-0.6668413869397369" y="1.540000000000001" placement="Relative" unitsDisplayed="Unit displayed" queryType="mQ" queryOp="&lt;&gt;" fieldData="qqwwq" units="mg"/>
-                <molecule molID="m3" id="sg2" role="DataSgroup" atomRefs="a7" context="Atom" fieldName="TestAtom" x="0" y="0" placement="Relative" unitsDisplayed="Unit displayed" fieldData="OH"/>
-                <molecule molID="m4" id="sg3" role="DataSgroup" atomRefs="a1 a2" context="Single Bond" fieldName="testBond" x="0" y="0" placement="Relative" unitsDisplayed="Unit displayed" fieldData="wqreqwer"/></molecule>
+                <molecule molID="m3" id="sg2" role="DataSgroup" atomRefs="a7" context="Atom" fieldName="TestAtom" x="0" y="0" placement="Relative" unitsDisplayed="Unit not displayed" fieldData="OH"/>
+                <molecule molID="m4" id="sg3" role="DataSgroup" atomRefs="a1 a2" context="Single Bond" fieldName="testBond" x="0" y="0" placement="Relative" fieldData="wqreqwer"/></molecule>
         </MChemicalStruct>
         <MElectronContainer occupation="0 0" radical="0" id="o1">
             <MElectron atomRefs="m1.a3" difLoc="0.0 0.0 0.0"/>

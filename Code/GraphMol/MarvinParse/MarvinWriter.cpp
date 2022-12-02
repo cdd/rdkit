@@ -59,7 +59,7 @@ using namespace RDKit::SGroupWriting;
 
 #define ARROW_MIN_LENGTH 1.0
 #define ARROW_SPACE 0.5
-#define PLUS_SPACE 0.5
+#define PLUS_SPACE 1.0
 
 namespace RDKit 
 {
@@ -805,9 +805,11 @@ namespace RDKit
     }
 
 
-    static bool compareRowsOfRectangles(std::vector<MarvinRectangle> &v1, std::vector<MarvinRectangle> &v2)
+    static bool compareRowsOfRectanglesReverse(std::vector<MarvinRectangle> &v1, std::vector<MarvinRectangle> &v2)
     {
-      return MarvinRectangle::compareRectanglesByY(v1.front(), v2.front());  // just compare the first one in each row
+      auto rect1 = MarvinRectangle(v1);  // composite rectangle for the previous row
+      auto rect2 = MarvinRectangle(v2);  // composite rectangle for the row
+      return MarvinRectangle::compareRectanglesByYReverse(rect1, rect2);  // just compare the first one in each row
     }
 
     double GetArrowPerdendicularPosition(
@@ -842,7 +844,7 @@ namespace RDKit
       //sort the rows by X or Y, depending on vertical flag
 
       if (verticalFlag)
-        std::sort(rectangleList.begin(), rectangleList.end(), MarvinRectangle::compareRectanglesByY);
+        std::sort(rectangleList.begin(), rectangleList.end(), MarvinRectangle::compareRectanglesByYReverse);  // sort top down
       else        
         std::sort(rectangleList.begin(), rectangleList.end(), MarvinRectangle::compareRectanglesByX);
 
@@ -858,8 +860,8 @@ namespace RDKit
         
         if (verticalFlag)
         {
-          if (rect2->lowerRight.y - rect1->upperLeft.y >= ARROW_SPACE)
-              return (rect2->lowerRight.y + rect1->upperLeft.y)/2.0;
+          if (rect2->upperLeft.y - rect1->lowerRight.y >= ARROW_SPACE)
+              return (rect2->upperLeft.y + rect1->lowerRight.y)/2.0;
         }
         else
         {
@@ -887,7 +889,7 @@ namespace RDKit
 
         MarvinRectangle molRect(mol->atoms);
         bool foundRow = false;
-        for (std::vector<MarvinRectangle> row : rowsOfRectangles)
+        for (std::vector<MarvinRectangle> &row : rowsOfRectangles)
         {
             for ( MarvinRectangle rect : row)
             {
@@ -895,6 +897,7 @@ namespace RDKit
               {
                 foundRow = true;
                 row.push_back(molRect);
+                break;
               }
             }
         }
@@ -914,7 +917,7 @@ namespace RDKit
           
       //sort the rows by Y
 
-      std::sort(rowsOfRectangles.begin(), rowsOfRectangles.end(), compareRowsOfRectangles);
+      std::sort(rowsOfRectangles.begin(), rowsOfRectangles.end(), compareRowsOfRectanglesReverse);
 
       // make a plus between each rect on each row
 
@@ -926,7 +929,7 @@ namespace RDKit
             if (rect2 == rowPtr->end())
               break;
             
-            double x = (rect2->lowerRight.x + rect1->upperLeft.x)/2.0;
+            double x = (rect2->upperLeft.x + rect1->lowerRight.x)/2.0;
             double y;
 
             // see if there is room between for the +
@@ -939,26 +942,47 @@ namespace RDKit
             rxn.pluses.push_back(newMarvinPlus);
 
             newMarvinPlus->id = "o" + std::to_string(++plusCount);
-            newMarvinPlus->x1 = x - PLUS_SPACE/2.0;
-            newMarvinPlus->y1 = y - PLUS_SPACE/2.0;
-            newMarvinPlus->x2 = x + PLUS_SPACE/2.0;
-            newMarvinPlus->y2 = y + PLUS_SPACE/2.0;
+            newMarvinPlus->x1 = x;
+            newMarvinPlus->y1 = y;
+            newMarvinPlus->x2 = x + PLUS_SPACE;
+            newMarvinPlus->y2 = y + PLUS_SPACE;
         }
 
       // for each row after the first, add plus
 
         if (rowPtr != rowsOfRectangles.begin())   // 2nd and subsequent rows
         {
-          auto newMarvinPlus = new MarvinPlus();
-          rxn.pluses.push_back(newMarvinPlus);
+          // if these two rows only have enough space, put the  plus between them
 
-          double x = rowPtr->front().upperLeft.x;
-          double y = rowPtr->front().getCenter().y;
-          newMarvinPlus->id = "o" + std::to_string(++plusCount);
-          newMarvinPlus->x1 = x - 0.25;
-          newMarvinPlus->y1 = y - 0.25;
-          newMarvinPlus->x2 = x + 0.25;
-          newMarvinPlus->y2 = y + 0.25;
+          auto rectPrev = MarvinRectangle(*(rowPtr-1));  // composite rectangle for the previous row
+          auto rectCurr = MarvinRectangle(*rowPtr);  // composite rectangle for the row
+
+          if (rectPrev.lowerRight.y - rectCurr.upperLeft.y > PLUS_SPACE)
+          {
+            auto newMarvinPlus = new MarvinPlus();
+            rxn.pluses.push_back(newMarvinPlus);
+
+            double x = (rectPrev.getCenter().x + rectCurr.getCenter().x)/2;
+            double y = (rectPrev.lowerRight.y + rectCurr.upperLeft.y)/2;
+            newMarvinPlus->id = "o" + std::to_string(++plusCount);
+            newMarvinPlus->x1 = x ;
+            newMarvinPlus->y1 = y ;
+            newMarvinPlus->x2 = x + (PLUS_SPACE);
+            newMarvinPlus->y2 = y + (PLUS_SPACE);           
+          }
+          else  // just put it in front of the current row
+          {
+            auto newMarvinPlus = new MarvinPlus();
+            rxn.pluses.push_back(newMarvinPlus);
+
+            double x = rowPtr->front().upperLeft.x;
+            double y = rowPtr->front().getCenter().y;
+            newMarvinPlus->id = "o" + std::to_string(++plusCount);
+            newMarvinPlus->x1 = x ;
+            newMarvinPlus->y1 = y ;
+            newMarvinPlus->x2 = x + (PLUS_SPACE);
+            newMarvinPlus->y2 = y + (PLUS_SPACE);
+          }
         }
       }
     }

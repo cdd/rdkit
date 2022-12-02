@@ -1145,7 +1145,7 @@ namespace RDKit
             marvinDataSgroup->unitsDisplayed = molTree.get<std::string>("<xmlattr>.unitsDisplayed", "Unit not displayed");
             std::string unitsDisplayed = boost::algorithm::to_lower_copy(marvinDataSgroup->unitsDisplayed);
             if (unitsDisplayed != "unit displayed" && unitsDisplayed != "unit not displayed")
-              throw FileParseException("Expected unitsDisplayed  to be either \"Unit displayed\" or \"Unit not displayed\" for a DataSgroup definition in MRV file");                      
+              throw FileParseException("Expected unitsDisplayed to be either \"Unit displayed\" or \"Unit not displayed\" for a DataSgroup definition in MRV file");                      
 
 
             marvinDataSgroup->queryType = molTree.get<std::string>("<xmlattr>.queryType", "");

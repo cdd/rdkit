@@ -574,6 +574,7 @@ void RunTests()
       RxnTest("marvin05.mrv", true, LoadAsMolOrRxn, 2, 1, 1, 3, 0),
       RxnTest("EmptyRxn.mrv", true, LoadAsMolOrRxn, 0, 0, 0, 0, 0),
       RxnTest("mrvValenceZero.mrv", true, LoadAsMolOrRxn, 3, 0, 1, 4, 0),
+      RxnTest("RxnNoCoords.mrv", true, LoadAsMolOrRxn, 2, 0, 1, 3, 0),
       RxnTest("condition_coordinates_mpoint.mrv", true, LoadAsMolOrRxn, 1, 0, 1, 0, 0), 
       RxnTest("marvin01.mrv", false, LoadAsMolOrRxn, 2, 1, 1, 3, 0),  // should fail - this is a mol file
       RxnTest("aspirineSynthesisWithAttributes.mrv", true, LoadAsMolOrRxn,

@@ -885,6 +885,9 @@ namespace RDKit
       std::vector<std::vector<MarvinRectangle>> rowsOfRectangles;
       for (auto mol : molList)
       {
+        if (!mol->hasCoords())
+          return;  // no good way to make arrows
+
         // see if there is horizontal overlap with any existing row
 
         MarvinRectangle molRect(mol->atoms);
@@ -987,6 +990,89 @@ namespace RDKit
       }
     }
 
+    void SetArrow(MarvinReaction *marvinReaction)
+    {
+      // add a reaction arrow
+      // get the overall rectangle for the reactants and the one for the products
+
+      // first set the bad (but parsable results) in case we cannot place the arrow
+
+      marvinReaction->arrow.x1 = 0.0;
+      marvinReaction->arrow.x2 = 0.0;
+      marvinReaction->arrow.y1 = 0.0;
+      marvinReaction->arrow.y2 = 0.0;
+
+      // make sure we have both reactants and products
+
+      if (marvinReaction->reactants.size() == 0 || marvinReaction->products.size() == 0)
+        return;  
+
+      // make sure all atoms have coords
+
+      for (auto reactantPtr : marvinReaction->reactants)
+        if (!reactantPtr->hasCoords())
+          return;
+      for (auto prodPtr : marvinReaction->products)
+        if (!prodPtr->hasCoords())
+          return;
+        
+      marvinReaction->arrow.type = "DEFAULT";
+
+      MarvinRectangle reactantRect(marvinReaction->reactants.front()->atoms);
+      for (auto reactantPtr = marvinReaction->reactants.begin()+1 ; reactantPtr != marvinReaction->reactants.end(); ++reactantPtr )
+        reactantRect.extend(MarvinRectangle((*reactantPtr)->atoms));
+
+      MarvinRectangle productRect(marvinReaction->products.front()->atoms);
+      for (auto productPtr = marvinReaction->products.begin()+1 ; productPtr != marvinReaction->products.end(); ++productPtr)
+        productRect.extend(MarvinRectangle((*productPtr)->atoms));
+
+      // if there is room between the reactants and products, put the arrow there
+
+      if (productRect.upperLeft.x - reactantRect.lowerRight.x  > ARROW_MIN_LENGTH + 2.0*ARROW_SPACE)
+      {
+        marvinReaction->arrow.x1 = reactantRect.lowerRight.x + ARROW_SPACE;
+        marvinReaction->arrow.x2 = productRect.upperLeft.x - ARROW_SPACE;
+        if (marvinReaction->agents.size() > 0)
+          marvinReaction->arrow.y1 = GetArrowPerdendicularPosition(marvinReaction->agents, true);
+        else
+          marvinReaction->arrow.y1 =(reactantRect.getCenter().y + productRect.getCenter().y)/2.0;  // no agents = just put it based on the reactant and products
+        marvinReaction->arrow.y2 = marvinReaction->arrow.y1;
+      }
+      // if not enough room between the reactants and product horizontally, try vertically
+
+      else if (reactantRect.lowerRight.y -productRect.upperLeft.y   > ARROW_MIN_LENGTH + 2.0*ARROW_SPACE)
+      {
+        if (marvinReaction->agents.size() > 0)
+          marvinReaction->arrow.x1 = GetArrowPerdendicularPosition(marvinReaction->agents, false);
+        else
+          marvinReaction->arrow.x1 = (reactantRect.getCenter().x + productRect.getCenter().x)/2.0; // no agents = just put it based on the reactant and products
+        marvinReaction->arrow.x2 = marvinReaction->arrow.x1;
+        marvinReaction->arrow.y1 = reactantRect.lowerRight.y - ARROW_SPACE;
+        marvinReaction->arrow.y2 = productRect.upperLeft.y + ARROW_SPACE;
+      }
+
+      // if not good horizontal nor vertical place, just put it between the centers (hack)
+
+      else if ((reactantRect.getCenter() - productRect.getCenter()).length() > ARROW_MIN_LENGTH + 2.0*ARROW_SPACE)
+      {
+        marvinReaction->arrow.x1 = reactantRect.getCenter().x;
+        marvinReaction->arrow.x2 = productRect.getCenter().x;
+        marvinReaction->arrow.y1 = reactantRect.getCenter().y;
+        marvinReaction->arrow.y2 = productRect.getCenter().y;
+      }
+
+      // really no good place for the arrow
+
+      else
+      {
+        marvinReaction->arrow.x1 = reactantRect.lowerRight.x + ARROW_SPACE;
+        marvinReaction->arrow.x2 = reactantRect.lowerRight.x + ARROW_MIN_LENGTH + ARROW_SPACE;
+        marvinReaction->arrow.y1 =(reactantRect.getCenter().y + productRect.getCenter().y)/2.0;
+        marvinReaction->arrow.y2 = marvinReaction->arrow.y1;
+      }
+      
+    }
+
     MarvinReaction *ChemicalReactionToMarvinRxn(const ChemicalReaction *rxn, int confId=(-1))
     {
       MarvinReaction *marvinReaction = NULL;
@@ -1017,66 +1103,9 @@ namespace RDKit
         AddMarvinPluses(*marvinReaction, marvinReaction->products, plusCount);
 
         // add a reaction arrow
-        // get the overall rectangle for the reactants and the one for the products
 
-        if (marvinReaction->reactants.size() > 0 && marvinReaction->products.size() > 0)
-        {
-          marvinReaction->arrow.type = "DEFAULT";
-
-          MarvinRectangle reactantRect(marvinReaction->reactants.front()->atoms);
-          for (auto reactantPtr = marvinReaction->reactants.begin()+1 ; reactantPtr != marvinReaction->reactants.end(); ++reactantPtr )
-            reactantRect.extend(MarvinRectangle((*reactantPtr)->atoms));
-
-          MarvinRectangle productRect(marvinReaction->products.front()->atoms);
-          for (auto productPtr = marvinReaction->products.begin()+1 ; productPtr != marvinReaction->products.end(); ++productPtr)
-            productRect.extend(MarvinRectangle((*productPtr)->atoms));
-
-          // if there is room between the reactants and products, put the arrow there
-
-          if (productRect.upperLeft.x - reactantRect.lowerRight.x  > ARROW_MIN_LENGTH + 2.0*ARROW_SPACE)
-          {
-            marvinReaction->arrow.x1 = reactantRect.lowerRight.x + ARROW_SPACE;
-            marvinReaction->arrow.x2 = productRect.upperLeft.x - ARROW_SPACE;
-            if (marvinReaction->agents.size() > 0)
-              marvinReaction->arrow.y1 = GetArrowPerdendicularPosition(marvinReaction->agents, true);
-            else
-              marvinReaction->arrow.y1 =(reactantRect.getCenter().y + productRect.getCenter().y)/2.0;  // no agents = just put it based on the reactant and products
-            marvinReaction->arrow.y2 = marvinReaction->arrow.y1;
-          }
-          // if not enough room between the reactants and product horizontally, try vertically
-
-          else if (reactantRect.lowerRight.y -productRect.upperLeft.y   > ARROW_MIN_LENGTH + 2.0*ARROW_SPACE)
-          {
-            if (marvinReaction->agents.size() > 0)
-              marvinReaction->arrow.x1 = GetArrowPerdendicularPosition(marvinReaction->agents, false);
-            else
-              marvinReaction->arrow.x1 = (reactantRect.getCenter().x + productRect.getCenter().x)/2.0; // no agents = just put it based on the reactant and products
-            marvinReaction->arrow.x2 = marvinReaction->arrow.x1;
-            marvinReaction->arrow.y1 = reactantRect.lowerRight.y - ARROW_SPACE;
-            marvinReaction->arrow.y2 = productRect.upperLeft.y + ARROW_SPACE;
-          }
-
-          // if not good horizontal nor vertical place, just put it between the centers (hack)
-
-          else if ((reactantRect.getCenter() - productRect.getCenter()).length() > ARROW_MIN_LENGTH + 2.0*ARROW_SPACE)
-          {
-            marvinReaction->arrow.x1 = reactantRect.getCenter().x;
-            marvinReaction->arrow.x2 = productRect.getCenter().x;
-            marvinReaction->arrow.y1 = reactantRect.getCenter().y;
-            marvinReaction->arrow.y2 = productRect.getCenter().y;
-          }
-
-          // really no good place for the arrow
-
-          else
-          {
-            marvinReaction->arrow.x1 = reactantRect.lowerRight.x + ARROW_SPACE;
-            marvinReaction->arrow.x2 = reactantRect.lowerRight.x + ARROW_MIN_LENGTH + ARROW_SPACE;
-            marvinReaction->arrow.y1 =(reactantRect.getCenter().y + productRect.getCenter().y)/2.0;
-            marvinReaction->arrow.y2 = marvinReaction->arrow.y1;
-          }
-        }
-
+        SetArrow(marvinReaction);
+        
         return marvinReaction;
       }
       catch(const std::exception& e)

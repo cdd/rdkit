@@ -196,36 +196,13 @@ namespace RDKit
     static bool compareRectanglesByYReverse(MarvinRectangle &r1, MarvinRectangle &r2);
   };
 
-  class MarvinBracket : public MarvinRectangle
-  {
-    public:
-
-    MarvinBracket() {};
-    MarvinBracket(double left, double right, double top, double bottom) : MarvinRectangle(left, right, top, bottom) {};
-    MarvinBracket(const RDGeom::Point3D &upperLeftInit, const RDGeom::Point3D &lowerRightInit) : MarvinRectangle(upperLeftInit, lowerRightInit) {} ;
-    MarvinBracket(const std::vector<MarvinAtom *> atoms) : MarvinRectangle(atoms) {};
-
-    std::string toString() const
-    {
-      std::ostringstream out;
-
-      out << "<MBracket type=\"SQUARE\" orientation=\"DOUBLE\"><MPoint x=\""
-      << upperLeft.x << "\" y=\"" << upperLeft.y << "\"></MPoint><MPoint x=\""
-      << lowerRight.x << "\" y=\"" << upperLeft.y << "\"></MPoint><MPoint x=\""
-      << upperLeft.x << "\" y=\"" << lowerRight.y << "\"></MPoint><MPoint x=\""
-      << lowerRight.x <<"\" y=\"" << lowerRight.y << "\"></MPoint></MBracket>";
-
-      return out.str();
-    }
-  };
-
+  
   class MarvinMolBase
   {
     public:
     std::string molID;
     std::vector<MarvinAtom *> atoms;
     std::vector<MarvinBond *> bonds;    
-    MarvinBracket bracket;    //  only used for derived classes that do not have their own atoms 
   
     virtual std::string role() const = 0;
     virtual bool hasAtomBondBlocks() const = 0;
@@ -251,9 +228,13 @@ namespace RDKit
     void removeCoords();
   };
 
-  class MarvinSruSgroup : public MarvinMolBase
+  class MarvinSruCoModSgroup : public MarvinMolBase
   {
+    private:
+    std::string roleName;   // could be MarvinSruSgroup, MarvinCopolymerSgroup or MarvinModificationSgroup
     public:
+
+    MarvinSruCoModSgroup(std::string type);
     std::string id;
     std::string title;
     std::string connect;
@@ -285,8 +266,6 @@ namespace RDKit
     std::string role() const;    
     bool hasAtomBondBlocks() const;
   };
-
-
 
   class MarvinSuperatomSgroupExpanded : public MarvinMolBase
   {
@@ -346,12 +325,6 @@ namespace RDKit
   class MarvinMonomerSgroup : public MarvinMolBase
   {
       // <molecule id="sg1" role="MonomerSgroup" title="mon" charge="onAtoms" molID="m2" atomRefs="a2 a1 a3 a4">
-      //     <MBracket type="SQUARE" orientation="DOUBLE">
-      //         <MPoint x="-0.8726666666666667" y="1.078"></MPoint>
-      //         <MPoint x="1.2833333333333334" y="1.078"></MPoint>
-      //         <MPoint x="1.2833333333333334" y="-1.078"></MPoint>
-      //         <MPoint x="-0.8726666666666667" y="-1.078"></MPoint>
-      //     </MBracket>
       // </molecule> 
     public:
     std::string id;
@@ -390,7 +363,7 @@ namespace RDKit
     public:
 
     std::vector<MarvinSuperatomSgroup *> superatomSgroups;
-    std::vector<MarvinSruSgroup *>  sruSgroups;
+    std::vector<MarvinSruCoModSgroup *>  sruCoModSgroups;
     std::vector<MarvinSuperatomSgroupExpanded *>  superatomSgroupsExpanded;
     std::vector<MarvinMultipleSgroup *>  multipleSgroups;
     std::vector<MarvinDataSgroup *> dataSgroups;

@@ -400,11 +400,11 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
 
         // code to create the expected files for new or changed tests
 
-        // {
-        //   std::ofstream  out;
-        //   out.open(fName + ".NEW.sdf");
-        //   out << outMolStr;       
-        // }
+        {
+          std::ofstream  out;
+          out.open(fName + ".NEW.sdf");
+          out << outMolStr;       
+        }
 
         std::stringstream  expectedMolStr;
         std::ifstream  in;
@@ -435,11 +435,11 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
           outMolStr = MolToMrvBlock(*mol,true, -1,false);  // try without kekule'ing
         // code to create the expected files for new or changed tests
 
-        // {
-        //   std::ofstream  out;
-        //   out.open(fName + ".NEW.mrv");
-        //   out << outMolStr;       
-        // } 
+        {
+          std::ofstream  out;
+          out.open(fName + ".NEW.mrv");
+          out << outMolStr;       
+        } 
         
         std::stringstream  expectedMolStr;
         std::ifstream  in;
@@ -516,6 +516,8 @@ void RunTests()
     ,  MolTest("MulticenterSgroup.mrv", true, LoadAsMolOrRxn, 17, 16)
     ,  MolTest("GenericSgroup.mrv", true, LoadAsMolOrRxn, 13, 13)
     ,  MolTest("MonomerSgroup.mrv", true, LoadAsMolOrRxn, 4, 3)
+    ,  MolTest("modification_sgroup.mrv", true, LoadAsMolOrRxn, 54, 40)
+    ,  MolTest("copolymer_sgroup.mrv", true, LoadAsMolOrRxn, 19, 18)
     ,  MolTest("MultipleSgroupParentInMiddleOfAtomBlock.mrv", true, LoadAsMolOrRxn, 23, 22)
     ,  MolTest("EmbeddedSgroups.mrv", false, LoadAsMolOrRxn, 14, 14) // should fail embedded sgroup has an X (unkown) atom
     ,  MolTest("marvin03.mrv", false, LoadAsMolOrRxn, 31,33)  // should fail - this is a reaction

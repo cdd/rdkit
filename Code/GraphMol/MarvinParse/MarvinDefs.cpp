@@ -365,23 +365,30 @@ namespace RDKit
     return resTimes10/10;
   }
 
+  MarvinSruCoModSgroup::MarvinSruCoModSgroup(std::string roleNameInit)
+  {
+    if (roleNameInit != "SruSgroup" && roleNameInit != "CopolymerSgroup" && roleNameInit != "ModificationSgroup")
+      throw FileParseException("A MarvinSruCoModSgroup type must be one of \"SruSgroup\". \"CopolymerSgroup\", and \"ModificationSgroup\"");
  
-  std::string MarvinSruSgroup::toString() const
+    this->roleName = roleNameInit;
+  }
+ 
+  std::string MarvinSruCoModSgroup::toString() const
   {
     std::ostringstream out;
 
-    out << "<molecule molID=\"" << molID << "\" id=\"" << id << "\" role=\"SruSgroup\" atomRefs=\"" << boost::algorithm::join(getAtomList()," ") << "\" title=\"" << title 
+    out << "<molecule molID=\"" << molID << "\" id=\"" << id << "\" role=\"" << roleName << "\" atomRefs=\"" << boost::algorithm::join(getAtomList()," ") << "\" title=\"" << title 
     <<"\" connect=\"" << connect << "\" correspondence=\"" << correspondence << "\" bondList=\"" << boost::algorithm::join(getBondList()," ") << "\"/>";
 
     return out.str();
   }
 
-  std::string MarvinSruSgroup::role() const
+  std::string MarvinSruCoModSgroup::role() const
   {
-    return std::string("SruSgroup");
+    return std::string(roleName);
   } 
 
-  bool MarvinSruSgroup::hasAtomBondBlocks() const
+  bool MarvinSruCoModSgroup::hasAtomBondBlocks() const
   {
     return false;
   } 
@@ -490,18 +497,12 @@ namespace RDKit
   std::string MarvinMonomerSgroup::toString() const
   {
 // <molecule id="sg1" role="MonomerSgroup" title="mon" charge="onAtoms" molID="m2" atomRefs="a2 a1 a3 a4">
-      //     <MBracket type="SQUARE" orientation="DOUBLE">
-      //         <MPoint x="-0.8726666666666667" y="1.078"></MPoint>
-      //         <MPoint x="1.2833333333333334" y="1.078"></MPoint>
-      //         <MPoint x="1.2833333333333334" y="-1.078"></MPoint>
-      //         <MPoint x="-0.8726666666666667" y="-1.078"></MPoint>
-      //     </MBracket>
       // </molecule> 
       
     std::ostringstream out;
 
     out << "<molecule molID=\"" << molID << "\" id=\"" << id << "\" role=\"MonomerSgroup\" atomRefs=\"" << boost::algorithm::join(getAtomList()," ")  
-    << "\" title=\"" << title << "\" charge=\"" << charge << "\">" << bracket.toString() << "</molecule>";
+    << "\" title=\"" << title << "\" charge=\"" << charge << "\">" << "</molecule>";
 
     return out.str();
   }
@@ -602,7 +603,7 @@ namespace RDKit
     }
     for (std::vector<MarvinSuperatomSgroup *>::iterator it = superatomSgroups.begin(); it != superatomSgroups.end(); ++it)
       delete(*it);
-    for (std::vector<MarvinSruSgroup *>::iterator it = sruSgroups.begin(); it != sruSgroups.end(); ++it)
+    for (std::vector<MarvinSruCoModSgroup *>::iterator it = sruCoModSgroups.begin(); it != sruCoModSgroups.end(); ++it)
       delete(*it);
     for (std::vector<MarvinMultipleSgroup *>::iterator it = multipleSgroups.begin(); it != multipleSgroups.end(); ++it)
       delete(*it);
@@ -670,7 +671,7 @@ namespace RDKit
       marvinMultipleSgroup->id = newId;
     }
 
-    for (MarvinSruSgroup *marvinSruSGgroup : this->sruSgroups)         
+    for (MarvinSruCoModSgroup *marvinSruSGgroup : this->sruCoModSgroups)         
     {
       std::string newId = "sg" + std::to_string(++sgCount);
       sgMap[marvinSruSGgroup->id] = newId;
@@ -1263,6 +1264,12 @@ namespace RDKit
         }
       }
 
+      // there must be two or zero orphaned bonds
+
+      if (orphanedBonds.size() != 0 && orphanedBonds.size() != 2)
+        throw FileParseException("Error: there should be zero or two oraphaned bonds while contracting a MultipleSgroup");
+
+
       // remove the atoms
 
       for (MarvinAtom *atomPtr : atomsToDelete)
@@ -1285,12 +1292,15 @@ namespace RDKit
       // now fix the orphaned bond - The first gets the atoms from the second is was NOT removed.
       // the second orphaned bond is deleted
 
-      orphanedBonds[0]->atomRefs2[0] = orphanedAtomIds[0];
-      orphanedBonds[0]->atomRefs2[1] = orphanedAtomIds[1];
-      auto bondToDelete = std::find(bonds.begin(), bonds.end(), orphanedBonds[1]);
-      delete *bondToDelete;
-      bonds.erase(bondToDelete);  // delete the second orphaned atom
-   
+      if (orphanedBonds.size() == 2)
+      {
+        orphanedBonds[0]->atomRefs2[0] = orphanedAtomIds[0];
+        orphanedBonds[0]->atomRefs2[1] = orphanedAtomIds[1];
+        auto bondToDelete = std::find(bonds.begin(), bonds.end(), orphanedBonds[1]);
+        delete *bondToDelete;
+        bonds.erase(bondToDelete);  // delete the second orphaned atom
+      }
+      
       subMolPtr->isExpanded = false;   
     }
   }
@@ -1353,7 +1363,7 @@ namespace RDKit
       out << (*it)->toString();
     for (std::vector<MarvinMultipleSgroup *>::const_iterator it = multipleSgroups.begin();  it != multipleSgroups.end(); ++it)
       out << (*it)->toString();
-    for (std::vector<MarvinSruSgroup *>::const_iterator it = sruSgroups.begin();  it != sruSgroups.end(); ++it)
+    for (std::vector<MarvinSruCoModSgroup *>::const_iterator it = sruCoModSgroups.begin();  it != sruCoModSgroups.end(); ++it)
       out << (*it)->toString();
     for (std::vector<MarvinDataSgroup *>::const_iterator it = dataSgroups.begin();  it != dataSgroups.end(); ++it)
       out << (*it)->toString();

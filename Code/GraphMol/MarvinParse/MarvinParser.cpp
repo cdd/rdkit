@@ -679,12 +679,21 @@ namespace RDKit
             addSubstanceGroup(*mol, sgroup);
         }
       
-        // now the SruGroups
+        // now the SruGroups, CopolymerSgroups, and ModifcationSgropu  - all treated the same way
         // note: sequence continues counting from the loop above
 
-        for ( std::vector<MarvinSruSgroup *>::iterator sruIter = marvinMol->sruSgroups.begin() ; sruIter != marvinMol->sruSgroups.end() ; ++sruIter, ++sequenceId)
+        for ( std::vector<MarvinSruCoModSgroup *>::iterator sruIter = marvinMol->sruCoModSgroups.begin() ; sruIter != marvinMol->sruCoModSgroups.end() ; ++sruIter, ++sequenceId)
         {
-          std::string typ = "SRU";         
+          std::string typ;
+          if ((*sruIter)->role() == "SruSgroup")
+            typ = "SRU";  
+          else if ((*sruIter)->role() == "CopolymerSgroup")
+            typ = "COP";  
+          else if ((*sruIter)->role() == "ModificationSgroup")
+            typ = "MOD";  
+          else
+            throw FileParseException("Internal error: unrecognized role in a MarvinSruCoPolSgroup");
+         
           SubstanceGroup sgroup = SubstanceGroup(mol, typ);
           sgroup.setProp<unsigned int>("index", sequenceId);
 
@@ -763,7 +772,7 @@ namespace RDKit
         {
           //There is really no place to put these in RDKit.  We should have removed these already
 
-          throw FileParseException("Internal erorr: a MarvinMulticenterSgroup had not been removed");
+          throw FileParseException("Internal error: a MarvinMulticenterSgroup had not been removed");
 
         }
 
@@ -999,16 +1008,16 @@ namespace RDKit
                 throw FileParseException("Expected  title for a SuperatomSgroupExpanded definition in MRV file");        
             }      
           } 
-          else if (role == "SruSgroup")
+          else if (role == "SruSgroup" || role == "CopolymerSgroup" || role == "ModificationSgroup")
           {
             //      <molecule molID="m2" id="sg1" role="SruSgroup" atomRefs="a1 a3 a4" title="n" connect="ht" correspondence="" bondList=""/>
             //      <molecule molID="m3" id="sg2" role="SruSgroup" atomRefs="a5 a6 a7 a8" title="n" connect="hh" correspondence="" bondList=""/>
             //      <molecule molID="m4" id="sg3" role="SruSgroup" atomRefs="a10 a11" title="n" connect="eu" correspondence="" bondList=""/></molecule>
 
-            MarvinSruSgroup *marvinSruSgroup = new MarvinSruSgroup();
-            res = marvinSruSgroup;
+            MarvinSruCoModSgroup *marvinCoModSruSgroup = new MarvinSruCoModSgroup(role);
+            res = marvinCoModSruSgroup;
             
-            marvinSruSgroup->id = molTree.get<std::string>("<xmlattr>.id", "");
+            marvinCoModSruSgroup->id = molTree.get<std::string>("<xmlattr>.id", "");
 
             std::string atomRefsStr = molTree.get<std::string>("<xmlattr>.atomRefs", "");
             if (atomRefsStr == "")
@@ -1022,22 +1031,24 @@ namespace RDKit
                             return arg->id == *it; });
               if (atomIter == parentMol->atoms.end())
                 throw FileParseException("AtomRef specification for an SRU group definition was not found in the atom array in MRV file");
-              marvinSruSgroup->atoms.push_back(*atomIter);
+              marvinCoModSruSgroup->atoms.push_back(*atomIter);
             }
 
-            marvinSruSgroup->title = molTree.get<std::string>("<xmlattr>.title", "");
-            if (marvinSruSgroup->title == "")
-              throw FileParseException("Expected  title for a SruSgroup definition in MRV file");
+            marvinCoModSruSgroup->title = molTree.get<std::string>("<xmlattr>.title", "");
+            if (marvinCoModSruSgroup->title == "")
+              throw FileParseException("Expected title for a SruSgroup definition in MRV file");
 
-            marvinSruSgroup->connect = molTree.get<std::string>("<xmlattr>.connect", "");
-            if (!boost::algorithm::contains(sruSgroupConnectChoices,std::vector<std::string>{marvinSruSgroup->connect}))
+            // the title for an SRU group must be a lower case letter, or a range of two positive ints (4-6)
+
+            marvinCoModSruSgroup->connect = molTree.get<std::string>("<xmlattr>.connect", "");
+            if (!boost::algorithm::contains(sruSgroupConnectChoices,std::vector<std::string>{marvinCoModSruSgroup->connect}))
             {
               std::ostringstream err;
               err << "Expected  a connect  string of \"" << boost::algorithm::join(sruSgroupConnectChoices, ", ") << "\" for a SruSgroup definition in MRV file";
               throw FileParseException(err.str());
             }
 
-            marvinSruSgroup->correspondence = molTree.get<std::string>("<xmlattr>.correspondence", "");
+            marvinCoModSruSgroup->correspondence = molTree.get<std::string>("<xmlattr>.correspondence", "");
 
             std::string bondListStr = molTree.get<std::string>("<xmlattr>.bondList", "");
             if (bondListStr != "")
@@ -1050,7 +1061,7 @@ namespace RDKit
                               return arg->id == *it; });
                 if (bondIter == parentMol->bonds.end())
                   throw FileParseException("Bond specification for an SRU group definition was not found in the bond array in MRV file");
-                marvinSruSgroup->bonds.push_back(*bondIter);
+                marvinCoModSruSgroup->bonds.push_back(*bondIter);
               }
             }
           }
@@ -1248,66 +1259,7 @@ namespace RDKit
               throw FileParseException("Expected  title for a MonomerSgroup definition in MRV file");    
             marvinMonomerSgroup->charge = molTree.get<std::string>("<xmlattr>.charge", "");
             if (marvinMonomerSgroup->charge == "")
-              throw FileParseException("Expected  omAtoms or onBracket for a charge attr of a MonomerSgroup definition in MRV file");  
-            
-
-            // now get the  4 records for the bracket position
-
-            int pointIndex = 0;
-            BOOST_FOREACH( boost::property_tree::ptree::value_type &v, molTree.get_child("MBracket"))
-            {
-              if (v.first != "MPoint")
-                continue;
-
-              double testValx, testValy;
-              std::string xstr = v.second.get<std::string>("<xmlattr>.x", "");
-              std::string ystr = v.second.get<std::string>("<xmlattr>.y", "");
-              std::string x2 = v.second.get<std::string>("<xmlattr>.x", "");
-              std::string y2 = v.second.get<std::string>("<xmlattr>.y", "");
-
-              switch(pointIndex++)
-              {
-                case 0:
-                      if (!getCleanDouble(xstr, marvinMonomerSgroup->bracket.upperLeft.x)
-                          || !getCleanDouble(ystr, marvinMonomerSgroup->bracket.upperLeft.y))
-                      throw  FileParseException("expected X and Y coordinates for a point in a MonomerSgroup definition in MRV file");  
-                  break;               
-                            
-                case 1:
-                      if (!getCleanDouble(xstr, marvinMonomerSgroup->bracket.lowerRight.x)
-                          || !getCleanDouble(ystr, testValy))
-                      throw  FileParseException("expected X and Y coordinates for a point in a MonomerSgroup definition in MRV file");  
-
-                    if (testValy != marvinMonomerSgroup->bracket.upperLeft.y)
-                      throw  FileParseException("Y value should be the same the first and second points in a MonomerSgroup definition in MRV file");  
-                  break;
-                case 2:
-                    if (!getCleanDouble(xstr, testValx)
-                          ||!getCleanDouble(ystr, marvinMonomerSgroup->bracket.lowerRight.y))
-                      throw  FileParseException("expected X and Y coordinates for a point in a MonomerSgroup definition in MRV file");  
-
-                    if (testValx != marvinMonomerSgroup->bracket.lowerRight.x)
-                      throw  FileParseException("X value should be the same the second and third points in a MonomerSgroup definition in MRV file");                      
-                    break;
-                case 3:
-                    if (!getCleanDouble(xstr, testValx) || !getCleanDouble(ystr, testValy))
-                      throw  FileParseException("expected X and Y coordinates for a point in a MonomerSgroup definition in MRV file");  
-
-                    if (testValx != marvinMonomerSgroup->bracket.upperLeft.x)
-                      throw  FileParseException("X value should be the same the first and fourth points in a MonomerSgroup definition in MRV file");
-                    break;
-                    
-                    if (testValy != marvinMonomerSgroup->bracket.lowerRight.y)
-                      throw  FileParseException("y value should be the same the third and fourth points in a MonomerSgroup definition in MRV file");
-                    break;
-                  break;
-                default:
-                  throw  FileParseException("Only 4 bracket points are expected in a MonomerSgroup definition in MRV file");  
-                  //break;
-              }  
-            }
-            if (pointIndex < 4)
-                throw  FileParseException("Expected 4 bracket points in a MonomerSgroup definition in MRV file");  
+              throw FileParseException("Expected  omAtoms or onBracket for a charge attr of a MonomerSgroup definition in MRV file");              
           }
           else
             throw FileParseException("Unexpected role " + role + " in MRV file");
@@ -1766,8 +1718,8 @@ namespace RDKit
 
               if (subMol->role() == "SuperatomSgroup")
                 ((MarvinMol *)res)->superatomSgroups.push_back((MarvinSuperatomSgroup *)subMol);
-              else if (subMol->role() == "SruSgroup")
-                ((MarvinMol *)res)->sruSgroups.push_back((MarvinSruSgroup *)subMol);
+              else if (subMol->role() == "SruSgroup" ||subMol->role() == "CopolymerSgroup" ||subMol->role() == "ModificationSgroup")
+                ((MarvinMol *)res)->sruCoModSgroups.push_back((MarvinSruCoModSgroup *)subMol);
               else if (subMol->role() == "SuperatomSgroupExpanded")
                 ((MarvinMol *)res)->superatomSgroupsExpanded.push_back((MarvinSuperatomSgroupExpanded *)subMol);
               else if (subMol->role() == "MultipleSgroup")

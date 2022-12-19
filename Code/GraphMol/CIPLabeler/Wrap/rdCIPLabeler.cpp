@@ -64,7 +64,7 @@ BOOST_PYTHON_MODULE(rdCIPLabeler) {
 
   python::def(
       "AssignCIPLabels", assignCIPLabelsWrapHelper,
-      (python::arg("mol"), 
+      (python::arg("mol"),
        python::arg("atomsToLabel") = python::object(),
        python::arg("bondsToLabel") = python::object(),
        python::arg("maxRecursiveIterations") = 0),

@@ -13,7 +13,6 @@
 #include <stdexcept>
 #include <memory>
 #include <vector>
-//#include <chrono>
 #include "../CIPLabeler.h"
 
 #include "../Descriptor.h"

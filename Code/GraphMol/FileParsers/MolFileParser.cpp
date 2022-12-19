@@ -1474,9 +1474,9 @@ Atom *ParseMolFileAtomLine(const std::string_view text, RDGeom::Point3D &pos,
         }
       }
     }
-    if (symb[0] == 'R' && symb != "R#") {
-      // we're skipping R# here because that really should be handled by an RGP
-      // spec
+    if (symb[0] == 'R') {
+      // we used to skip R# here because that really should be handled by an
+      // RGP spec, but that turned out to not be permissive enough... <sigh>
       setRGPProps(symb, res);
     }
   } else if (symb == "D") {  // mol blocks support "D" and "T" as shorthand...
@@ -2155,9 +2155,9 @@ Atom *ParseV3000AtomSymbol(std::string_view token, unsigned int &line) {
           res->setIsotope(rnumber);
         }
       }
-      if (token[0] == 'R' && token != "R#") {
-        // we're skipping R# here because that really should be handled by an
-        // RGP spec
+      if (token[0] == 'R') {
+        // we used to skip R# here because that really should be handled by an
+        // RGP spec, but that turned out to not be permissive enough... <sigh>
         setRGPProps(token, res);
       }
     } else if (token == "D") {  // mol blocks support "D" and "T" as
@@ -2844,6 +2844,7 @@ void processSMARTSQ(RWMol &mol, const SubstanceGroup &sg) {
       query = new RecursiveStructureQuery(m.release());
     }
     at->setQuery(query);
+    at->setProp(common_properties::MRV_SMA, sma);
     at->setProp(common_properties::_MolFileAtomQuery, 1);
   }
 }

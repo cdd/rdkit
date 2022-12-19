@@ -14,26 +14,29 @@
 
 #include <RDGeneral/export.h>
 
-#include <chrono>
-
 namespace RDKit {
 
 class ROMol;
 
+
+namespace CIPLabeler_detail {
+RDKIT_CIPLABELER_EXPORT bool decrementRemainingCallCountAndCheck();
+}
+
 namespace CIPLabeler {
 
-RDKIT_CIPLABELER_EXPORT bool decrementRemainingCallCountAndCheck();
-
 /*
-  Some very symmetrical mols can cause pseudo infinite processing (e.g. dodecahedrane)
-  To avoid this a maxinum number of iterations can be set by the caller as a parameter to assignCIPLabels
+  Some very symmetrical mols can cause pseudo infinite processing
+  (e.g. dodecahedrane)
+  To avoid this a maxinum number of iterations can be set by the caller as a
+  parameter to assignCIPLabels.
   If that maximum value is exceeded, the following error is thrown
 */
 
-class MaxIterationsExceeded : public std::runtime_error {
+class RDKIT_CIPLABELER_EXPORT MaxIterationsExceeded : public std::runtime_error {
  public:
   explicit MaxIterationsExceeded()
-      : std::runtime_error("MaxIterationsExceeded"){};
+      : std::runtime_error("Max Iterations Exceeded in CIP label calculation"){};
 };
 
 
@@ -69,11 +72,16 @@ RDKIT_CIPLABELER_EXPORT void assignCIPLabels(ROMol &mol, unsigned int maxRecursi
  *
  *   \param bonds - bitset with the bond indexes to be labeled.
  *
+ *   \param maxRecursiveIterations - maximum number of iterations
+ *      A value of 1,250,000 take about 1 second.  Most structures requires
+ *      less than 10,000 iterations. A peptide with MW~3000 took about
+ *      100 iterations, and a 20,000 mw protein took about 600 iterations.
+ *
  */
 RDKIT_CIPLABELER_EXPORT void assignCIPLabels(
     ROMol &mol, const boost::dynamic_bitset<> &atoms,
-    const boost::dynamic_bitset<> &bonds, 
-    unsigned int maxRecursiveIterations = 0);  // A value of 1,250,000 take about 1 second.  Most strucutres requires less than 10,000 iterations 
-                                                // a peptide with MW~3000 took about 100 iterations, and a 20,000 mw protein took about 600 iterations
+    const boost::dynamic_bitset<> &bonds,
+    unsigned int maxRecursiveIterations = 0);
+
 }  // namespace CIPLabeler
 }  // namespace RDKit

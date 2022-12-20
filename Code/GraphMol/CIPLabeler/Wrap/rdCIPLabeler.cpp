@@ -21,6 +21,12 @@
 namespace python = boost::python;
 using RDKit::CIPLabeler::assignCIPLabels;
 
+void rdMaxIterationsExceededTranslator(RDKit::CIPLabeler::MaxIterationsExceeded const &x) {
+  std::ostringstream ss;
+  ss << x.what();
+  PyErr_SetString(PyExc_RuntimeError, ss.str().c_str());
+}
+
 void assignCIPLabelsWrapHelper(RDKit::ROMol &mol,
                                const python::object &atomsToLabel,
                                const python::object &bondsToLabel,
@@ -48,19 +54,22 @@ BOOST_PYTHON_MODULE(rdCIPLabeler) {
       "Stereochemistry:\nProposals for Revised Rules and a Guide for Machine "
       "Implementation.\nJ. Chem. Inf. Model. 2018, 58, 1755-1765.\n";
 
+   python::register_exception_translator<RDKit::CIPLabeler::MaxIterationsExceeded>(
+       &rdMaxIterationsExceededTranslator);
+
   std::string docString =
-      "New implementation of Stereo assignment using a true CIP ranking.\n\
-       On return:  The molecule to contains CIP flags\n\
-       Errors:  when maxRecursiveIterations is exceeded, throws a MaxIterationsExceeded error\n\
-  ARGUMENTS:\n\
-\n\
-    - mol: the molecule\n\
-    - atomsToLabel: (optional) list of atoms to label\n\
-    - bondsToLabel: (optional) list of bonds to label\n\
-    - maxRecursiveIterations: (optional) protects against pseudo-infinite recursiion for highly symmetical structures.\n\
-       A value of 1,250,000 take about 1 second.  Most strucutres requires less than 10,000 iterations.\n\
-       A peptide with MW~3000 took about 100 iterations, and a 20,000 mw protein took about 600 iterations\n\
-      (0 = default - no limit)\n";
+      "New implementation of Stereo assignment using a true CIP ranking.\n"
+      "On return:  The molecule to contains CIP flags\n"
+      "Errors:  when maxRecursiveIterations is exceeded, throws a "
+      "MaxIterationsExceeded error\nARGUMENTS:\n\n"
+      " - mol: the molecule\n"
+      " - atomsToLabel: (optional) list of atoms to label\n"
+      " - bondsToLabel: (optional) list of bonds to label\n"
+      " - maxRecursiveIterations: (optional) protects against pseudo-infinite\n"
+      "recursion for highly symmetrical structures.\n A value of 1,250,000 take"
+      " about 1 second.  Most structures requires less than 10,000"
+      "iterations.\n A peptide with MW~3000 took about 100 iterations, and a "
+      "20,000 mw protein took about 600 iterations\n(0 = default - no limit)\n";
 
   python::def(
       "AssignCIPLabels", assignCIPLabelsWrapHelper,

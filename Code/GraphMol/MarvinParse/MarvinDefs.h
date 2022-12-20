@@ -49,6 +49,13 @@ namespace RDKit
   const std::map<int, std::string> radicalElectronsToMarvinRadical{
       {1, "monovalent"}, {2, "divalent"}, {3, "trivalent4"}, {4, "4"}};
 
+  enum IsSgroupInAtomSetResult
+  {
+    SgroupInAtomSet,
+    SgroupNotInAtomSet,
+    SgroupBothInAndNotInAtomSet,
+  };
+
   class MarvinWriterException : public std::runtime_error 
   {
     public:
@@ -126,6 +133,7 @@ namespace RDKit
     std::string mrvStereoGroup;
     int mrvMap;
     std::string sgroupRef;
+    bool sGroupRefIsSuperatom;  // if set, we will not change the sgroupRef - the superatom really needs it
     std::string sgroupAttachmentPoint;
     int rgroupRef;
 
@@ -201,11 +209,17 @@ namespace RDKit
   {
     public:
     std::string molID;
+    std::string id;  // used in all sGroups
     std::vector<MarvinAtom *> atoms;
-    std::vector<MarvinBond *> bonds;    
+    std::vector<MarvinBond *> bonds; 
+    std::vector<MarvinMolBase *> sgroups;
+    MarvinMolBase *parent;
+   
   
     virtual std::string role() const = 0;
     virtual bool hasAtomBondBlocks() const = 0;
+    virtual std::string toString() const = 0;
+    virtual MarvinMolBase *copyMol(std::string idAppend) const = 0;
 
 
     int getExplicitValence(const MarvinAtom &marvinAtom) const;
@@ -216,13 +230,44 @@ namespace RDKit
 
     virtual ~MarvinMolBase();
           
-    int getAtomIndex(std::string id);
-  
-    int getBondIndex(std::string id);  
+    int getAtomIndex(std::string id) const;
+    int getBondIndex(std::string id) const;  
 
     const std::vector<std::string> getBondList() const;
     const std::vector<std::string> getAtomList() const;
     bool AnyOverLappingAtoms(const MarvinMolBase *otherMol) const;
+
+
+    void cleanUpNumbering(int &molCount    // this is the starting mol count, and receives the ending mol count - THis is used when MarvinMol->convertToSuperAtaoms is called multiple times from a RXN
+      , int &atomCount  // starting and ending atom count
+      , int &bondCount  // starting and ending bond count
+      , int &sgCount);      // starting and ending sq count
+
+    private:
+    void cleanUpNumberingMolsAtomsBonds(int &molCount    // this is the starting mol count, and receives the ending mol count - THis is used when MarvinMol->convertToSuperAtaoms is called multiple times from a RXN
+      , int &atomCount  // starting and ending atom count
+      , int &bondCount);  // starting and ending bond count
+
+    void cleanUpSgNumbering(int &sgCount);
+
+    public:
+     
+    static bool atomRefInAtoms(MarvinAtom *a, std::string b );
+    static bool bondRefInBonds(MarvinBond *a, std::string b );
+    static bool molIDInSgroups(std::string a, std::string b );
+    MarvinAtom *findAtomByRef(std::string atomId);
+    MarvinBond *findBondByRef(std::string atomId);
+
+    void clearMaps();
+
+  
+    void prepSgroupsForRDKit();
+    void processSgroupsFromRDKit();
+    
+    bool isPassiveRoleForExpansion() const;
+    bool isPassiveRoleForContraction() const;
+
+    IsSgroupInAtomSetResult isSgroupInSetOfAtoms(std::vector<MarvinAtom *> &setOfAtoms) const;
 
     bool hasCoords() const;  
     void removeCoords();
@@ -234,8 +279,9 @@ namespace RDKit
     std::string roleName;   // could be MarvinSruSgroup, MarvinCopolymerSgroup or MarvinModificationSgroup
     public:
 
-    MarvinSruCoModSgroup(std::string type);
-    std::string id;
+    MarvinSruCoModSgroup(std::string type, MarvinMolBase *parent);
+    MarvinMolBase *copyMol(std::string idAppendage) const;
+    
     std::string title;
     std::string connect;
     std::string correspondence;
@@ -249,7 +295,10 @@ namespace RDKit
   class MarvinDataSgroup : public MarvinMolBase
   {
     public:
-    std::string id;
+
+    MarvinDataSgroup(MarvinMolBase *parent);
+    MarvinMolBase *copyMol(std::string idAppendage) const;
+
     std::string context;
     std::string fieldName;
     std::string placement;
@@ -270,12 +319,14 @@ namespace RDKit
   class MarvinSuperatomSgroupExpanded : public MarvinMolBase
   {
     public:
-    std::string id;
     std::string title;
-
-    std::vector<MarvinAttachmentPoint *> attachmentPoints;
     
+    MarvinSuperatomSgroupExpanded(MarvinMolBase *parent);
+    MarvinMolBase *copyMol(std::string idAppendage) const;
+
     ~MarvinSuperatomSgroupExpanded();
+
+    MarvinMolBase *convertToOneSuperAtom();
     
     std::string toString() const;
     
@@ -286,12 +337,16 @@ namespace RDKit
   class MarvinMultipleSgroup : public MarvinMolBase
   {
     public:
+    MarvinMultipleSgroup(MarvinMolBase *parent);
+    MarvinMolBase *copyMol(std::string idAppendage) const;
 
-    std::string id;
     std::string title;
     bool isExpanded = false;
     std::vector<MarvinAtom *>parentAtoms; 
     std::vector<MarvinBond *>bondsToAtomsNotInExpandedGroup;      // only when expanded
+
+    void expandOneMultipleSgroup();
+    void contractOneMultipleSgroup();
 
     std::string toString() const;
     
@@ -303,8 +358,12 @@ namespace RDKit
   {
     // <molecule molID="m2" id="sg1" role="MulticenterSgroup" atomRefs="a2 a6 a5 a4 a3" center="a18"/>
     public:
-    std::string id;
-        
+    
+    MarvinMulticenterSgroup(MarvinMolBase *parent);
+    MarvinMolBase *copyMol(std::string idAppendage) const;
+
+    void processOneMulticenterSgroup();
+
     std::string toString() const;
     MarvinAtom *center;
     std::string role() const;
@@ -315,7 +374,11 @@ namespace RDKit
   {
     // <molecule molID="m2" id="sg1" role="GenericSgroup" atomRefs="a1 a2 a3 a4 a5 a6 a7 a8 a9 a13 a10 a11 a12" charge="onAtoms"/></molecule>
     public:
-    std::string id;
+
+    MarvinGenericSgroup(MarvinMolBase *parent);
+    MarvinMolBase *copyMol(std::string idAppendage) const;
+
+
     std::string charge;   // onAtoms or onBrackets
     std::string toString() const;
     std::string role() const;
@@ -327,7 +390,11 @@ namespace RDKit
       // <molecule id="sg1" role="MonomerSgroup" title="mon" charge="onAtoms" molID="m2" atomRefs="a2 a1 a3 a4">
       // </molecule> 
     public:
-    std::string id;
+    
+    MarvinMonomerSgroup(MarvinMolBase *parent);
+    MarvinMolBase *copyMol(std::string idAppendage) const;
+
+
     std::string title;
     std::string charge;   // onAtoms or onBrackets
     std::string toString() const;
@@ -338,62 +405,34 @@ namespace RDKit
   class MarvinSuperatomSgroup : public MarvinMolBase
   {
     public:
-    std::string id;
     std::string title;
     std::vector<MarvinAttachmentPoint *> attachmentPoints;
     
+    MarvinSuperatomSgroup(MarvinMolBase *parent);
+    MarvinMolBase *copyMol(std::string idAppendage) const;
+
     ~MarvinSuperatomSgroup();
-    
+
+    void convertFromOneSuperAtom();
+
     std::string role() const;
     bool hasAtomBondBlocks() const;
   
     std::string toString() const;
   };
 
-  class MarvinSuperInfo   // used in converting superatoms group to mol style groups
-  {
-    public:
-    std::string title;
-    std::vector<std::string> atoms;
-    std::vector<std::string> bonds;
-  };
-  
+
   class MarvinMol : public MarvinMolBase
   {
     public:
-
-    std::vector<MarvinSuperatomSgroup *> superatomSgroups;
-    std::vector<MarvinSruCoModSgroup *>  sruCoModSgroups;
-    std::vector<MarvinSuperatomSgroupExpanded *>  superatomSgroupsExpanded;
-    std::vector<MarvinMultipleSgroup *>  multipleSgroups;
-    std::vector<MarvinDataSgroup *> dataSgroups;
-    std::vector<MarvinMulticenterSgroup *> multicenterSgroups;
-    std::vector<MarvinGenericSgroup *>genericSgroups;
-    std::vector<MarvinMonomerSgroup *>monomerSgroups;
-    std::vector<MarvinSuperInfo *> superInfos;  // used in converting superatomSgroups to mol-type CTs
-
+    
+    MarvinMol();
+    MarvinMolBase *copyMol(std::string idAppendage) const;
 
     ~MarvinMol();
   
     std::string role() const;
     bool hasAtomBondBlocks() const;
-
-    static bool atomRefInAtoms(MarvinAtom *a, std::string b );
-
-    static bool bondRefInBonds(MarvinBond *a, std::string b );
-  
-    void cleanUpNumbering(int &molCount    // this is the starting mol count, and receives the ending mol count - THis is used when MarvinMol->convertToSuperAtaoms is called multiple times from a RXN
-      , int &atomCount  // starting and ending atom count
-      , int &bondCount  // starting and ending bond count
-      , int &sgCount);  // starting and ending sg  count)
-    
-    void convertFromSuperAtoms();
-    
-    void convertToSuperAtoms();
-
-    void processMulticenterSgroups();
-    void expandMultipleSgroups();
-    void contractMultipleSgroups();
       
     std::string toString() const;
     
@@ -414,15 +453,8 @@ namespace RDKit
 
     ~MarvinReaction();
     
-    void convertFromSuperAtoms();
-    
-    void convertToSuperAtoms();
-
-    void expandMultipleSgroups();
-    
-
-    void processMulticenterSgroups();
-    
+    void prepSgroupsForRDKit();
+  
     std::string toString();
   };
 

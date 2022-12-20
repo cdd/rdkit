@@ -155,13 +155,13 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
 
     LocalVars(){};
 
-    ~LocalVars() 
-    {     
+    ~LocalVars()
+    {
       delete smilesMol;
     }
   } localVars;
 
-  try 
+  try
   {
     SmilesParserParams smilesParserParams;
     smilesParserParams.sanitize = true;
@@ -207,7 +207,7 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
       expectedMolStr << in.rdbuf();
       std::string expectedStr = expectedMolStr.str();
 
-      TEST_ASSERT(expectedStr == outMolStr); 
+      TEST_ASSERT(expectedStr == outMolStr);
     }
 
     {
@@ -240,11 +240,11 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
       expectedMolStr << in.rdbuf();
       std::string expectedStr = expectedMolStr.str();
 
-      TEST_ASSERT(expectedStr == outMolStr); 
+      TEST_ASSERT(expectedStr == outMolStr);
     }
-    BOOST_LOG(rdInfoLog) << "done" << std::endl;   
-  } 
-  catch (const std::exception &e) 
+    BOOST_LOG(rdInfoLog) << "done" << std::endl;
+  }
+  catch (const std::exception &e)
   {
     if(smilesTest->expectedResult != false)
         throw;
@@ -326,12 +326,12 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
       {
         std::string outMolStr = ChemicalReactionToRxnBlock(*rxn, false, true);
 
-        // code to create the expected files for new or changed tests
+       //  code to create the expected files for new or changed tests
 
         // {
         //   std::ofstream  out;
         //   out.open(fName + ".NEW.rxn");
-        //   out << outMolStr;       
+        //   out << outMolStr;
         // }
 
         std::string expectedRxnName = fName + ".expected.rxn";
@@ -342,18 +342,18 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
         expectedMolStr << in.rdbuf();
         std::string expectedStr = expectedMolStr.str();
 
-        TEST_ASSERT(expectedStr == outMolStr); 
+        TEST_ASSERT(expectedStr == outMolStr);
       }
 
       {
         std::string outMolStr = ChemicalReactionToMrvBlock(*rxn);
-        
-        // code to create the expected files for new or changed tests
+
+        //  code to create the expected files for new or changed tests
 
         // {
         //   std::ofstream  out;
         //   out.open(fName + ".NEW.mrv");
-        //   out << outMolStr;       
+        //   out << outMolStr;
         // }
 
         std::string expectedRxnName = fName + ".expected.mrv";
@@ -363,23 +363,28 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
         expectedMolStr << in.rdbuf();
         std::string expectedStr = expectedMolStr.str();
 
-        TEST_ASSERT(expectedStr == outMolStr); 
+        TEST_ASSERT(expectedStr == outMolStr);
       }
 
       BOOST_LOG(rdInfoLog) << "done" << std::endl;
     }
     else
-    {   
+    {
       // mol  test
 
       auto mol = (RWMol *)localVars.molOrRxn;
       auto molTest = (MolTest *)molOrRxnTest;
       TEST_ASSERT(mol != NULL);
 
+      //code to get the number of atoms and bonds - must be checked by hand
+
+      // printf("NumAtoms: %d\n", mol->getNumAtoms());
+      // printf("NumBonds: %d\n", mol->getNumBonds());
+
       TEST_ASSERT(mol->getNumAtoms() == molTest->atomCount)
       TEST_ASSERT(mol->getNumBonds() == molTest->bondCount)
 
-     
+
       {
         std::string expectedMrvName =fName + ".expected.sdf";
         std::string outMolStr="";
@@ -400,11 +405,11 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
 
         // code to create the expected files for new or changed tests
 
-        {
-          std::ofstream  out;
-          out.open(fName + ".NEW.sdf");
-          out << outMolStr;       
-        }
+        // {
+        //   std::ofstream  out;
+        //   out.open(fName + ".NEW.sdf");
+        //   out << outMolStr;
+        // }
 
         std::stringstream  expectedMolStr;
         std::ifstream  in;
@@ -412,7 +417,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
         expectedMolStr << in.rdbuf();
         std::string expectedStr = expectedMolStr.str();
 
-        TEST_ASSERT(expectedStr == outMolStr); 
+        TEST_ASSERT(expectedStr == outMolStr);
       }
 
       {
@@ -435,19 +440,19 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
           outMolStr = MolToMrvBlock(*mol,true, -1,false);  // try without kekule'ing
         // code to create the expected files for new or changed tests
 
-        {
-          std::ofstream  out;
-          out.open(fName + ".NEW.mrv");
-          out << outMolStr;       
-        } 
-        
+        // {
+        //   std::ofstream  out;
+        //   out.open(fName + ".NEW.mrv");
+        //   out << outMolStr;
+        // }
+
         std::stringstream  expectedMolStr;
         std::ifstream  in;
         in.open(expectedMrvName);
         expectedMolStr << in.rdbuf();
         std::string expectedStr = expectedMolStr.str();
 
-        TEST_ASSERT(expectedStr == outMolStr); 
+        TEST_ASSERT(expectedStr == outMolStr);
       }
 
       BOOST_LOG(rdInfoLog) << "done" << std::endl;
@@ -467,18 +472,31 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
 }
 
 
-void RunTests() 
+void RunTests()
 {
- 
+
   // first the molecule tests
 
   std::list<MolTest> molFileNames
   {
-    //MolTest("RgroupBad.mrv", true, LoadAsMolOrRxn, 14, 14)
-    MolTest("valenceLessThanDrawn.mrv", true, LoadAsMolOrRxn, 14, 14)
-    , MolTest("data_sgroup_no_fieldname.mrv", true, LoadAsMolOrRxn, 4, 3)
-    , MolTest("data_sgroup_empty_field_data.mrv", true, LoadAsMolOrRxn, 2, 1)
-    , MolTest("radical_value.mrv", true, LoadAsMolOrRxn, 3, 2)
+      MolTest("EmbeddedSGroupSUP_MUL.mrv", true, LoadAsMolOrRxn, 17, 17)
+    ,  MolTest("EmbeddedSgroupCOP_SUP.mrv", true, LoadAsMolOrRxn, 10, 10)
+    ,  MolTest("EmbeddedSgroupDAT_SUP.mrv", true, LoadAsMolOrRxn, 10,10)
+    ,  MolTest("EmbeddedSgroupMULTICENTER_SUP.mrv", true, LoadAsMolOrRxn, 11,10)
+    ,  MolTest("EmbeddedSgroupMUL_MUL.mrv", true, LoadAsMolOrRxn, 141, 140)
+    ,  MolTest("EmbeddedSgroupMUL_MUL2.mrv", true, LoadAsMolOrRxn, 23, 22)
+    ,  MolTest("EmbeddedSgroupMUL_SUP.mrv", true, LoadAsMolOrRxn, 129, 128)
+    ,  MolTest("EmbeddedSgroupSRU_SUP.mrv", true, LoadAsMolOrRxn, 10, 10)
+    ,  MolTest("EmbeddedSgroupSUPEXP_SUP.mrv", true, LoadAsMolOrRxn, 10, 10)
+    ,  MolTest("EmbeddedSgroupSUPEXP_SUP2.mrv", true, LoadAsMolOrRxn, 10, 10)
+    ,  MolTest("EmbeddedSgroupSUP_MULTICENTER.mrv", true, LoadAsMolOrRxn, 10, 8)
+    ,  MolTest("EmbeddedSgroupSUP_SUP.mrv", true, LoadAsMolOrRxn, 12, 11)
+    ,  MolTest("EmbeddedSgroupSUP_SUP2.mrv", true, LoadAsMolOrRxn, 12, 12)
+    ,  MolTest("RgroupBad.mrv", true, LoadAsMolOrRxn, 9, 9)
+    ,  MolTest("valenceLessThanDrawn.mrv", true, LoadAsMolOrRxn, 14, 14)
+    ,  MolTest("data_sgroup_no_fieldname.mrv", true, LoadAsMolOrRxn, 4, 3)
+    ,  MolTest("data_sgroup_empty_field_data.mrv", true, LoadAsMolOrRxn, 2, 1)
+    ,  MolTest("radical_value.mrv", true, LoadAsMolOrRxn, 3, 2)
     ,  MolTest("emptyOneLineAtomList.mrv", true, LoadAsMolOrRxn, 0, 0)
     ,  MolTest("mrvValence_value.mrv", true, LoadAsMolOrRxn, 3, 2)
     ,  MolTest("ChiralTest2.mrv", true, LoadAsMolOrRxn, 46, 47)
@@ -509,9 +527,9 @@ void RunTests()
     ,  MolTest("DativeBond.mrv", true, LoadAsMolOrRxn, 6, 5)
     ,  MolTest("MultipleSgroup.mrv", true, LoadAsMolOrRxn, 123, 122)
     ,  MolTest("SgroupExpanded.mrv", true, LoadAsMolOrRxn, 5, 4)
-    ,  MolTest("SgroupMultAttach.mrv", true, LoadAsMolOrRxn, 44, 45)  
-    ,  MolTest("MarvinMissingX2.mrv", true, LoadAsMolOrRxn, 12, 11)  
-    ,  MolTest("MarvinMissingY2.mrv", true, LoadAsMolOrRxn, 12, 11)  
+    ,  MolTest("SgroupMultAttach.mrv", true, LoadAsMolOrRxn, 44, 45)
+    ,  MolTest("MarvinMissingX2.mrv", true, LoadAsMolOrRxn, 12, 11)
+    ,  MolTest("MarvinMissingY2.mrv", true, LoadAsMolOrRxn, 12, 11)
     ,  MolTest("DataSgroup.mrv", true, LoadAsMolOrRxn, 7, 6)
     ,  MolTest("MulticenterSgroup.mrv", true, LoadAsMolOrRxn, 17, 16)
     ,  MolTest("GenericSgroup.mrv", true, LoadAsMolOrRxn, 13, 13)
@@ -552,7 +570,7 @@ void RunTests()
   };
 
   for (std::list<MolTest>::const_iterator it = molFileNames.begin();
-        it != molFileNames.end(); ++it) 
+        it != molFileNames.end(); ++it)
   {
     BOOST_LOG(rdInfoLog) << "Test: " << it->fileName << std::endl;
 
@@ -575,6 +593,7 @@ void RunTests()
       RxnTest("marvin11.mrv", true, LoadAsMolOrRxn, 2, 0, 1, 0, 0),
       RxnTest("marvin05.mrv", true, LoadAsMolOrRxn, 2, 1, 1, 3, 0),
       RxnTest("EmptyRxn.mrv", true, LoadAsMolOrRxn, 0, 0, 0, 0, 0),
+      RxnTest("RxnNoCoords.mrv", true, LoadAsMolOrRxn, 2, 0, 1, 3, 0),
       RxnTest("mrvValenceZero.mrv", true, LoadAsMolOrRxn, 3, 0, 1, 4, 0),
       RxnTest("RxnNoCoords.mrv", true, LoadAsMolOrRxn, 2, 0, 1, 3, 0),
       RxnTest("condition_coordinates_mpoint.mrv", true, LoadAsMolOrRxn, 1, 0, 1, 0, 0), 
@@ -584,7 +603,7 @@ void RunTests()
   };
 
   for (std::list<RxnTest>::const_iterator it = rxnFileNames.begin();
-        it != rxnFileNames.end(); ++it) 
+        it != rxnFileNames.end(); ++it)
   {
     printf("Test\n\n %s\n\n", it->fileName.c_str());
     testMarvin(&*it);
@@ -598,7 +617,7 @@ void RunTests()
       , SmilesTest("Smiles1","N[C@@H]([O-])c1cc[13c]cc1",true,9,9)
    };
 
-  for (std::list<SmilesTest>::const_iterator it = smiFileNames.begin(); it != smiFileNames.end(); ++it) 
+  for (std::list<SmilesTest>::const_iterator it = smiFileNames.begin(); it != smiFileNames.end(); ++it)
   {
     printf("Test\n\n %s\n\n", it->name.c_str());
     //RDDepict::preferCoordGen = true;
@@ -607,7 +626,7 @@ void RunTests()
 }
 
 
-int main(int argc, char *argv[]) 
+int main(int argc, char *argv[])
 {
   (void)argc;
   (void)argv;

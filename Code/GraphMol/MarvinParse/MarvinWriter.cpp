@@ -432,7 +432,7 @@ namespace RDKit
       return true;
     }
 
-    MarvinMol *MolToMarvinMol(RWMol *mol, int &molCount, int &atomCount, int &bondCount, int &sgCount, int confId=(-1))
+    MarvinMol *MolToMarvinMol(RWMol *mol, int &molCount, int &atomCount, int &bondCount, int &sgCount,  int confId=(-1))
     {
       //molCount is the starting and ending molCount - used when called from a rxn
       
@@ -620,8 +620,8 @@ namespace RDKit
             else if (type == "COP")
               mrvType = "CopolymerSgroup";
                         
-            auto marvinCoModSruSgroup =new MarvinSruCoModSgroup(mrvType);
-            marvinMol->sruCoModSgroups.push_back(marvinCoModSruSgroup);
+            auto marvinCoModSruSgroup =new MarvinSruCoModSgroup(mrvType, marvinMol);
+            marvinMol->sgroups.push_back(marvinCoModSruSgroup);
 
             marvinCoModSruSgroup->title = sgroup.getProp<std::string>(std::string("LABEL"));
               
@@ -633,7 +633,8 @@ namespace RDKit
             for (auto atomIndex : sgroup.getAtoms())
             {
                 marvinCoModSruSgroup->atoms.push_back(marvinMol->atoms[atomIndex]);
-                marvinMol->atoms[atomIndex]->sgroupRef =  marvinCoModSruSgroup->id;
+                if (!marvinMol->atoms[atomIndex]->sGroupRefIsSuperatom)
+                  marvinMol->atoms[atomIndex]->sgroupRef =  marvinCoModSruSgroup->id;
             }
             
             for (auto bondIndex : sgroup.getBonds())
@@ -644,8 +645,8 @@ namespace RDKit
 
           else if (type == "DAT")
           {                             
-            auto marvinDataSgroup =new MarvinDataSgroup();
-            marvinMol->dataSgroups.push_back(marvinDataSgroup);
+            auto marvinDataSgroup =new MarvinDataSgroup(marvinMol);
+            marvinMol->sgroups.push_back(marvinDataSgroup);
 
             marvinDataSgroup->id = "sg" + std::to_string(++tempSgCount);
             marvinDataSgroup->molID  = 'm' + std::to_string(++tempMolCount);
@@ -669,7 +670,8 @@ namespace RDKit
             for (auto atomIndex : sgroup.getAtoms())
             {
                 marvinDataSgroup->atoms.push_back(marvinMol->atoms[atomIndex]);
-                marvinMol->atoms[atomIndex]->sgroupRef =  marvinDataSgroup->id;
+                if (!marvinMol->atoms[atomIndex]->sGroupRefIsSuperatom)
+                  marvinMol->atoms[atomIndex]->sgroupRef =  marvinDataSgroup->id;
             }
             
             
@@ -677,33 +679,37 @@ namespace RDKit
 
           else if (type == "SUP")
           {
-            auto marvinSuperInfo =new MarvinSuperInfo();
-            marvinMol->superInfos.push_back(marvinSuperInfo);
+            auto superatomSgroupExpanded =new MarvinSuperatomSgroupExpanded(marvinMol);
+            marvinMol->sgroups.push_back(superatomSgroupExpanded);
 
-            marvinSuperInfo->title = sgroup.getProp<std::string>(std::string("LABEL"));
+            superatomSgroupExpanded->id = "sg" + std::to_string(++tempSgCount);
+            superatomSgroupExpanded->molID  = 'm' + std::to_string(++tempMolCount);
+
+            superatomSgroupExpanded->title = sgroup.getProp<std::string>(std::string("LABEL"));
               
             for (auto atomIndex : sgroup.getAtoms())
-                marvinSuperInfo->atoms.push_back(marvinMol->atoms[atomIndex]->id);
+                superatomSgroupExpanded->atoms.push_back(marvinMol->atoms[atomIndex]);
           }
 
-          if (type == "MUL")
+          else if (type == "MUL")
           {
                               
-            auto marvinMultipleSgroup =new MarvinMultipleSgroup();
-            marvinMol->multipleSgroups.push_back(marvinMultipleSgroup);
+            auto marvinMultipleSgroup =new MarvinMultipleSgroup(marvinMol);
+            marvinMol->sgroups.push_back(marvinMultipleSgroup);
+            marvinMultipleSgroup->id = "sg" + std::to_string(++tempSgCount);
+            marvinMultipleSgroup->molID  = 'm' + std::to_string(++tempMolCount);
 
             std::string titleValue;
             if (!sgroup.getPropIfPresent("MULT", titleValue) && !sgroup.getPropIfPresent("LABEL", titleValue)) 
               throw MarvinWriterException("Title not found for a MultipleSgroup"); 
             marvinMultipleSgroup->title = titleValue;
               
-            marvinMultipleSgroup->id = "sg" + std::to_string(++tempSgCount);
-            marvinMultipleSgroup->molID  = 'm' + std::to_string(++tempMolCount);
 
             for (auto atomIndex : sgroup.getAtoms())
             {
                 marvinMultipleSgroup->atoms.push_back(marvinMol->atoms[atomIndex]);
-                marvinMol->atoms[atomIndex]->sgroupRef =  marvinMultipleSgroup->id;
+                if (!marvinMol->atoms[atomIndex]->sGroupRefIsSuperatom)
+                  marvinMol->atoms[atomIndex]->sgroupRef =  marvinMultipleSgroup->id;
             }
             for (auto atomIndex : sgroup.getParentAtoms())
                 marvinMultipleSgroup->parentAtoms.push_back(marvinMol->atoms[atomIndex]);
@@ -711,32 +717,36 @@ namespace RDKit
             marvinMultipleSgroup->isExpanded = true;
           }
 
-          if (type == "GEN")
+          else if (type == "GEN")
           {
                               
-            auto marvinGenericSgroup =new MarvinGenericSgroup();
-            marvinMol->genericSgroups.push_back(marvinGenericSgroup);
+            auto marvinGenericSgroup =new MarvinGenericSgroup(marvinMol);
+            marvinMol->sgroups.push_back(marvinGenericSgroup);
+            marvinGenericSgroup->id = "sg" + std::to_string(++tempSgCount);
+            marvinGenericSgroup->molID  = 'm' + std::to_string(++tempMolCount);
 
           
             marvinGenericSgroup->charge = "onAtoms";   // RDKit has not place to put the charge location value, so we assume onAtoms here
               
-            marvinGenericSgroup->id = "sg" + std::to_string(++tempSgCount);
-            marvinGenericSgroup->molID  = 'm' + std::to_string(++tempMolCount);
 
             for (auto atomIndex : sgroup.getAtoms())
             {
                 MarvinAtom *marvinAtom = marvinMol->atoms[atomIndex];
                 marvinGenericSgroup->atoms.push_back(marvinAtom);
-                marvinAtom->sgroupRef =  marvinGenericSgroup->id;
+                if (!marvinAtom->sGroupRefIsSuperatom)
+                  marvinAtom->sgroupRef =  marvinGenericSgroup->id;
             }
           }
 
-          if (type == "MON")
+          else if (type == "MON")
           {
                   // <molecule id="sg1" role="MonomerSgroup" title="mon" charge="onAtoms" molID="m2" atomRefs="a2 a1 a3 a4">
                   // </molecule>             
-            auto marvinMonomerSgroup =new MarvinMonomerSgroup();
-            marvinMol->monomerSgroups.push_back(marvinMonomerSgroup);
+            auto marvinMonomerSgroup =new MarvinMonomerSgroup(marvinMol);
+            marvinMol->sgroups.push_back(marvinMonomerSgroup);
+
+            marvinMonomerSgroup->id = "sg" + std::to_string(++tempSgCount);
+            marvinMonomerSgroup->molID  = 'm' + std::to_string(++tempMolCount);
 
             std::string titleValue;
             if (!sgroup.getPropIfPresent("MULT", titleValue) && !sgroup.getPropIfPresent("LABEL", titleValue)) 
@@ -745,17 +755,14 @@ namespace RDKit
 
             marvinMonomerSgroup->charge = "onAtoms";   // RDKit has not place to put the charge location value, so we assume onAtoms here
               
-            marvinMonomerSgroup->id = "sg" + std::to_string(++tempSgCount);
-            marvinMonomerSgroup->molID  = 'm' + std::to_string(++tempMolCount);
           }
         }
 
-
         // convert the superInfos to supergroups
 
-        marvinMol->convertToSuperAtoms();
-        marvinMol->contractMultipleSgroups();
-        marvinMol->cleanUpNumbering(molCount, atomCount, bondCount, sgCount);
+        marvinMol->processSgroupsFromRDKit();
+        marvinMol->clearMaps();
+        marvinMol->cleanUpNumbering(molCount, atomCount, bondCount, sgCount );
 
         return marvinMol;
       }
@@ -771,6 +778,7 @@ namespace RDKit
     MarvinMol *MolToMarvinMol(RWMol *mol, int confId = -1) 
     {
         int molCount=0, atomCount = 0, bondCount = 0, sgCount = 0;
+        
         return MolToMarvinMol(mol, molCount, atomCount, bondCount, sgCount, confId);
     }
 

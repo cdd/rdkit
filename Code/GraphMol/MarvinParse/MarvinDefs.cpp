@@ -1835,6 +1835,38 @@ namespace RDKit
 
    return marvinSuperatomSgroup;
   }
+
+  int MarvinMultipleSgroup::getMatchedOrphanBondIndex(std::string atomIdToCheck, std::vector<MarvinBond *> &bondsToTry, std::vector<MarvinBond *> &orphanedBonds) const
+  {
+
+    for (auto testBond = bondsToTry.begin(); testBond != bondsToTry.end(); ++testBond)
+    {
+      if (*testBond == NULL)
+        continue;
+      std::string otherAtomId;
+      if ((*testBond)->atomRefs2[0] == atomIdToCheck)
+        otherAtomId = (*testBond)->atomRefs2[1];
+      else if ((*testBond)->atomRefs2[1] == atomIdToCheck)
+        otherAtomId = (*testBond)->atomRefs2[0];
+      else
+        continue;  // bond does not have the atomId
+
+      auto testBondIter = find(orphanedBonds.begin(), orphanedBonds.end(), *testBond);
+      if (testBondIter != orphanedBonds.end())
+        return testBondIter - orphanedBonds.begin();
+
+      *testBond = NULL;
+
+      // try the children 
+
+      int childId = getMatchedOrphanBondIndex(otherAtomId, bondsToTry,  orphanedBonds);
+      if (childId >= 0)
+        return childId;
+    }
+
+     return (-1);
+  }
+
   
   
   void MarvinMultipleSgroup::contractOneMultipleSgroup()
@@ -1859,7 +1891,6 @@ namespace RDKit
     std::vector<MarvinAtom *> atomsToDelete;   
     std::vector<MarvinBond *> bondsToDelete;   
     std::vector<MarvinBond *> orphanedBonds;   
-    std::vector<std::string> orphanedAtomIds;   
 
     for (MarvinAtom * atomPtr : this->atoms)
     {
@@ -1870,26 +1901,30 @@ namespace RDKit
 
     for (MarvinBond *bondPtr : actualParent->bonds)
     {
-      bool atom1InSet = boost::algorithm::contains(atomsToDelete, std::vector<std::string>{bondPtr->atomRefs2[0]}, atomRefInAtoms);  
-      bool atom2InSet = boost::algorithm::contains(atomsToDelete, std::vector<std::string>{bondPtr->atomRefs2[1]}, atomRefInAtoms); 
-      if (atom1InSet && atom2InSet)
+      bool atom1ToBeDeleted = boost::algorithm::contains(atomsToDelete, std::vector<std::string>{bondPtr->atomRefs2[0]}, atomRefInAtoms);  
+      bool atom2ToBeDeleted = boost::algorithm::contains(atomsToDelete, std::vector<std::string>{bondPtr->atomRefs2[1]}, atomRefInAtoms); 
+      if (atom1ToBeDeleted && atom2ToBeDeleted)
         bondsToDelete.push_back(bondPtr);
-      else if (atom1InSet) 
+      else if (atom1ToBeDeleted) 
       {  
         orphanedBonds.push_back(bondPtr);
-        orphanedAtomIds.push_back(bondPtr->atomRefs2[1]);  // second atom is orphaned
+        swap(bondPtr->atomRefs2[0], bondPtr->atomRefs2[1]);  // make sure the first ref atom is the orphaned one (still in the mol), and the second is the atom to be deleted
+        bondsToDelete.push_back(bondPtr);  // one of each pair of orphaned bonds will be UNdeleted
       }
-      else if (atom2InSet)   
+      else if (atom2ToBeDeleted)   
       {
         orphanedBonds.push_back(bondPtr);
-        orphanedAtomIds.push_back(bondPtr->atomRefs2[0]);  // first atom is orphaned
-
+        bondsToDelete.push_back(bondPtr);   // one of each pair of orphaned bonds will be UNdeleted
       }
     }
 
-    // there must be two or zero orphaned bonds
+    // there must be zero two or four orphaned bonds
+    // zero happens when the whole group is replicated and not chained
+    // two is most common - the replicates being deleted are connected to each other
+    // 4 happens when the parent replicate (not deleted) is in between two replicates that are deleted.
+    //  there are two orphaned bonds on the parent replicate, and two on the rest of the molecule
 
-    if (orphanedBonds.size() != 0 && orphanedBonds.size() != 2)
+    if (orphanedBonds.size() != 0 && orphanedBonds.size() != 2 && orphanedBonds.size() != 4)
       throw FileParseException("Error: there should be zero or two orphaned bonds while contracting a MultipleSgroup");
 
     // delete any of this group's children that were using the atoms to be deleted
@@ -1906,6 +1941,38 @@ namespace RDKit
       sgroups.erase(std::find(sgroups.begin(), sgroups.end(), childSgroup));
       delete childSgroup;
     }
+
+    // now fix the orphaned bonds - The first gets the atoms from the matched second orphan bond  and was NOT removed.
+    // the matched second orphaned bond is deleted
+
+    while (orphanedBonds.size() > 0)
+    {
+      int matchedOrphanBondIndex = (-1);
+      auto orphanedBondToFix = orphanedBonds[0];
+      orphanedBonds.erase(orphanedBonds.begin());
+
+      if (orphanedBonds.size() == 3)   // was 4 but the first one was erased
+      {
+        std::vector<MarvinBond *> bondsToTry = bondsToDelete;   // copy of bonds to delete
+        bondsToTry.erase(find(bondsToTry.begin(), bondsToTry.end(),orphanedBondToFix));
+        matchedOrphanBondIndex = this->getMatchedOrphanBondIndex(orphanedBondToFix->atomRefs2[1], bondsToTry,  orphanedBonds);
+        if (matchedOrphanBondIndex < 0)
+          throw FileParseException("For a MultipleSgroup expansion, the matching orphaned bond was not found");
+      }
+      else  if (orphanedBonds.size() == 1)   // was 2 but the first one was erased
+        matchedOrphanBondIndex = 0;   // only one left - it must be the match
+      else
+        throw FileParseException("For a MultipleSgroup contraction, the orphaned bonds must be 0,2 or 4");
+
+        
+      orphanedBondToFix->atomRefs2[1] = orphanedBonds[matchedOrphanBondIndex]->atomRefs2[0];   // [0] is the orpahened atom (still in the mol)
+
+      // undelete the bond which has been fixed (really remove it from the list of bonds to be delete)
+
+      bondsToDelete.erase(find(bondsToDelete.begin(), bondsToDelete.end(), orphanedBondToFix));
+      
+      orphanedBonds.erase(orphanedBonds.begin() + matchedOrphanBondIndex);
+    };
 
     // remove the atoms
 
@@ -1942,25 +2009,6 @@ namespace RDKit
         delete bondPtr;
     }
     bondsToDelete.clear();
-
-    // now fix the orphaned bond - The first gets the atoms from the second and was NOT removed.
-    // the second orphaned bond is deleted
-
-    if (orphanedBonds.size() == 2)
-    {
-      orphanedBonds[0]->atomRefs2[0] = orphanedAtomIds[0];
-      orphanedBonds[0]->atomRefs2[1] = orphanedAtomIds[1];
-      auto bondToDelete = std::find(actualParent->bonds.begin(), actualParent->bonds.end(), orphanedBonds[1]);
-      delete *bondToDelete;
-      actualParent->bonds.erase(bondToDelete);  // delete the second orphaned atom
-    }
-
-
-    for (auto atomPtr : atomsToDelete)
-    {
-      delete atomPtr;
-    }
-    atomsToDelete.clear();
 
     this->isExpanded = false;   
   }

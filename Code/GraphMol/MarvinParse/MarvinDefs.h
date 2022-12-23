@@ -347,6 +347,7 @@ namespace RDKit
 
     void expandOneMultipleSgroup();
     void contractOneMultipleSgroup();
+    int getMatchedOrphanBondIndex(std::string atomIdToCheck, std::vector<MarvinBond *> &bondsToTry, std::vector<MarvinBond *> &orphanedBonds) const;
 
     std::string toString() const;
     

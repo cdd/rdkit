@@ -471,13 +471,144 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
   return;
 }
 
+void testMolFiles(const MolTest *molFileTest)
+{
+  BOOST_LOG(rdInfoLog) << "testing marvin writing" << std::endl;
+
+  std::string rdbase = getenv("RDBASE");
+  std::string fName = rdbase + "/Code/GraphMol/MarvinParse/test_data/" + molFileTest->fileName;
+
+  class LocalVars  // protext against mem leak on error
+  {
+    public:
+    RWMol *mol = NULL;
+  
+    LocalVars(){};
+
+    ~LocalVars()
+    {
+        delete mol;
+    }
+  } localVars;
+
+  try
+  {
+    localVars.mol = MolFileToMol(fName, true, false,true);
+    auto roMol = (ROMol *) localVars.mol;
+    std::string mrvBlock = MolToMrvBlock(*roMol,true,-1, false);
+    
+    TEST_ASSERT(localVars.mol != NULL);
+    // printf("NumAtoms: %d\n", localVars.mol->getNumAtoms());
+    // printf("NumBonds: %d\n", localVars.mol->getNumBonds());
+    TEST_ASSERT(localVars.mol->getNumAtoms() == molFileTest->atomCount)
+    TEST_ASSERT(localVars.mol->getNumBonds() == molFileTest->bondCount)
+
+    {
+      std::string expectedMrvName =fName + ".expected.sdf";
+      std::string outMolStr="";
+      try
+      {
+        outMolStr =  MolToMolBlock(*localVars.mol, true, 0, true, true);
+      }
+      catch (const RDKit::KekulizeException &e)
+      {
+        outMolStr = "";
+      }
+      catch(...)
+      {
+        throw;  // re-trhow the error if not a kekule error
+      }
+      if (outMolStr == "")
+        outMolStr =  MolToMolBlock(*localVars.mol, true, 0,false, true);  // try without kekule'ing
+
+      // code to create the expected files for new or changed tests
+
+      // {
+      //   std::ofstream  out;
+      //   out.open(fName + ".NEW.sdf");
+      //   out << outMolStr;
+      // }
+
+      std::stringstream  expectedMolStr;
+      std::ifstream  in;
+      in.open(expectedMrvName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      TEST_ASSERT(expectedStr == outMolStr);
+    }
+
+    {
+      std::string expectedMrvName =fName + ".expected.mrv";
+
+      std::string outMolStr="";
+      try
+      {
+        outMolStr = MolToMrvBlock(*localVars.mol,true, -1, true);
+      }
+      catch (const RDKit::KekulizeException &e)
+      {
+        outMolStr = "";
+      }
+      catch(...)
+      {
+        throw;  // re-trhow the error if not a kekule error
+      }
+      if (outMolStr == "")
+        outMolStr = MolToMrvBlock(*localVars.mol,true, -1,false);  // try without kekule'ing
+      // code to create the expected files for new or changed tests
+
+      // {
+      //   std::ofstream  out;
+      //   out.open(fName + ".NEW.mrv");
+      //   out << outMolStr;
+      // }
+
+      std::stringstream  expectedMolStr;
+      std::ifstream  in;
+      in.open(expectedMrvName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      TEST_ASSERT(expectedStr == outMolStr);
+    }
+
+    BOOST_LOG(rdInfoLog) << "done" << std::endl;
+  }
+  catch(const std::exception& e)
+  {
+    if(molFileTest->expectedResult != false)
+        throw;
+    return;
+
+  }
+
+  TEST_ASSERT(molFileTest->expectedResult == true);
+
+  return;
+}
+
 
 void RunTests()
 {
 
-  // first the molecule tests
 
-  std::list<MolTest> molFileNames
+  // the molecule tests - staromg with molfiles/sdf
+ 
+  std::list<MolTest> sdfTests
+  {
+      MolTest("Sgroup_MUL_ParentInMiddle.sdf", true, LoadAsMolOrRxn, 17, 16)
+  };
+
+  for (auto sdfTest: sdfTests)
+  {
+    BOOST_LOG(rdInfoLog) << "Test: " << sdfTest.fileName << std::endl;
+
+    printf("Test\n\n %s\n\n", sdfTest.fileName.c_str());
+    testMolFiles(&sdfTest);
+  }
+ 
+  std::list<MolTest> molFileTests
   {
       MolTest("EmbeddedSGroupSUP_MUL.mrv", true, LoadAsMolOrRxn, 17, 17)
     ,  MolTest("EmbeddedSgroupCOP_SUP.mrv", true, LoadAsMolOrRxn, 10, 10)
@@ -569,18 +700,17 @@ void RunTests()
     ,  MolTest("MarvinBadSupMissingAttachOrder.mrv", false, LoadAsMolOrRxn,9,  9)  // should fail -
   };
 
-  for (std::list<MolTest>::const_iterator it = molFileNames.begin();
-        it != molFileNames.end(); ++it)
+  for (auto molFileTest : molFileTests)
   {
-    BOOST_LOG(rdInfoLog) << "Test: " << it->fileName << std::endl;
+    BOOST_LOG(rdInfoLog) << "Test: " << molFileTest.fileName << std::endl;
 
-    printf("Test\n\n %s\n\n", it->fileName.c_str());
-    testMarvin(&*it);
+    printf("Test\n\n %s\n\n", molFileTest.fileName.c_str());
+    testMarvin(&molFileTest);
   }
 
   // now the reactions
 
-  std::list<RxnTest> rxnFileNames
+  std::list<RxnTest> rxnFileTests
   {
       RxnTest("BadReactionSign.mrv", true, LoadAsMolOrRxn, 2, 0, 1, 3, 0),
       RxnTest("bondArray_node.mrv", true, LoadAsMolOrRxn, 2, 4, 1, 3, 0),
@@ -602,26 +732,25 @@ void RunTests()
               2, 0, 1, 3, 0)  // should fail - this is a mol file
   };
 
-  for (std::list<RxnTest>::const_iterator it = rxnFileNames.begin();
-        it != rxnFileNames.end(); ++it)
+  for (auto rxnFileTest : rxnFileTests)
   {
-    printf("Test\n\n %s\n\n", it->fileName.c_str());
-    testMarvin(&*it);
+    printf("Test\n\n %s\n\n", rxnFileTest.fileName.c_str());
+    testMarvin(&rxnFileTest);
   }
 
   // now smiles tests
 
-   std::list<SmilesTest> smiFileNames
+   std::list<SmilesTest> smiTests
    {
       SmilesTest("BigMacrocycle","C[C@@H]1CCCCCCCCC(=O)OCCN[C@H](C)CCCCCCCCC(=O)OCCN[C@H](C)CCCCCCCCC(=O)OCCN1", true, 48,48)
       , SmilesTest("Smiles1","N[C@@H]([O-])c1cc[13c]cc1",true,9,9)
    };
 
-  for (std::list<SmilesTest>::const_iterator it = smiFileNames.begin(); it != smiFileNames.end(); ++it)
+  for (auto smiTest : smiTests)
   {
-    printf("Test\n\n %s\n\n", it->name.c_str());
+    printf("Test\n\n %s\n\n", smiTest.name.c_str());
     //RDDepict::preferCoordGen = true;
-    testSmilesToMarvin(&*it);
+    testSmilesToMarvin(&smiTest);
   }
 }
 

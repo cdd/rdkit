@@ -175,7 +175,7 @@ void assignCIPLabels(ROMol &mol, const boost::dynamic_bitset<> &atoms,
   } else {
     remainingCallCount = UINT_MAX;  // really big - will never be hit
   }
-
+  
 
   CIPMol cipmol{mol};
   auto configs = findConfigs(cipmol, atoms, bonds);
@@ -194,7 +194,7 @@ void assignCIPLabels(ROMol &mol, unsigned int maxRecursiveIterations) {
 
 namespace CIPLabeler_detail
 {
-
+  
 
 bool decrementRemainingCallCountAndCheck()
 {

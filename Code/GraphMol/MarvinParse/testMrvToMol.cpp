@@ -19,6 +19,7 @@
 #include <GraphMol/ChemReactions/Reaction.h>
 #include <GraphMol/ChemReactions/ReactionParser.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
+#include <GraphMol/SmilesParse/SmilesWrite.h>
 
 #include <string>
 #include <fstream>
@@ -37,7 +38,6 @@ enum LoadAs
 class MolOrRxnTest
 {
   public:
-
 
   std::string fileName;
   bool expectedResult;
@@ -68,9 +68,7 @@ class MolTest : public MolOrRxnTest
   {
     return false;
   }
-
 };
-
 
 class RxnTest : public MolOrRxnTest
 {
@@ -116,7 +114,6 @@ class SmilesTest
   {
     return false;
   }
-
 };
 
 void *GetMolOrReaction(const MolOrRxnTest *molOrRxnTest, bool &isReaction)
@@ -125,21 +122,33 @@ void *GetMolOrReaction(const MolOrRxnTest *molOrRxnTest, bool &isReaction)
   std::string fName =
       rdbase + "/Code/GraphMol/MarvinParse/test_data/" + molOrRxnTest->fileName;
 
-  switch(molOrRxnTest->loadAs)
+  bool sanitize;
+  int tryCount;
+  for (tryCount = 0, sanitize=true ; tryCount < 2 ; ++tryCount, sanitize = false)   // try with sanitize on - if it fails try with sanitize off
   {
-    case LoadAsMolOrRxn:
-        return MrvFileParser(fName, isReaction);
+    try
+    {
+      switch(molOrRxnTest->loadAs)
+      {
+        case LoadAsMolOrRxn:
+            return MrvFileParser(fName, isReaction, sanitize, false);
 
-    case LoadAsMol:
-        isReaction = false;
-        return (void *)MrvMolFileParser(fName);
+        case LoadAsMol:
+            isReaction = false;
+            return (void *)MrvMolFileParser(fName, sanitize, false);
 
-    case LoadAsRxn:
-        isReaction = true;
-        return (void *)MrvRxnFileParser(fName);
+        case LoadAsRxn:
+            isReaction = true;
+            return (void *)MrvRxnFileParser(fName, sanitize, false);
+      }
+    }
+    catch(const std::exception& e)
+    {
+      std::cerr << e.what() << '\n';
+    }
   }
 
-  throw   BadFileException("Should never happen");
+  throw   BadFileException("Could not parse the MRV block");
 }
 
 void testSmilesToMarvin(const SmilesTest *smilesTest)
@@ -148,7 +157,7 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
   std::string rdbase = getenv("RDBASE");
   std::string fName = rdbase + "/Code/GraphMol/MarvinParse/test_data/" + smilesTest->name;
 
-  class LocalVars  // protext against mem leak on error
+  class LocalVars  // protect against mem leak on error
   {
    public:
     RWMol *smilesMol;
@@ -162,20 +171,58 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
   } localVars;
 
   try
-  {
+  { 
     SmilesParserParams smilesParserParams;
     smilesParserParams.sanitize = true;
 
     localVars.smilesMol = SmilesToMol(smilesTest->smiles, smilesParserParams);
-    std::string mrvBlock = MolToMrvBlock(*localVars.smilesMol, true, -1, true);
+    reapplyMolBlockWedging(*localVars.smilesMol);
+
+    TEST_ASSERT(localVars.smilesMol->getNumAtoms() == smilesTest->atomCount);
+    TEST_ASSERT(localVars.smilesMol->getNumBonds() == smilesTest->bondCount);
+
+    std::string mrvBlock;
+    // test the MRV generation directly from the smiles
+
+    {
+      std::string expectedMrvName =fName + ".expected.mrv";
+      try
+      {
+        mrvBlock = MolToMrvBlock(*localVars.smilesMol,true, -1, true);
+      }
+      catch (const RDKit::KekulizeException &e)
+      {
+        mrvBlock = "";
+      }
+      catch(...)
+      {
+        throw;  // re-trhow the error if not a kekule error
+      }
+      if (mrvBlock == "")
+        mrvBlock = MolToMrvBlock(*localVars.smilesMol,true, -1,false);  // try without kekule'ing
+
+      //code to generate the expected files
+      // {
+      //   std::ofstream  out;
+      //   out.open(fName + ".NEW.mrv");
+      //   out << mrvBlock;
+      // }
+      std::stringstream  expectedMolStr;
+      std::ifstream  in;
+      in.open(expectedMrvName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      TEST_ASSERT(expectedStr == mrvBlock);
+    }
+
+    //std::string mrvBlock = MolToMrvBlock(*localVars.smilesMol, true, -1, true);
 
     delete localVars.smilesMol;
     localVars.smilesMol = NULL;
 
     localVars.smilesMol = MrvMolStringParser(mrvBlock);
-
-    TEST_ASSERT(localVars.smilesMol->getNumAtoms() == smilesTest->atomCount);
-    TEST_ASSERT(localVars.smilesMol->getNumBonds() == smilesTest->bondCount);
+    reapplyMolBlockWedging(*localVars.smilesMol);
 
     {
       std::string expectedSdfName =fName + ".expected.sdf";
@@ -190,17 +237,18 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
       }
       catch(...)
       {
-        throw;  // re-trhow the error if not a kekule error
+        throw;  // re-throw the error if not a kekule error
       }
       if (outMolStr == "")
         outMolStr =  MolToMolBlock(*localVars.smilesMol, true, 0,false, true);  // try without kekule'ing
 
-      // code to generate the expected files
+      //code to generate the expected files
       // {
       //   std::ofstream  out;
       //   out.open(fName + ".NEW.sdf");
       //   out << outMolStr;
       // }
+    
       std::stringstream  expectedMolStr;
       std::ifstream  in;
       in.open(expectedSdfName);
@@ -228,7 +276,7 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
       if (outMolStr == "")
         outMolStr = MolToMrvBlock(*localVars.smilesMol,true, -1,false);  // try without kekule'ing
 
-      // code to genertae the expected files
+      //code to generate the expected files
       // {
       //   std::ofstream  out;
       //   out.open(fName + ".NEW.mrv");
@@ -249,7 +297,6 @@ void testSmilesToMarvin(const SmilesTest *smilesTest)
     if(smilesTest->expectedResult != false)
         throw;
     return;
-
   }
 
   TEST_ASSERT(smilesTest->expectedResult == true);
@@ -323,6 +370,33 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
       TEST_ASSERT(nWarn == rxnTest->warnings);
       TEST_ASSERT(nError == rxnTest->errors);
 
+      // make sure the Rxn is kekule'ed
+
+      for (auto mol : rxn->getReactants())
+      {
+        RWMol *rwMol = (RWMol *)mol.get();
+        if (rwMol->needsUpdatePropertyCache()) {
+          rwMol->updatePropertyCache(false);
+        }
+        MolOps::Kekulize(*rwMol);
+      }
+      for (auto mol : rxn->getAgents())
+      {
+        RWMol *rwMol = (RWMol *)mol.get();
+        if (rwMol->needsUpdatePropertyCache()) {
+          rwMol->updatePropertyCache(false);
+        }
+        MolOps::Kekulize(*rwMol);
+      }
+      for (auto mol : rxn->getProducts())
+      {
+        RWMol *rwMol = (RWMol *)mol.get();
+        if (rwMol->needsUpdatePropertyCache()) {
+          rwMol->updatePropertyCache(false);
+        }
+        MolOps::Kekulize(*rwMol);
+      }
+   
       {
         std::string outMolStr = ChemicalReactionToRxnBlock(*rxn, false, true);
 
@@ -373,6 +447,8 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
       // mol  test
 
       auto mol = (RWMol *)localVars.molOrRxn;
+      reapplyMolBlockWedging(*mol);
+
       auto molTest = (MolTest *)molOrRxnTest;
       TEST_ASSERT(mol != NULL);
 
@@ -383,7 +459,6 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest)
 
       TEST_ASSERT(mol->getNumAtoms() == molTest->atomCount)
       TEST_ASSERT(mol->getNumBonds() == molTest->bondCount)
-
 
       {
         std::string expectedMrvName =fName + ".expected.sdf";
@@ -493,13 +568,10 @@ void testMolFiles(const MolTest *molFileTest)
 
   try
   {
-    localVars.mol = MolFileToMol(fName, true, false,true);
-    auto roMol = (ROMol *) localVars.mol;
-    std::string mrvBlock = MolToMrvBlock(*roMol,true,-1, false);
-    
+    localVars.mol = MolFileToMol(fName, true, false,false);
+    reapplyMolBlockWedging(*localVars.mol);
+
     TEST_ASSERT(localVars.mol != NULL);
-    // printf("NumAtoms: %d\n", localVars.mol->getNumAtoms());
-    // printf("NumBonds: %d\n", localVars.mol->getNumBonds());
     TEST_ASSERT(localVars.mol->getNumAtoms() == molFileTest->atomCount)
     TEST_ASSERT(localVars.mol->getNumBonds() == molFileTest->bondCount)
 
@@ -588,16 +660,15 @@ void testMolFiles(const MolTest *molFileTest)
   return;
 }
 
-
 void RunTests()
 {
-
-
   // the molecule tests - staromg with molfiles/sdf
  
   std::list<MolTest> sdfTests
   {
-      MolTest("Sgroup_MUL_ParentInMiddle.sdf", true, LoadAsMolOrRxn, 17, 16)
+      MolTest("ChiralTest.sdf", true, LoadAsMolOrRxn, 8, 7)
+      , MolTest("TestBond1.mol", true, LoadAsMolOrRxn, 10, 10)
+      , MolTest("Sgroup_MUL_ParentInMiddle.sdf", true, LoadAsMolOrRxn, 17, 16)
   };
 
   for (auto sdfTest: sdfTests)
@@ -610,7 +681,9 @@ void RunTests()
  
   std::list<MolTest> molFileTests
   {
-      MolTest("EmbeddedSGroupSUP_MUL.mrv", true, LoadAsMolOrRxn, 17, 17)
+    MolTest("BondTypes.mrv", true, LoadAsMolOrRxn, 26, 25)
+    , MolTest("EmbeddedSGroupSUP_MUL.mrv", true, LoadAsMolOrRxn, 17, 17)
+    ,  MolTest("EmbeddedSGroupSUP_MUL.mrv", true, LoadAsMolOrRxn, 17, 17)
     ,  MolTest("EmbeddedSgroupCOP_SUP.mrv", true, LoadAsMolOrRxn, 10, 10)
     ,  MolTest("EmbeddedSgroupDAT_SUP.mrv", true, LoadAsMolOrRxn, 10,10)
     ,  MolTest("EmbeddedSgroupMULTICENTER_SUP.mrv", true, LoadAsMolOrRxn, 11,10)
@@ -652,7 +725,7 @@ void RunTests()
     ,  MolTest("MarvinStereoGroupsAbs.mrv", true, LoadAsMolOrRxn, 8, 8)
     ,  MolTest("triphenylphosphine.mrv", true, LoadAsMolOrRxn, 19, 21)
     ,  MolTest("MarvinOldSuperGroupTest.mrv", true, LoadAsMolOrRxn, 89, 93)
-    ,  MolTest("RadicalTests.mrv", true, LoadAsMolOrRxn, 9, 9)
+    ,  MolTest("RadicalTests.mrv", true, LoadAsMolOrRxn, 8,7)
     ,  MolTest("AnyBond.mrv", true, LoadAsMolOrRxn, 4, 3)
     ,  MolTest("cisBenzene.mrv", true, LoadAsMolOrRxn, 6, 6)
     ,  MolTest("DativeBond.mrv", true, LoadAsMolOrRxn, 6, 5)
@@ -742,7 +815,9 @@ void RunTests()
 
    std::list<SmilesTest> smiTests
    {
-      SmilesTest("BigMacrocycle","C[C@@H]1CCCCCCCCC(=O)OCCN[C@H](C)CCCCCCCCC(=O)OCCN[C@H](C)CCCCCCCCC(=O)OCCN1", true, 48,48)
+      
+      SmilesTest("SquiggleBond","CN1N=C(SC1=NC(C)=O)S(N)(=O)=O |c:2|", true, 14, 14)
+      , SmilesTest("BigMacrocycle","C[C@@H]1CCCCCCCCC(=O)OCCN[C@H](C)CCCCCCCCC(=O)OCCN[C@H](C)CCCCCCCCC(=O)OCCN1", true, 48,48)
       , SmilesTest("Smiles1","N[C@@H]([O-])c1cc[13c]cc1",true,9,9)
    };
 

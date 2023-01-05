@@ -299,21 +299,9 @@ namespace RDKit
         if (marvinAtom->radical != "")
           res->setNumRadicalElectrons(marvinRadicalToRadicalElectrons.at(marvinAtom->radical));
 
-        //  we no not get parity (chirality) from marvin file
-        // res->setProp(common_properties::molParity, parity);
-        // res->setProp(common_properties::molStereoCare, stereoCare);
-
-        // rxnRole is not parsed from marvin file
-        // res->setProp(common_properties::molRxnRole, rxnRole);
-        // res->setProp(common_properties::molRxnComponent, rxnComponent);
-
         if (marvinAtom->mrvMap != 0)
           res->setProp(common_properties::molAtomMapNumber, marvinAtom->mrvMap);
 
-      // not set
-      //res->setProp(common_properties::molInversionFlag, inversionFlag);
-      // res->setProp("molExactChangeFlag", exactChangeFlag);
-        
         return res;
       }
       catch(const std::exception& e)
@@ -401,38 +389,106 @@ namespace RDKit
        
         bond->setBeginAtomIdx(idx1);
         bond->setEndAtomIdx(idx2);
-        bond->setBondType(type);
-        bond->setProp(common_properties::_MolFileBondType, bType);
-        
-        std::string temp = boost::algorithm::to_lower_copy(marvinBond->bondStereo);
-        if (temp == "")  
-        {         
-          bond->setBondDir(Bond::NONE);
-          stereo = 0;
+        //bond->setBondType(type);
+        //bond->setProp(common_properties::_MolFileBondType, bType);
+        Bond::BondDir bondDir = Bond::NONE;
+        Bond::BondStereo bondStereo =  Bond::STEREONONE;
+        stereo = 0;
+
+        std::string temp = boost::algorithm::to_lower_copy(marvinBond->bondStereo.value);
+        if (temp != "")  
+        {
+          if (temp == "w")  
+          {          
+            bondDir = Bond::BEGINWEDGE;
+            chiralityPossible = true;
+            stereo = 1;
+          } 
+          else if (temp == "h")  
+          {         
+            stereo = 6;
+            chiralityPossible = true;
+            bondDir = Bond::BEGINDASH;
+          }
+          else
+          {
+            std::ostringstream err;
+            err      << "unrecognized bond stereo value" << marvinBond->bondStereo.value;
+            throw FileParseException(err.str());
+          }
         }
-        else if (temp == "w")  
-        {         
-          bond->setBondDir(Bond::BEGINWEDGE);
-          chiralityPossible = true;
-          stereo = 1;
-        } 
-        else if (temp == "h")  
-        {         
-          stereo = 6;
-          chiralityPossible = true;
-          bond->setBondDir(Bond::BEGINDASH);
+        else if (marvinBond->bondStereo.convention != "")
+        {
+          if (marvinBond->bondStereo.convention != "MDL")
+          {
+            std::ostringstream err;
+            err      << "unrecognized bond stereo conventrion" << marvinBond->bondStereo.convention;
+            throw FileParseException(err.str());
+          }
+          int mdlStereoVal = 0;
+          if (! getCleanInt(marvinBond->bondStereo.conventionValue,mdlStereoVal))
+            throw FileParseException("MDL Convention Value must be one of; 1, 3, 4, 6"); 
+          switch (mdlStereoVal) 
+          {
+            case 1:
+              bondDir = Bond::BEGINWEDGE;
+              bType = 1;  // overrides the type specification
+              type = Bond::SINGLE;
+              stereo = 1;
+              break;
+            case 6:
+              bondDir = Bond::BEGINDASH;
+              bType = 1;  // overrides the type specification
+              type = Bond::SINGLE;
+              stereo = 6;
+              break;
+            case 3:  // "either" double bond
+              bondDir = Bond::EITHERDOUBLE;
+              bondStereo = Bond::STEREOANY;
+              bType = 2;  // overrides the type specification
+              type = Bond::DOUBLE;
+              stereo = 3;
+              break;
+            case 4:  // "either" single bond
+              bondDir = Bond::UNKNOWN;
+              bType = 1;  // overrides the type specification
+              type = Bond::SINGLE;
+              stereo = 4;
+              break;
+          }
+        }
+        else if (marvinBond->bondStereo.dictRef != "")
+        { 
+          if (marvinBond->bondStereo.dictRef == "cml:W")
+          {
+            bondDir = Bond::BEGINWEDGE;
+            bType = 1;  // overrides the type specification
+            type = Bond::SINGLE;
+            stereo = 1;
+          }
+          else if (marvinBond->bondStereo.dictRef == "cml:H")
+          {
+            bondDir = Bond::BEGINDASH;
+            bType = 1;  // overrides the type specification
+            type = Bond::SINGLE;
+            stereo = 6;
+          }
         }
         else
-        {
-          std::ostringstream err;
-          err      << "unrecognized bond stereo " << marvinBond->bondStereo << " in MRV File ";
-          throw FileParseException(err.str());
+        {  
+          // nothing to do, no stereo information
         }
-        
-        bond->setProp(common_properties::_MolFileBondStereo, stereo);
+       
+        bond->setBondType(type);
+        bond->setProp(common_properties::_MolFileBondType, bType);
+        bond->setBondDir(bondDir);
+        if (stereo != Bond::STEREONONE)
+          bond->setProp(common_properties::_MolFileBondStereo, stereo);
+        if (bondStereo != Bond::STEREONONE)
+          bond->setStereo(bondStereo);
         
         // if we got an aromatic bond set the flag on the bond and the connected
-        // atoms
+        // atoms)
         if (bond->getBondType() == Bond::AROMATIC) 
           bond->setIsAromatic(true);
 
@@ -536,13 +592,13 @@ namespace RDKit
             {
               groupType  = RDKit::StereoGroupType::STEREO_AND;
               if (! getCleanInt(temp.substr(3),groupNumber))
-              throw FileParseException("Group Number must be an integer in a stereo group AND# in a MRV file"); 
+                throw FileParseException("Group Number must be an integer in a stereo group AND# in a MRV file"); 
             }
             else if (boost::starts_with(temp, "or"))
             {
               groupType  = RDKit::StereoGroupType::STEREO_OR;
               if (! getCleanInt(temp.substr(2), groupNumber))
-              throw FileParseException("Group Number must be an integer in a stereo group OR# in a MRV file"); 
+                throw FileParseException("Group Number must be an integer in a stereo group OR# in a MRV file"); 
             }
             else
               throw FileParseException("Unrecognized group definition"); 
@@ -790,7 +846,6 @@ namespace RDKit
           (*atomIt)->calcExplicitValence(false);
           (*atomIt)->calcImplicitValence(false);
         }
-
 
         // update the chirality and stereo-chemistry
         //
@@ -1590,15 +1645,65 @@ namespace RDKit
                 }
               }
 
-              mrvBond->bondStereo = v.second.get<std::string>("bondStereo", "");
-              if (mrvBond->bondStereo == "" || boost::algorithm::to_lower_copy(mrvBond->bondStereo) == "w" || boost::algorithm::to_lower_copy(mrvBond->bondStereo) == "h")
+              int bondStereoDeclCount = 0;
+              mrvBond->bondStereo.value = v.second.get<std::string>("bondStereo", "");
+              if (mrvBond->bondStereo.value != "")
               {
-                // do nothing  - this is OK
+                bondStereoDeclCount++;
+                if (boost::algorithm::to_lower_copy(mrvBond->bondStereo.value) == "w" || boost::algorithm::to_lower_copy(mrvBond->bondStereo.value) == "h")
+                {
+                  // do nothing  - this is OK
+                }
+                else if (boost::algorithm::to_lower_copy(mrvBond->bondStereo.value) == "c" || boost::algorithm::to_lower_copy(mrvBond->bondStereo.value) == "t")
+                  mrvBond->bondStereo.value = "";  // cis and trans are ignored
+                else
+                  throw FileParseException("The value for bondStereo must be \"H\", \"W\", \"C\" or \"T\" in MRV file (\"C\" and \"T\" are ignored)");
               }
-              else if (boost::algorithm::to_lower_copy(mrvBond->bondStereo) == "c" || boost::algorithm::to_lower_copy(mrvBond->bondStereo) == "t")
-                mrvBond->bondStereo = "";  // cis and trans are ignored
-              else
-                throw FileParseException("The value for bondStereo must be \"H\", \"W\", \"C\" or \"T\" in MRV file (\"C\" and \"T\" are ignored)");
+
+              // see if bondstereo has a dictRef or convention
+
+              auto bondStereoItem = v.second.get_child_optional("bondStereo");
+              if (bondStereoItem)
+              {
+                BOOST_FOREACH( boost::property_tree::ptree::value_type &ww,  v.second)
+                {
+                  mrvBond->bondStereo.convention = ww.second.get<std::string>("<xmlattr>.convention", "");
+                  if (mrvBond->bondStereo.convention != "")
+                  {
+                    bondStereoDeclCount++;
+                    if (mrvBond->bondStereo.convention != "MDL")
+                    {
+                      std::ostringstream err;
+                      err << "Expected MDL as value for the bond convention attribute";
+                      throw FileParseException(err.str());
+                    }
+                    mrvBond->bondStereo.conventionValue = ww.second.get<std::string>("<xmlattr>.conventionValue", "");
+                    if (!boost::algorithm::contains(marvinStereoConventionTypes, std::vector<std::string>{mrvBond->bondStereo.conventionValue} ))
+                    {
+                      std::ostringstream err;
+                      err << "Expected one of  " << boost::algorithm::join(marvinStereoConventionTypes,", ") << " for a bond convention for an bond stereo def";
+                      throw FileParseException(err.str());
+                    }
+                  }
+
+                  mrvBond->bondStereo.dictRef = ww.second.get<std::string>("<xmlattr>.dictRef", "");
+                  if (mrvBond->bondStereo.dictRef != "")
+                  {
+                    bondStereoDeclCount++;
+                    if (!boost::algorithm::contains(marvinStereoDictRefTypes, std::vector<std::string>{mrvBond->bondStereo.dictRef} ))
+                    {
+                      std::ostringstream err;
+                      err << "Expected one of  " << boost::algorithm::join(marvinStereoDictRefTypes,", ") << " for a discRef value for an bond stereo def";
+                      throw FileParseException(err.str());
+                    }
+                  }
+                }
+              }
+
+              // check that there were not too many different declarations
+
+              if (bondStereoDeclCount >1)
+                throw FileParseException("bondStereo can either have only one of: a value, dictRef, or convention value");
             }
 
           }
@@ -1657,20 +1762,17 @@ namespace RDKit
           }
         }
 
-        // if (parentMol == NULL)  // is this is a parent type mol - it has no parent
-        // {
-          BOOST_FOREACH(
-            boost::property_tree::ptree::value_type &v, molTree)
+        BOOST_FOREACH(
+          boost::property_tree::ptree::value_type &v, molTree)
+        {
+          if(v.first == "molecule")
           {
-            if(v.first == "molecule")
-            {
-              MarvinMolBase *subMol = parseMarvinMolecule(v.second, (MarvinMol *)res);
-              ((MarvinMol *)res)->sgroups.push_back(subMol);
-            }
+            MarvinMolBase *subMol = parseMarvinMolecule(v.second, (MarvinMol *)res);
+            ((MarvinMol *)res)->sgroups.push_back(subMol);
           }
-        // }
+        }
 
-        return res;
+      return res;
       }
       catch(const std::exception& e)
       {
@@ -1697,8 +1799,9 @@ namespace RDKit
 
         std::vector<MarvinMol *>::iterator molIter;
         for (molIter = marvinReaction->reactants.begin(); molIter != marvinReaction->reactants.end(); ++molIter)
-        {
+        { 
           mol = parseMolecule((*molIter) , sanitize, removeHs);
+          
           ROMol *roMol = new ROMol(*mol);
           delete mol;
 
@@ -1710,6 +1813,7 @@ namespace RDKit
         for (molIter = marvinReaction->agents.begin(); molIter != marvinReaction->agents.end(); ++molIter)
         {
           mol = parseMolecule((*molIter) , sanitize, removeHs);
+
           ROMol *roMol = new ROMol(*mol);
           delete mol;
           
@@ -1721,6 +1825,7 @@ namespace RDKit
         for (molIter = marvinReaction->products.begin(); molIter != marvinReaction->products.end(); ++molIter)
         {
           mol = parseMolecule((*molIter) , sanitize, removeHs);
+
           ROMol *roMol = new ROMol(*mol);
           delete mol;
 

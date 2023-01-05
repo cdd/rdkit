@@ -35,6 +35,11 @@ namespace RDKit
   const std::vector<std::string> marvinBondOrders{"1", "2", "3", "A"};
   const std::vector<std::string> marvinQueryBondsTypes{"SD", "SA", "DA", "Any"};
   const std::vector<std::string> marvinConventionTypes{"cxn:coord"};
+  const std::vector<std::string> marvinStereoDictRefTypes{"cml:W", "cml:H"};
+  const std::vector<std::string> marvinStereoConventionTypes{"1", "3", "4", "6"};
+
+
+  
   const std::vector<std::string> marvinRadicalVals{"monovalent", "divalent", "divalent1", "divalent3", "trivalent","trivalent2","trivalent4", "4"};
   const std::map<std::string, int> marvinRadicalToRadicalElectrons{
       {"monovalent", 1},
@@ -150,13 +155,24 @@ namespace RDKit
     std::string toString() const;
   };
 
+  class MarvinBondStereo
+  {
+      public:
+      std::string value;
+      std::string convention;
+      std::string conventionValue;
+      std::string dictRef;
+
+      std::string toString() const;
+  } ;
+
   class MarvinBond
   {
     public:
     std::string id;
     std::string atomRefs2[2];
     std::string order;
-    std::string bondStereo;
+    MarvinBondStereo bondStereo;
     std::string queryType;
     std::string convention;
 
@@ -204,7 +220,6 @@ namespace RDKit
     static bool compareRectanglesByYReverse(MarvinRectangle &r1, MarvinRectangle &r2);
   };
 
-  
   class MarvinMolBase
   {
     public:
@@ -215,7 +230,6 @@ namespace RDKit
     std::vector<MarvinMolBase *> sgroups;
     MarvinMolBase *parent;
    
-  
     virtual std::string role() const = 0;
     virtual bool hasAtomBondBlocks() const = 0;
     virtual std::string toString() const = 0;

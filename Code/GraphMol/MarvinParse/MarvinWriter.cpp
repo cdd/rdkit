@@ -61,6 +61,7 @@ using namespace RDKit::SGroupWriting;
 #define ARROW_SPACE 0.5
 #define PLUS_SPACE 1.0
 
+
 namespace RDKit 
 {
   class  MarvinCMLWriter
@@ -386,6 +387,38 @@ namespace RDKit
           throw MarvinWriterException("Only 1,2,3,Aromatic, and query bonds SA, DA, and SD are supported for MarvinWriter");
       }
     }
+
+  private:
+    bool checkNeighborsForNoBondDir(const Bond *bond, const Atom *atom) 
+    {
+      // this checks the neighbors of a double bond to see if they have a wedge that is NOT accociated with a chiral center
+
+      PRECONDITION(bond, "no bond");
+      PRECONDITION(atom, "no atom");
+      std::vector<int> nbrRanks;
+      for (auto bondIt :
+          boost::make_iterator_range(bond->getOwningMol().getAtomBonds(atom))) {
+        const auto nbrBond = bond->getOwningMol()[bondIt];
+        if (nbrBond->getBondType() == Bond::SINGLE) {
+          if (nbrBond->getBondDir() == Bond::ENDUPRIGHT ||
+              nbrBond->getBondDir() == Bond::ENDDOWNRIGHT) {
+            return false;
+          } else {
+            const auto otherAtom = nbrBond->getOtherAtom(atom);
+            int rank;
+            if (otherAtom->getPropIfPresent(common_properties::_CIPRank, rank)) {
+              if (std::find(nbrRanks.begin(), nbrRanks.end(), rank) !=
+                  nbrRanks.end()) {
+                return false;
+              } else {
+                nbrRanks.push_back(rank);
+              }
+            }
+          }
+        }
+      }
+      return true;
+    }
     
     void GetMarvinBondStereoInfo(const Bond *bond, const INT_MAP_INT &wedgeBonds,
                                   const Conformer *conf,  Bond::BondDir &dir,
@@ -405,7 +438,7 @@ namespace RDKit
         // reverse the begin and end atoms for the bond when we write
         // the mol file
 
-        if ((dir == Bond::BEGINDASH) || (dir == Bond::BEGINWEDGE)) 
+        if ((dir == Bond::BEGINDASH) || (dir == Bond::BEGINWEDGE || dir == Bond::UNKNOWN)) 
         {
           auto wbi = wedgeBonds.find(bond->getIdx());
           if (wbi != wedgeBonds.end() && static_cast<unsigned int>(wbi->second) != bond->getBeginAtomIdx()) 
@@ -414,6 +447,53 @@ namespace RDKit
         else
           dir = Bond::NONE;   // other types are ignored
       } 
+      else if (bond->getBondType() == Bond::DOUBLE) 
+      {
+        // double bond stereochemistry -
+        // if the bond isn't specified, then it should go in the mrv block
+        // as "any", this was sf.net issue 2963522. for mol files
+        // two caveats to this:
+        // 1) if it's a ring bond, we'll only put the "any"
+        //    in the mol block if the user specifically asked for it.
+        //    Constantly seeing crossed bonds in rings, though maybe
+        //    technically correct, is irritating.
+        // 2) if it's a terminal bond (where there's no chance of
+        //    stereochemistry anyway), we also skip the any.
+        //    this was sf.net issue 3009756
+        if (bond->getStereo() <= Bond::STEREOANY) 
+        {
+          if (bond->getStereo() == Bond::STEREOANY)
+            dir = Bond::UNKNOWN;
+          else if (!(bond->getOwningMol().getRingInfo()->numBondRings(
+                        bond->getIdx())) &&
+                    bond->getBeginAtom()->getDegree() > 1 &&
+                    bond->getEndAtom()->getDegree() > 1) 
+          {
+            // we don't know that it's explicitly unspecified (covered above with
+            // the ==STEREOANY check)
+            // look to see if one of the atoms has a bond with direction set
+            if (bond->getBondDir() == Bond::EITHERDOUBLE) 
+              dir = Bond::UNKNOWN;
+            else 
+            {
+              if ((bond->getBeginAtom()->getTotalValence() -
+                  bond->getBeginAtom()->getTotalDegree()) == 1 &&
+                  (bond->getEndAtom()->getTotalValence() -
+                  bond->getEndAtom()->getTotalDegree()) == 1) 
+                  {
+                // we only do this if each atom only has one unsaturation
+                // FIX: this is the fix for github #2649, but we will need to change
+                // it once we start handling allenes properly
+
+                if (checkNeighborsForNoBondDir(bond, bond->getBeginAtom()) &&
+                    checkNeighborsForNoBondDir(bond, bond->getEndAtom())) {
+                  dir = Bond::UNKNOWN;
+                }
+              }
+            }
+          }
+        }
+      }
     }
 
   private:
@@ -569,16 +649,25 @@ namespace RDKit
           switch (bondDirection)
           {
             case Bond::NONE:
-              marvinBond->bondStereo = "";
+              marvinBond->bondStereo.value = "";
               break;
             case Bond::BEGINWEDGE:
-                marvinBond->bondStereo = "W";
+                marvinBond->bondStereo.value = "W";
                 break;
             case Bond::BEGINDASH:
-                        marvinBond->bondStereo = "H";
+                marvinBond->bondStereo.value = "H";
                 break;
+            case Bond::UNKNOWN:
+                marvinBond->bondStereo.value = "";
+                marvinBond->bondStereo.convention = "MDL";
+                if (marvinBond->order == "2")
+                  marvinBond->bondStereo.conventionValue = "3";
+                else
+                  marvinBond->bondStereo.conventionValue = "4";
+                break;
+
             default:
-              marvinBond->bondStereo = "";   // other types are ignored
+              marvinBond->bondStereo.value = "";   // other types are ignored
           }       
         }
 
@@ -1093,7 +1182,6 @@ namespace RDKit
       }
     }
   };
-
 
   std::string MolToMrvBlock(const ROMol &mol, bool includeStereo, int confId, bool kekulize) 
   {

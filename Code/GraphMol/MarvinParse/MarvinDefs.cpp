@@ -260,11 +260,21 @@ namespace RDKit
     if (convention != "")
       out << " convention=\"" << convention << "\"";
     
-    if (bondStereo != "")
-      out << "><bondStereo>" << bondStereo << "</bondStereo></bond>";
+    if (bondStereo.value != "" || bondStereo.dictRef != "" || (bondStereo.convention != "" && bondStereo.conventionValue != ""))
+    {
+      out << "><bondStereo";
+      if (bondStereo.value != "")
+        out << ">" << bondStereo.value << "</bondStereo>" ;
+      else if (bondStereo.dictRef != "")
+        out << " dictRef=\"" << bondStereo.dictRef << "\"/>";
+      else
+        out << " convention=\"" << bondStereo.convention << "\" conventionValue=\"" << bondStereo.conventionValue <<"\"/>";
+      out << "</bond>";
+    }
     else
-      out << "/>";          
+      out << "/>";   // just end the bond       
     return out.str();
+
   }
 
   MarvinMolBase::~MarvinMolBase()
@@ -1867,8 +1877,6 @@ namespace RDKit
      return (-1);
   }
 
-  
-  
   void MarvinMultipleSgroup::contractOneMultipleSgroup()
   {
     //this routine takes the expanded MultipleSgroup (which comes from the RDKit version, or is ready to produce the RDKit version), and contracts it

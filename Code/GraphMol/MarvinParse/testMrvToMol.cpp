@@ -20,6 +20,7 @@
 #include <GraphMol/ChemReactions/ReactionParser.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
+#include <GraphMol/SmilesParse/SmilesWrite.h>
 
 #include <string>
 #include <fstream>
@@ -666,7 +667,9 @@ void RunTests()
  
   std::list<MolTest> sdfTests
   {
-      MolTest("ChiralTest.sdf", true, LoadAsMolOrRxn, 8, 7)
+      MolTest("StarAtom.sdf", true, LoadAsMolOrRxn,  17,16)
+      , MolTest("nonProprietary.mol", true, LoadAsMolOrRxn, 17,16)
+      , MolTest("ChiralTest.sdf", true, LoadAsMolOrRxn, 8, 7)
       , MolTest("TestBond1.mol", true, LoadAsMolOrRxn, 10, 10)
       , MolTest("Sgroup_MUL_ParentInMiddle.sdf", true, LoadAsMolOrRxn, 17, 16)
   };
@@ -681,7 +684,7 @@ void RunTests()
  
   std::list<MolTest> molFileTests
   {
-    MolTest("BondTypes.mrv", true, LoadAsMolOrRxn, 26, 25)
+     MolTest("BondTypes.mrv", true, LoadAsMolOrRxn, 26, 25)
     , MolTest("EmbeddedSGroupSUP_MUL.mrv", true, LoadAsMolOrRxn, 17, 17)
     ,  MolTest("EmbeddedSGroupSUP_MUL.mrv", true, LoadAsMolOrRxn, 17, 17)
     ,  MolTest("EmbeddedSgroupCOP_SUP.mrv", true, LoadAsMolOrRxn, 10, 10)
@@ -828,7 +831,6 @@ void RunTests()
     testSmilesToMarvin(&smiTest);
   }
 }
-
 
 int main(int argc, char *argv[])
 {

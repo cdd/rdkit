@@ -117,7 +117,7 @@ namespace RDKit
         if (!atom->hasProp(common_properties::dummyLabel)) 
         {
           if (atom->hasQuery() &&
-              (atom->getQuery()->getTypeLabel() == "A" ||
+              (atom->getQuery()->getTypeLabel() == "A" || atom->getQuery()->getTypeLabel() == "" ||
               (atom->getQuery()->getNegation() &&
                 atom->getQuery()->getDescription() == "AtomAtomicNum" &&
                 static_cast<ATOM_EQUALS_QUERY *>(atom->getQuery())->getVal() ==
@@ -712,9 +712,12 @@ namespace RDKit
             auto marvinCoModSruSgroup =new MarvinSruCoModSgroup(mrvType, marvinMol);
             marvinMol->sgroups.push_back(marvinCoModSruSgroup);
 
-            marvinCoModSruSgroup->title = sgroup.getProp<std::string>(std::string("LABEL"));
+            if (!sgroup.getPropIfPresent("LABEL", marvinCoModSruSgroup->title)) 
+              throw MarvinWriterException("Expected a LABEL attribute for an SRU, MOD, or COP group"); 
               
-            marvinCoModSruSgroup->connect = sgroup.getProp<std::string>("CONNECT");
+            if (!sgroup.getPropIfPresent("CONNECT", marvinCoModSruSgroup->connect)) 
+              throw MarvinWriterException("Expected a CONNECT attribute for an SRU, MOD, or COP group"); 
+
             marvinCoModSruSgroup->id = "sg" + std::to_string(++tempSgCount);
             marvinCoModSruSgroup->molID  = 'm' + std::to_string(++tempMolCount);
 

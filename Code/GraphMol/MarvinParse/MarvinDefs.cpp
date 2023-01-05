@@ -1978,6 +1978,28 @@ namespace RDKit
       // undelete the bond which has been fixed (really remove it from the list of bonds to be delete)
 
       bondsToDelete.erase(find(bondsToDelete.begin(), bondsToDelete.end(), orphanedBondToFix));
+
+      // any siblings or children that reference the matched Orphaned bond must be fixed to reference the retained (fixed) orphan bond
+
+      for (auto siblingSgroup : this->parent->sgroups)  // note: includes this sgroups, which is technically NOT a sibling
+      {
+        for (auto siblingBondIter = siblingSgroup->bonds.begin() ; siblingBondIter != siblingSgroup->bonds.end() ; ++siblingBondIter)
+        { 
+          if ((*siblingBondIter)->id == orphanedBonds[matchedOrphanBondIndex]->id)
+            *siblingBondIter = orphanedBondToFix;
+        }
+      }
+
+      // it COULD happen that children referenced the matched orphan bond
+
+      for (auto childSgroup : this->sgroups) 
+      {
+        for (auto childBond : childSgroup->bonds)
+        { 
+          if (childBond->id == orphanedBonds[matchedOrphanBondIndex]->id)
+            childBond = orphanedBondToFix;
+        }
+      }
       
       orphanedBonds.erase(orphanedBonds.begin() + matchedOrphanBondIndex);
     };

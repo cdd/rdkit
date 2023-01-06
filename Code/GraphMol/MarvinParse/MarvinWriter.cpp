@@ -61,1198 +61,1190 @@ using namespace RDKit::SGroupWriting;
 #define ARROW_SPACE 0.5
 #define PLUS_SPACE 1.0
 
-
-namespace RDKit 
-{
-  class  MarvinCMLWriter
-  {
-    bool hasComplexQuery(const Atom *atom) 
-    {
-      PRECONDITION(atom, "bad atom");
-      bool res = false;
-      if (atom->hasQuery()) 
-      {
-        res = true;
-        // counter examples:
-        //  1) atomic number
-        //  2) the smarts parser inserts AtomAnd queries
-        //     for "C" or "c":
-        //
-        std::string descr = atom->getQuery()->getDescription();
-        if (descr == "AtomAtomicNum") 
+namespace RDKit {
+class MarvinCMLWriter {
+  bool hasComplexQuery(const Atom *atom) {
+    PRECONDITION(atom, "bad atom");
+    bool res = false;
+    if (atom->hasQuery()) {
+      res = true;
+      // counter examples:
+      //  1) atomic number
+      //  2) the smarts parser inserts AtomAnd queries
+      //     for "C" or "c":
+      //
+      std::string descr = atom->getQuery()->getDescription();
+      if (descr == "AtomAtomicNum") {
+        res = false;
+      } else if (descr == "AtomAnd") {
+        if ((*atom->getQuery()->beginChildren())->getDescription() ==
+            "AtomAtomicNum") {
           res = false;
-        else if (descr == "AtomAnd") 
-        {
-          if ((*atom->getQuery()->beginChildren())->getDescription() == "AtomAtomicNum") 
-            res = false;
         }
       }
-      return res;
+    }
+    return res;
+  }
+
+  void GetMarvinAtomInfo(const Atom *atom, MarvinAtom *marvinAtom) {
+    PRECONDITION(atom, "");
+
+    if (atom->hasProp(common_properties::_MolFileRLabel)) {
+      marvinAtom->elementType = "R";
+
+      unsigned int rgroupRef;
+      atom->getProp(common_properties::_MolFileRLabel, rgroupRef);
+      marvinAtom->rgroupRef = (int)rgroupRef;
+
+      std::string alias;
+      if (atom->hasProp(common_properties::molFileAlias)) {
+        atom->getProp(common_properties::molFileAlias, marvinAtom->mrvAlias);
+      }
+    } else if (atom->getAtomicNum()) {
+      marvinAtom->elementType = atom->getSymbol();
+    } else {
+      if (!atom->hasProp(common_properties::dummyLabel)) {
+        if (atom->hasQuery() &&
+            (atom->getQuery()->getTypeLabel() == "A" ||
+             atom->getQuery()->getTypeLabel() == "" ||
+             (atom->getQuery()->getNegation() &&
+              atom->getQuery()->getDescription() == "AtomAtomicNum" &&
+              static_cast<ATOM_EQUALS_QUERY *>(atom->getQuery())->getVal() ==
+                  1))) {
+          marvinAtom->elementType = "*";
+        } else if (atom->hasQuery() &&
+                   (atom->getQuery()->getTypeLabel() == "Q" ||
+                    (atom->getQuery()->getNegation() &&
+                     atom->getQuery()->getDescription() == "AtomOr" &&
+                     atom->getQuery()->endChildren() -
+                             atom->getQuery()->beginChildren() ==
+                         2 &&
+                     (*atom->getQuery()->beginChildren())->getDescription() ==
+                         "AtomAtomicNum" &&
+                     static_cast<ATOM_EQUALS_QUERY *>(
+                         (*atom->getQuery()->beginChildren()).get())
+                             ->getVal() == 6 &&
+                     (*++(atom->getQuery()->beginChildren()))
+                             ->getDescription() == "AtomAtomicNum" &&
+                     static_cast<ATOM_EQUALS_QUERY *>(
+                         (*++(atom->getQuery()->beginChildren())).get())
+                             ->getVal() == 1))) {
+          throw MarvinWriterException(
+              "Query atoms are not supported for MarvinWriter");
+        } else if (atom->hasQuery() &&
+                   atom->getQuery()->getTypeLabel() == "X") {
+          throw MarvinWriterException(
+              "Query atoms are not supported for MarvinWriter");
+        } else if (atom->hasQuery() &&
+                   atom->getQuery()->getTypeLabel() == "M") {
+          throw MarvinWriterException(
+              "Query atoms are not supported for MarvinWriter");
+        } else if (atom->hasQuery() &&
+                   atom->getQuery()->getTypeLabel() == "AH") {
+          throw MarvinWriterException(
+              "Query atoms are not supported for MarvinWriter");
+        } else if (atom->hasQuery() &&
+                   atom->getQuery()->getTypeLabel() == "QH") {
+          throw MarvinWriterException(
+              "Query atoms are not supported for MarvinWriter");
+        } else if (atom->hasQuery() &&
+                   atom->getQuery()->getTypeLabel() == "XH") {
+          throw MarvinWriterException(
+              "Query atoms are not supported for MarvinWriter");
+        } else if (atom->hasQuery() &&
+                   atom->getQuery()->getTypeLabel() == "MH") {
+          throw MarvinWriterException(
+              "Query atoms are not supported for MarvinWriter");
+        } else if (hasComplexQuery(atom)) {
+          throw MarvinWriterException(
+              "Query atoms are not supported for MarvinWriter");
+        } else {
+          marvinAtom->elementType = "*";
+        }
+      } else {
+        std::string symb;
+        atom->getProp(common_properties::dummyLabel, symb);
+        if (symb == "*") {
+          marvinAtom->elementType = "*";
+        } else if (symb == "X") {
+          marvinAtom->elementType = "R";
+          marvinAtom->rgroupRef = 0;
+          marvinAtom->mrvAlias = "R";
+        } else if (symb == "Xa") {
+          marvinAtom->elementType = "R";
+          marvinAtom->rgroupRef = 1;
+          marvinAtom->mrvAlias = "R1";
+        } else if (symb == "Xb") {
+          marvinAtom->elementType = "R";
+          marvinAtom->rgroupRef = 2;
+          marvinAtom->mrvAlias = "R2";
+        } else if (symb == "Xc") {
+          marvinAtom->elementType = "R";
+          marvinAtom->rgroupRef = 3;
+          marvinAtom->mrvAlias = "R3";
+        } else if (symb == "Xd") {
+          marvinAtom->elementType = "R";
+          marvinAtom->rgroupRef = 4;
+          marvinAtom->mrvAlias = "R4";
+        } else if (symb == "Xf") {
+          marvinAtom->elementType = "R";
+          marvinAtom->rgroupRef = 5;
+          marvinAtom->mrvAlias = "R5";
+        } else if (symb == "Xg") {
+          marvinAtom->elementType = "R";
+          marvinAtom->rgroupRef = 6;
+          marvinAtom->mrvAlias = "R6";
+        } else if (symb == "Xh") {
+          marvinAtom->elementType = "R";
+          marvinAtom->rgroupRef = 7;
+          marvinAtom->mrvAlias = "R7";
+        } else if (symb == "Xi") {
+          marvinAtom->elementType = "R";
+          marvinAtom->rgroupRef = 8;
+          marvinAtom->mrvAlias = "R8";
+        } else if (symb == "Xj") {
+          marvinAtom->elementType = "R";
+          marvinAtom->rgroupRef = 9;
+          marvinAtom->mrvAlias = "R9";
+        } else {
+          throw MarvinWriterException(
+              "Query atoms are not supported for MarvinWriter");
+        }
+      }
     }
 
-    void GetMarvinAtomInfo(
-        const Atom *atom
-        , MarvinAtom *marvinAtom
-        ) 
-    {
-      PRECONDITION(atom, "");
+    return;
+  }
 
-  
-      if (atom->hasProp(common_properties::_MolFileRLabel)) 
-      {
-        marvinAtom->elementType = "R";
-       
-        unsigned int rgroupRef;
-        atom->getProp(common_properties::_MolFileRLabel, rgroupRef);
-        marvinAtom->rgroupRef = (int)rgroupRef;
-         
-        std::string alias;
-        if (atom->hasProp(common_properties::molFileAlias))
-          atom->getProp(common_properties::molFileAlias, marvinAtom->mrvAlias);
-      } 
-      else if (atom->getAtomicNum())
-        marvinAtom->elementType = atom->getSymbol();
-      else 
-      {
-        if (!atom->hasProp(common_properties::dummyLabel)) 
-        {
-          if (atom->hasQuery() &&
-              (atom->getQuery()->getTypeLabel() == "A" || atom->getQuery()->getTypeLabel() == "" ||
-              (atom->getQuery()->getNegation() &&
-                atom->getQuery()->getDescription() == "AtomAtomicNum" &&
-                static_cast<ATOM_EQUALS_QUERY *>(atom->getQuery())->getVal() ==
-                    1))) 
-          {
-             marvinAtom->elementType = "*";
-          } 
-          else if (atom->hasQuery() &&
-                    (atom->getQuery()->getTypeLabel() == "Q" ||
-                      (atom->getQuery()->getNegation() &&
-                      atom->getQuery()->getDescription() == "AtomOr" &&
-                      atom->getQuery()->endChildren() -
-                              atom->getQuery()->beginChildren() ==
-                          2 &&
-                      (*atom->getQuery()->beginChildren())->getDescription() ==
-                          "AtomAtomicNum" &&
-                      static_cast<ATOM_EQUALS_QUERY *>(
-                          (*atom->getQuery()->beginChildren()).get())
-                              ->getVal() == 6 &&
-                      (*++(atom->getQuery()->beginChildren()))->getDescription() ==
-                          "AtomAtomicNum" &&
-                      static_cast<ATOM_EQUALS_QUERY *>(
-                          (*++(atom->getQuery()->beginChildren())).get())
-                              ->getVal() == 1))) 
-          {
-            throw MarvinWriterException("Query atoms are not supported for MarvinWriter");
-          } 
-          else if (atom->hasQuery() && atom->getQuery()->getTypeLabel() == "X") 
-          {
-            throw MarvinWriterException("Query atoms are not supported for MarvinWriter");
-          } 
-          else if (atom->hasQuery() && atom->getQuery()->getTypeLabel() == "M") 
-          {
-            throw MarvinWriterException("Query atoms are not supported for MarvinWriter");
-          } 
-          else if (atom->hasQuery() && atom->getQuery()->getTypeLabel() == "AH") 
-          {
-            throw MarvinWriterException("Query atoms are not supported for MarvinWriter");
-          } 
-          else if (atom->hasQuery() && atom->getQuery()->getTypeLabel() == "QH") 
-          {
-            throw MarvinWriterException("Query atoms are not supported for MarvinWriter");
-          } 
-          else if (atom->hasQuery() && atom->getQuery()->getTypeLabel() == "XH") 
-          {
-            throw MarvinWriterException("Query atoms are not supported for MarvinWriter");
-          } 
-          else if (atom->hasQuery() && atom->getQuery()->getTypeLabel() == "MH") 
-          {
-            throw MarvinWriterException("Query atoms are not supported for MarvinWriter");
-          } 
-          else if (hasComplexQuery(atom)) 
-          {
-            throw MarvinWriterException("Query atoms are not supported for MarvinWriter");
-          } 
-          else 
-          {
-             marvinAtom->elementType = "*";
-          }
-        } 
-        else 
-        {
-          std::string symb;
-          atom->getProp(common_properties::dummyLabel, symb);
-          if (symb == "*") 
-             marvinAtom->elementType = "*";
-          else if (symb == "X") 
-          {
-            marvinAtom->elementType = "R";
-            marvinAtom->rgroupRef = 0;
-            marvinAtom->mrvAlias = "R";
-          }
-          else if (symb == "Xa") 
-          {
-            marvinAtom->elementType = "R";
-            marvinAtom->rgroupRef = 1;
-            marvinAtom->mrvAlias = "R1";
-          }          
-          else if (symb == "Xb") 
-          {
-            marvinAtom->elementType = "R";
-            marvinAtom->rgroupRef = 2;
-            marvinAtom->mrvAlias = "R2";
-          }          
-          else if (symb == "Xc") 
-          {
-            marvinAtom->elementType = "R";
-            marvinAtom->rgroupRef = 3;
-            marvinAtom->mrvAlias = "R3";
-          }          
-          else if (symb == "Xd") 
-          {
-            marvinAtom->elementType = "R";
-            marvinAtom->rgroupRef = 4;
-            marvinAtom->mrvAlias = "R4";
-          }               
-          else if (symb == "Xf") 
-          {
-            marvinAtom->elementType = "R";
-            marvinAtom->rgroupRef = 5;
-            marvinAtom->mrvAlias = "R5";
-          }     
-          else if (symb == "Xg") 
-          {
-            marvinAtom->elementType = "R";
-            marvinAtom->rgroupRef = 6;
-            marvinAtom->mrvAlias = "R6";
-          }     
-          else if (symb == "Xh") 
-          {
-            marvinAtom->elementType = "R";
-            marvinAtom->rgroupRef = 7;
-            marvinAtom->mrvAlias = "R7";
-          }     
-          else if (symb == "Xi") 
-          {
-            marvinAtom->elementType = "R";
-            marvinAtom->rgroupRef = 8;
-            marvinAtom->mrvAlias = "R8";
-          }     
-          else if (symb == "Xj") 
-          {
-            marvinAtom->elementType = "R";
-            marvinAtom->rgroupRef = 9;
-            marvinAtom->mrvAlias = "R9";
-          }     
-          else 
-            throw MarvinWriterException("Query atoms are not supported for MarvinWriter");
-        }    
+  bool isQueryBondInRing(const Bond *bond) {
+    PRECONDITION(bond, "no bond");
+    PRECONDITION(bond->hasQuery(), "no query");
+    Bond::QUERYBOND_QUERY *qry = bond->getQuery();
+    // start by catching combined bond order + bond topology queries
+
+    if (qry->getDescription() == "BondAnd" && !qry->getNegation() &&
+        qry->endChildren() - qry->beginChildren() == 2) {
+      auto child1 = qry->beginChildren();
+      auto child2 = child1 + 1;
+      if (((*child1)->getDescription() == "BondInRing") !=
+          ((*child2)->getDescription() == "BondInRing")) {
+        if ((*child1)->getDescription() != "BondInRing") {
+          qry = child2->get();
+        } else {
+          qry = child1->get();
+        }
       }
-      
+    }
+    if (qry->getDescription() == "BondInRing") {
+      return true;
+    }
+
+    return false;
+  }
+
+  std::string getMarvinQueryBondSymbol(const Bond *bond) {
+    PRECONDITION(bond, "no bond");
+    PRECONDITION(bond->hasQuery(), "no query");
+
+    Bond::QUERYBOND_QUERY *qry = bond->getQuery();
+    if (qry->getDescription() == "BondOrder" || isQueryBondInRing(bond)) {
+      return "";
+    } else {
+      // start by catching combined bond order + bond topology queries
+      if (qry->getDescription() == "BondAnd" && !qry->getNegation() &&
+          qry->endChildren() - qry->beginChildren() == 2) {
+        auto child1 = qry->beginChildren();
+        auto child2 = child1 + 1;
+        if ((*child2)->getDescription() == "BondInRing") {
+          qry = child1->get();
+        } else if ((*child1)->getDescription() == "BondInRing") {
+          qry = child2->get();
+        }
+      }
+      if (qry->getDescription() == "BondOr" && !qry->getNegation()) {
+        if (qry->endChildren() - qry->beginChildren() == 2) {
+          auto child1 = qry->beginChildren();
+          auto child2 = child1 + 1;
+          if ((*child1)->getDescription() == "BondOrder" &&
+              !(*child1)->getNegation() &&
+              (*child2)->getDescription() == "BondOrder" &&
+              !(*child2)->getNegation()) {
+            // ok, it's a bond query we have a chance of dealing with
+            int t1 = static_cast<BOND_EQUALS_QUERY *>(child1->get())->getVal();
+            int t2 = static_cast<BOND_EQUALS_QUERY *>(child2->get())->getVal();
+            if (t1 > t2) {
+              std::swap(t1, t2);
+            }
+            if (t1 == Bond::SINGLE && t2 == Bond::DOUBLE) {
+              return "SD";
+            } else if (t1 == Bond::SINGLE && t2 == Bond::AROMATIC) {
+              return "SA";
+            } else if (t1 == Bond::DOUBLE && t2 == Bond::AROMATIC) {
+              return "DA";
+            }
+          }
+        }
+      } else if (qry->getDescription() == "SingleOrAromaticBond" &&
+                 !qry->getNegation()) {
+        return "SA";
+      } else if (qry->getDescription() == "SingleOrDoubleBond" &&
+                 !qry->getNegation()) {
+        return "SD";
+      } else if (qry->getDescription() == "DoubleOrAromaticBond" &&
+                 !qry->getNegation()) {
+        return "DA";
+      } else if (qry->getDescription() == "BondNull" && !qry->getNegation()) {
+        return "Any";
+      }
+    }
+
+    throw MarvinWriterException(
+        "Only SA, DA, SD, and Any query bond are supported for MarvinWriter");
+  }
+
+  void GetMarvinBondSymbol(const Bond *bond, std::string &order,
+                           std::string &queryType, std::string &convention) {
+    PRECONDITION(bond, "");
+
+    convention = "";
+    order = "";
+    queryType = "";
+
+    if (bond->hasQuery()) {
+      order = "1";
+      queryType = getMarvinQueryBondSymbol(bond);
+      if (queryType == "") {
+        throw MarvinWriterException(
+            "Only 1,2,3,Aromatic, and query bonds SA, DA, and SD are supported for MarvinWriter");
+      }
       return;
     }
 
-    bool isQueryBondInRing(const Bond *bond) 
-    {
-      PRECONDITION(bond, "no bond");
-      PRECONDITION(bond->hasQuery(), "no query");
-      Bond::QUERYBOND_QUERY *qry = bond->getQuery();
-      // start by catching combined bond order + bond topology queries
+    queryType = "";  // not s query
 
-      if (qry->getDescription() == "BondAnd" && !qry->getNegation() &&
-          qry->endChildren() - qry->beginChildren() == 2) 
-      {
-        auto child1 = qry->beginChildren();
-        auto child2 = child1 + 1;
-        if (((*child1)->getDescription() == "BondInRing") != ((*child2)->getDescription() == "BondInRing")) 
-        {
-          if ((*child1)->getDescription() != "BondInRing") 
-            qry = child2->get();
-          else
-            qry = child1->get();
+    switch (bond->getBondType()) {
+      case Bond::SINGLE:
+        if (bond->getIsAromatic()) {
+          order = "A";
+        } else {
+          order = "1";
+        }
+        break;
+
+      case Bond::DOUBLE:
+        if (bond->getIsAromatic()) {
+          order = "A";
+        } else {
+          order = "2";
+        }
+        break;
+      case Bond::TRIPLE:
+        order = "3";
+        break;
+
+      case Bond::AROMATIC:
+        order = "A";
+        break;
+
+      case Bond::DATIVE:
+        convention = "cxn:coord";
+        break;
+
+      default:
+        throw MarvinWriterException(
+            "Only 1,2,3,Aromatic, and query bonds SA, DA, and SD are supported for MarvinWriter");
+    }
+  }
+
+ private:
+  bool checkNeighborsForNoBondDir(const Bond *bond, const Atom *atom) {
+    // this checks the neighbors of a double bond to see if they have a wedge
+    // that is NOT accociated with a chiral center
+
+    PRECONDITION(bond, "no bond");
+    PRECONDITION(atom, "no atom");
+    std::vector<int> nbrRanks;
+    for (auto bondIt :
+         boost::make_iterator_range(bond->getOwningMol().getAtomBonds(atom))) {
+      const auto nbrBond = bond->getOwningMol()[bondIt];
+      if (nbrBond->getBondType() == Bond::SINGLE) {
+        if (nbrBond->getBondDir() == Bond::ENDUPRIGHT ||
+            nbrBond->getBondDir() == Bond::ENDDOWNRIGHT) {
+          return false;
+        } else {
+          const auto otherAtom = nbrBond->getOtherAtom(atom);
+          int rank;
+          if (otherAtom->getPropIfPresent(common_properties::_CIPRank, rank)) {
+            if (std::find(nbrRanks.begin(), nbrRanks.end(), rank) !=
+                nbrRanks.end()) {
+              return false;
+            } else {
+              nbrRanks.push_back(rank);
+            }
+          }
         }
       }
-      if (qry->getDescription() == "BondInRing") 
-        return true;
+    }
+    return true;
+  }
 
+  void GetMarvinBondStereoInfo(const Bond *bond, const INT_MAP_INT &wedgeBonds,
+                               const Conformer *conf, Bond::BondDir &dir,
+                               bool &reverse) {
+    PRECONDITION(bond, "");
+    reverse = false;
+    dir = Bond::NONE;
+    if (bond->getBondType() == Bond::SINGLE) {
+      // single bond stereo chemistry
+      dir = DetermineBondWedgeState(bond, wedgeBonds, conf);
+
+      // if this bond needs to be wedged it is possible that this
+      // wedging was determined by a chiral atom at the end of the
+      // bond (instead of at the beginning). In this case we need to
+      // reverse the begin and end atoms for the bond when we write
+      // the mol file
+
+      if ((dir == Bond::BEGINDASH) ||
+          (dir == Bond::BEGINWEDGE || dir == Bond::UNKNOWN)) {
+        auto wbi = wedgeBonds.find(bond->getIdx());
+        if (wbi != wedgeBonds.end() &&
+            static_cast<unsigned int>(wbi->second) != bond->getBeginAtomIdx()) {
+          reverse = true;
+        }
+      } else {
+        dir = Bond::NONE;  // other types are ignored
+      }
+    } else if (bond->getBondType() == Bond::DOUBLE) {
+      // double bond stereochemistry -
+      // if the bond isn't specified, then it should go in the mrv block
+      // as "any", this was sf.net issue 2963522. for mol files
+      // two caveats to this:
+      // 1) if it's a ring bond, we'll only put the "any"
+      //    in the mol block if the user specifically asked for it.
+      //    Constantly seeing crossed bonds in rings, though maybe
+      //    technically correct, is irritating.
+      // 2) if it's a terminal bond (where there's no chance of
+      //    stereochemistry anyway), we also skip the any.
+      //    this was sf.net issue 3009756
+      if (bond->getStereo() <= Bond::STEREOANY) {
+        if (bond->getStereo() == Bond::STEREOANY) {
+          dir = Bond::UNKNOWN;
+        } else if (!(bond->getOwningMol().getRingInfo()->numBondRings(
+                       bond->getIdx())) &&
+                   bond->getBeginAtom()->getDegree() > 1 &&
+                   bond->getEndAtom()->getDegree() > 1) {
+          // we don't know that it's explicitly unspecified (covered above with
+          // the ==STEREOANY check)
+          // look to see if one of the atoms has a bond with direction set
+          if (bond->getBondDir() == Bond::EITHERDOUBLE) {
+            dir = Bond::UNKNOWN;
+          } else {
+            if ((bond->getBeginAtom()->getTotalValence() -
+                 bond->getBeginAtom()->getTotalDegree()) == 1 &&
+                (bond->getEndAtom()->getTotalValence() -
+                 bond->getEndAtom()->getTotalDegree()) == 1) {
+              // we only do this if each atom only has one unsaturation
+              // FIX: this is the fix for github #2649, but we will need to
+              // change it once we start handling allenes properly
+
+              if (checkNeighborsForNoBondDir(bond, bond->getBeginAtom()) &&
+                  checkNeighborsForNoBondDir(bond, bond->getEndAtom())) {
+                dir = Bond::UNKNOWN;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+ private:
+  bool hasNonDefaultValence(const Atom *atom) {
+    if (atom->getNumRadicalElectrons() != 0) {
+      return true;
+    }
+
+    if (atom->hasQuery()) {
       return false;
     }
 
-    std::string getMarvinQueryBondSymbol(const Bond *bond) 
-    {
-      PRECONDITION(bond, "no bond");
-      PRECONDITION(bond->hasQuery(), "no query");
-
-      Bond::QUERYBOND_QUERY *qry = bond->getQuery();
-      if (qry->getDescription() == "BondOrder" || isQueryBondInRing(bond)) 
-        return "";
-      else 
-      {
-        // start by catching combined bond order + bond topology queries
-        if (qry->getDescription() == "BondAnd" && !qry->getNegation() &&
-            qry->endChildren() - qry->beginChildren() == 2) 
-        {
-          auto child1 = qry->beginChildren();
-          auto child2 = child1 + 1;
-          if ((*child2)->getDescription() == "BondInRing") 
-            qry = child1->get();
-          else if ((*child1)->getDescription() == "BondInRing") 
-            qry = child2->get();
-        }
-        if (qry->getDescription() == "BondOr" && !qry->getNegation()) 
-        {
-          if (qry->endChildren() - qry->beginChildren() == 2) 
-          {
-            auto child1 = qry->beginChildren();
-            auto child2 = child1 + 1;
-            if ((*child1)->getDescription() == "BondOrder" &&
-                !(*child1)->getNegation() &&
-                (*child2)->getDescription() == "BondOrder" &&
-                !(*child2)->getNegation()) 
-            {
-              // ok, it's a bond query we have a chance of dealing with
-              int t1 = static_cast<BOND_EQUALS_QUERY *>(child1->get())->getVal();
-              int t2 = static_cast<BOND_EQUALS_QUERY *>(child2->get())->getVal();
-              if (t1 > t2) 
-                std::swap(t1, t2);
-              if (t1 == Bond::SINGLE && t2 == Bond::DOUBLE) 
-                return "SD";
-              else if (t1 == Bond::SINGLE && t2 == Bond::AROMATIC) 
-                return "SA";
-              else if (t1 == Bond::DOUBLE && t2 == Bond::AROMATIC) 
-                return "DA";
-            }
-          }
-        } 
-        else if (qry->getDescription() == "SingleOrAromaticBond" && !qry->getNegation()) 
-          return "SA";
-        else if (qry->getDescription() == "SingleOrDoubleBond" && !qry->getNegation()) 
-          return "SD";
-        else if (qry->getDescription() == "DoubleOrAromaticBond" && !qry->getNegation()) 
-          return "DA";
-        else if (qry->getDescription() == "BondNull" && !qry->getNegation()) 
-          return "Any";
-      }
-
-      throw MarvinWriterException("Only SA, DA, SD, and Any query bond are supported for MarvinWriter");
+    if (atom->getAtomicNum() == 1 ||
+        SmilesWrite::inOrganicSubset(atom->getAtomicNum())) {
+      return false;
     }
 
-    void GetMarvinBondSymbol(const Bond *bond, std::string &order, std::string &queryType, std::string &convention)
-    {
-      PRECONDITION(bond, "");
-      
-      convention = "";
-      order = "";
-      queryType = "";
+    return true;
+  }
 
-      if (bond->hasQuery())
-      {
-        order = "1";
-        queryType = getMarvinQueryBondSymbol(bond);
-        if (queryType == "")
-          throw MarvinWriterException("Only 1,2,3,Aromatic, and query bonds SA, DA, and SD are supported for MarvinWriter");
-        return;
-      }
-      
-      queryType = "";   // not s query
+  MarvinMol *MolToMarvinMol(RWMol *mol, int &molCount, int &atomCount,
+                            int &bondCount, int &sgCount, int confId = (-1)) {
+    // molCount is the starting and ending molCount - used when called from a
+    // rxn
 
-      switch (bond->getBondType()) 
-      {
-        case Bond::SINGLE:
-          if (bond->getIsAromatic()) 
-            order = "A";
-          else
-            order =  "1";
-          break;
+    MarvinMol *marvinMol = nullptr;
+    const Conformer *conf = nullptr;
+    int tempMolCount = 0, tempAtomCount = 0, tempBondCount = 0, tempSgCount = 0;
+    try {
+      marvinMol = new MarvinMol();
 
-        case Bond::DOUBLE:
-          if (bond->getIsAromatic()) 
-            order = "A";
-          else
-            order =  "2";
-          break;
-        case Bond::TRIPLE:
-          order = "3";
-          break;
+      marvinMol->molID = 'm' + std::to_string(++tempMolCount);
 
-        case Bond::AROMATIC:
-          order =  "A";
-          break;
+      // get a 2D conformer
 
-        case Bond::DATIVE:
-          convention = "cxn:coord";
-          break;
-
-        default:
-          throw MarvinWriterException("Only 1,2,3,Aromatic, and query bonds SA, DA, and SD are supported for MarvinWriter");
-      }
-    }
-
-  private:
-    bool checkNeighborsForNoBondDir(const Bond *bond, const Atom *atom) 
-    {
-      // this checks the neighbors of a double bond to see if they have a wedge that is NOT accociated with a chiral center
-
-      PRECONDITION(bond, "no bond");
-      PRECONDITION(atom, "no atom");
-      std::vector<int> nbrRanks;
-      for (auto bondIt :
-          boost::make_iterator_range(bond->getOwningMol().getAtomBonds(atom))) {
-        const auto nbrBond = bond->getOwningMol()[bondIt];
-        if (nbrBond->getBondType() == Bond::SINGLE) {
-          if (nbrBond->getBondDir() == Bond::ENDUPRIGHT ||
-              nbrBond->getBondDir() == Bond::ENDDOWNRIGHT) {
-            return false;
-          } else {
-            const auto otherAtom = nbrBond->getOtherAtom(atom);
-            int rank;
-            if (otherAtom->getPropIfPresent(common_properties::_CIPRank, rank)) {
-              if (std::find(nbrRanks.begin(), nbrRanks.end(), rank) !=
-                  nbrRanks.end()) {
-                return false;
-              } else {
-                nbrRanks.push_back(rank);
-              }
-            }
+      int confCount = mol->getNumConformers();
+      if (confCount > 0) {
+        if (confId >= 0 && confId < confCount) {
+          Conformer *testConf = &mol->getConformer(confId);
+          if (!testConf->is3D()) {
+            conf = testConf;
           }
         }
-      }
-      return true;
-    }
-    
-    void GetMarvinBondStereoInfo(const Bond *bond, const INT_MAP_INT &wedgeBonds,
-                                  const Conformer *conf,  Bond::BondDir &dir,
-                                  bool &reverse) 
-    {
-      PRECONDITION(bond, "");
-      reverse = false;
-      dir = Bond::NONE;
-      if (bond->getBondType() == Bond::SINGLE) 
-      {
-        // single bond stereo chemistry
-        dir = DetermineBondWedgeState(bond, wedgeBonds, conf);
 
-        // if this bond needs to be wedged it is possible that this
-        // wedging was determined by a chiral atom at the end of the
-        // bond (instead of at the beginning). In this case we need to
-        // reverse the begin and end atoms for the bond when we write
-        // the mol file
-
-        if ((dir == Bond::BEGINDASH) || (dir == Bond::BEGINWEDGE || dir == Bond::UNKNOWN)) 
-        {
-          auto wbi = wedgeBonds.find(bond->getIdx());
-          if (wbi != wedgeBonds.end() && static_cast<unsigned int>(wbi->second) != bond->getBeginAtomIdx()) 
-            reverse = true;
-        }
-        else
-          dir = Bond::NONE;   // other types are ignored
-      } 
-      else if (bond->getBondType() == Bond::DOUBLE) 
-      {
-        // double bond stereochemistry -
-        // if the bond isn't specified, then it should go in the mrv block
-        // as "any", this was sf.net issue 2963522. for mol files
-        // two caveats to this:
-        // 1) if it's a ring bond, we'll only put the "any"
-        //    in the mol block if the user specifically asked for it.
-        //    Constantly seeing crossed bonds in rings, though maybe
-        //    technically correct, is irritating.
-        // 2) if it's a terminal bond (where there's no chance of
-        //    stereochemistry anyway), we also skip the any.
-        //    this was sf.net issue 3009756
-        if (bond->getStereo() <= Bond::STEREOANY) 
-        {
-          if (bond->getStereo() == Bond::STEREOANY)
-            dir = Bond::UNKNOWN;
-          else if (!(bond->getOwningMol().getRingInfo()->numBondRings(
-                        bond->getIdx())) &&
-                    bond->getBeginAtom()->getDegree() > 1 &&
-                    bond->getEndAtom()->getDegree() > 1) 
-          {
-            // we don't know that it's explicitly unspecified (covered above with
-            // the ==STEREOANY check)
-            // look to see if one of the atoms has a bond with direction set
-            if (bond->getBondDir() == Bond::EITHERDOUBLE) 
-              dir = Bond::UNKNOWN;
-            else 
-            {
-              if ((bond->getBeginAtom()->getTotalValence() -
-                  bond->getBeginAtom()->getTotalDegree()) == 1 &&
-                  (bond->getEndAtom()->getTotalValence() -
-                  bond->getEndAtom()->getTotalDegree()) == 1) 
-                  {
-                // we only do this if each atom only has one unsaturation
-                // FIX: this is the fix for github #2649, but we will need to change
-                // it once we start handling allenes properly
-
-                if (checkNeighborsForNoBondDir(bond, bond->getBeginAtom()) &&
-                    checkNeighborsForNoBondDir(bond, bond->getEndAtom())) {
-                  dir = Bond::UNKNOWN;
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-  private:
-
-    bool hasNonDefaultValence(const Atom *atom) 
-    {
-      if (atom->getNumRadicalElectrons() != 0) 
-        return true;
-
-      if (atom->hasQuery()) 
-        return false;
-
-      if (atom->getAtomicNum() == 1 || SmilesWrite::inOrganicSubset(atom->getAtomicNum())) 
-        return false;
-     
-      return true;
-    }
-
-    MarvinMol *MolToMarvinMol(RWMol *mol, int &molCount, int &atomCount, int &bondCount, int &sgCount,  int confId=(-1))
-    {
-      //molCount is the starting and ending molCount - used when called from a rxn
-      
-      MarvinMol *marvinMol = NULL;
-      const Conformer *conf = NULL;
-      int tempMolCount=0, tempAtomCount=0, tempBondCount=0, tempSgCount=0;
-      try
-      {
-        marvinMol = new MarvinMol();
-
-        marvinMol->molID = 'm' + std::to_string(++tempMolCount);
-
-        // get a 2D conformer
-
-        int confCount = mol->getNumConformers();
-        if (confCount > 0)
-        {
-          if (confId >= 0 && confId < confCount)
-          {
+        if (conf == nullptr) {
+          for (unsigned int confId = 0; confId < mol->getNumConformers();
+               ++confId) {
             Conformer *testConf = &mol->getConformer(confId);
-            if (!testConf->is3D())
+            if (!testConf->is3D()) {
               conf = testConf;
-          }
-          
-          if (conf == NULL)
-          {
-            for (unsigned int confId = 0; confId < mol->getNumConformers(); ++confId) 
-            {
-              Conformer *testConf = &mol->getConformer(confId);
-              if (!testConf->is3D())
-              { 
-                conf = testConf;
-                break;
-              }
+              break;
             }
           }
         }
+      }
 
-        for (auto atom : mol->atoms())
-        {
-          auto marvinAtom = new MarvinAtom();
-          marvinMol->atoms.push_back(marvinAtom);
+      for (auto atom : mol->atoms()) {
+        auto marvinAtom = new MarvinAtom();
+        marvinMol->atoms.push_back(marvinAtom);
 
-          marvinAtom->id = 'a' + std::to_string(++tempAtomCount);
+        marvinAtom->id = 'a' + std::to_string(++tempAtomCount);
 
-          GetMarvinAtomInfo(atom, marvinAtom);
-          
-          marvinAtom->formalCharge = atom->getFormalCharge();
+        GetMarvinAtomInfo(atom, marvinAtom);
 
-          unsigned int nRadEs = atom->getNumRadicalElectrons();
-          if (nRadEs != 0)
-            marvinAtom->radical = radicalElectronsToMarvinRadical.at(nRadEs);
+        marvinAtom->formalCharge = atom->getFormalCharge();
 
-          if (marvinAtom->isElement())
-          {
-            marvinAtom->isotope = atom->getIsotope();
+        unsigned int nRadEs = atom->getNumRadicalElectrons();
+        if (nRadEs != 0) {
+          marvinAtom->radical = radicalElectronsToMarvinRadical.at(nRadEs);
+        }
 
-            if (marvinAtom->radical == "" && hasNonDefaultValence(atom)) 
-            {
-              if (atom->getTotalDegree() == 0)
-              {
-                // Specify zero valence for elements/metals without neighbors
-                // or hydrogens (degree 0) instead of writing them as radicals.
-                marvinAtom->mrvValence = (-1);
-              } 
-              else 
-              {
-                // if there are explicit Hs , mark them in the atom
+        if (marvinAtom->isElement()) {
+          marvinAtom->isotope = atom->getIsotope();
 
-                if (atom->getNoImplicit() && atom->getNumExplicitHs() > 0)
-                  marvinAtom->hydrogenCount = atom->getNumExplicitHs();
+          if (marvinAtom->radical == "" && hasNonDefaultValence(atom)) {
+            if (atom->getTotalDegree() == 0) {
+              // Specify zero valence for elements/metals without neighbors
+              // or hydrogens (degree 0) instead of writing them as radicals.
+              marvinAtom->mrvValence = (-1);
+            } else {
+              // if there are explicit Hs , mark them in the atom
 
-                else
-                {
-                  unsigned int totalValence = atom->getTotalValence();
-                  if (totalValence != 15) 
-                    marvinAtom->mrvValence = totalValence%15;  
+              if (atom->getNoImplicit() && atom->getNumExplicitHs() > 0) {
+                marvinAtom->hydrogenCount = atom->getNumExplicitHs();
+
+              } else {
+                unsigned int totalValence = atom->getTotalValence();
+                if (totalValence != 15) {
+                  marvinAtom->mrvValence = totalValence % 15;
                 }
               }
             }
           }
-          
-          if (!atom->getPropIfPresent(common_properties::molAtomMapNumber, marvinAtom->mrvMap))
-            marvinAtom->mrvMap=0;
-
-          if (conf != NULL)
-          {
-            const RDGeom::Point3D pos = conf->getAtomPos(atom->getIdx());
-            marvinAtom->x2 = pos.x;
-            marvinAtom->y2 = pos.y;
-          }
-          else
-          {
-            marvinAtom->x2 = DBL_MAX;
-            marvinAtom->y2 = DBL_MAX;
-          }
-    
- 
-          // atom maps for rxns
-
-          if (!atom->getPropIfPresent(common_properties::molAtomMapNumber, marvinAtom->mrvMap)) 
-            marvinAtom->mrvMap = 0;
         }
 
-        INT_MAP_INT wedgeBonds = pickBondsToWedge(*mol);
-        
-        for (auto bond : mol->bonds())
-        {
-          auto marvinBond = new MarvinBond();
-          marvinMol->bonds.push_back(marvinBond);
-
-          marvinBond->id = 'b' + std::to_string(++tempBondCount);
-
-          GetMarvinBondSymbol(bond, marvinBond->order, marvinBond->queryType, marvinBond->convention );
-          
-
-          Bond::BondDir bondDirection;
-          bool reverse;
-          GetMarvinBondStereoInfo(bond, wedgeBonds, conf, bondDirection, reverse);
-
-        
-          if (reverse) 
-          {
-            // switch the begin and end atoms on the bond line
-            marvinBond->atomRefs2[0] = marvinMol->atoms[bond->getEndAtomIdx()]->id;
-            marvinBond->atomRefs2[1] = marvinMol->atoms[bond->getBeginAtomIdx()]->id;
-          } 
-          else 
-          {
-            marvinBond->atomRefs2[0] = marvinMol->atoms[bond->getBeginAtomIdx()]->id;
-            marvinBond->atomRefs2[1] = marvinMol->atoms[bond->getEndAtomIdx()]->id;
-          }
-
-          switch (bondDirection)
-          {
-            case Bond::NONE:
-              marvinBond->bondStereo.value = "";
-              break;
-            case Bond::BEGINWEDGE:
-                marvinBond->bondStereo.value = "W";
-                break;
-            case Bond::BEGINDASH:
-                marvinBond->bondStereo.value = "H";
-                break;
-            case Bond::UNKNOWN:
-                marvinBond->bondStereo.value = "";
-                marvinBond->bondStereo.convention = "MDL";
-                if (marvinBond->order == "2")
-                  marvinBond->bondStereo.conventionValue = "3";
-                else
-                  marvinBond->bondStereo.conventionValue = "4";
-                break;
-
-            default:
-              marvinBond->bondStereo.value = "";   // other types are ignored
-          }       
+        if (!atom->getPropIfPresent(common_properties::molAtomMapNumber,
+                                    marvinAtom->mrvMap)) {
+          marvinAtom->mrvMap = 0;
         }
 
-        // get all stereoGroups - add them to the correct atoms
-        int orCount=0;
-        int andCount=0;
-
-        for (const StereoGroup group : mol->getStereoGroups())
-        {
-          std::string stereoGroupType;
-
-          switch (group.getGroupType()) {
-            case RDKit::StereoGroupType::STEREO_ABSOLUTE:
-              stereoGroupType = "abs";
-              break;
-            case RDKit::StereoGroupType::STEREO_OR:
-              stereoGroupType = "or" + std::to_string(++orCount);
-              break;
-            case RDKit::StereoGroupType::STEREO_AND:
-                stereoGroupType = "and" + std::to_string(++andCount);
-              break;
-            default:
-              throw MarvinWriterException("Unrecognized stereo group type"); 
-          }
-          for (auto &&atom : group.getAtoms()) 
-            marvinMol->atoms[atom->getIdx()]->mrvStereoGroup = stereoGroupType;
+        if (conf != nullptr) {
+          const RDGeom::Point3D pos = conf->getAtomPos(atom->getIdx());
+          marvinAtom->x2 = pos.x;
+          marvinAtom->y2 = pos.y;
+        } else {
+          marvinAtom->x2 = DBL_MAX;
+          marvinAtom->y2 = DBL_MAX;
         }
 
-        for (const SubstanceGroup &sgroup:  getSubstanceGroups(*mol))
-        {
-          std::string type = sgroup.getProp<std::string>("TYPE");
-          if (type == "SRU" || type == "MOD" || type == "COP")
-          {
-            std::string mrvType;
-            if (type == "SRU")
-              mrvType = "SruSgroup";
-            else if (type == "MOD")
-              mrvType = "ModificationSgroup";
-            else if (type == "COP")
-              mrvType = "CopolymerSgroup";
-                        
-            auto marvinCoModSruSgroup =new MarvinSruCoModSgroup(mrvType, marvinMol);
-            marvinMol->sgroups.push_back(marvinCoModSruSgroup);
+        // atom maps for rxns
 
-            if (!sgroup.getPropIfPresent("LABEL", marvinCoModSruSgroup->title)) 
-              throw MarvinWriterException("Expected a LABEL attribute for an SRU, MOD, or COP group"); 
-              
-            if (!sgroup.getPropIfPresent("CONNECT", marvinCoModSruSgroup->connect)) 
-              throw MarvinWriterException("Expected a CONNECT attribute for an SRU, MOD, or COP group"); 
-
-            marvinCoModSruSgroup->id = "sg" + std::to_string(++tempSgCount);
-            marvinCoModSruSgroup->molID  = 'm' + std::to_string(++tempMolCount);
-
-
-            for (auto atomIndex : sgroup.getAtoms())
-            {
-                marvinCoModSruSgroup->atoms.push_back(marvinMol->atoms[atomIndex]);
-                if (!marvinMol->atoms[atomIndex]->sGroupRefIsSuperatom)
-                  marvinMol->atoms[atomIndex]->sgroupRef =  marvinCoModSruSgroup->id;
-            }
-            
-            for (auto bondIndex : sgroup.getBonds())
-            {
-                marvinCoModSruSgroup->bonds.push_back(marvinMol->bonds[bondIndex]);
-            }
-          }
-
-          else if (type == "DAT")
-          {                             
-            auto marvinDataSgroup =new MarvinDataSgroup(marvinMol);
-            marvinMol->sgroups.push_back(marvinDataSgroup);
-
-            marvinDataSgroup->id = "sg" + std::to_string(++tempSgCount);
-            marvinDataSgroup->molID  = 'm' + std::to_string(++tempMolCount);
-            marvinDataSgroup->fieldName = sgroup.getProp<std::string>(std::string("FIELDNAME"));
-            if (sgroup.hasProp(std::string("QUERYTYPE")))
-              marvinDataSgroup->queryType = sgroup.getProp<std::string>(std::string("QUERYTYPE"));
-            if (sgroup.hasProp(std::string("QUERYOP")))
-              marvinDataSgroup->queryOp = sgroup.getProp<std::string>(std::string("QUERYOP"));
-            std::vector<std::string> fieldDatas = sgroup.getProp<std::vector<std::string>>(std::string("DATAFIELDS"));
-            marvinDataSgroup->fieldData = boost::algorithm::join(fieldDatas,"\n");
-            marvinDataSgroup->units = sgroup.getProp<std::string>(std::string("UNITS"));
-
-            marvinDataSgroup->x = sgroup.getProp<double>(std::string("X"));
-            marvinDataSgroup->y = sgroup.getProp<double>(std::string("Y"));
-            marvinDataSgroup->context = sgroup.getProp<std::string>(std::string("CONTEXT"));
-            marvinDataSgroup->placement = sgroup.getProp<std::string>(std::string("PLACEMENT"));
-            marvinDataSgroup->unitsDisplayed = sgroup.getProp<std::string>(std::string("UNITSDISPLAYED"));
-
-
-        
-            for (auto atomIndex : sgroup.getAtoms())
-            {
-                marvinDataSgroup->atoms.push_back(marvinMol->atoms[atomIndex]);
-                if (!marvinMol->atoms[atomIndex]->sGroupRefIsSuperatom)
-                  marvinMol->atoms[atomIndex]->sgroupRef =  marvinDataSgroup->id;
-            }
-            
-            
-          }
-
-          else if (type == "SUP")
-          {
-            auto superatomSgroupExpanded =new MarvinSuperatomSgroupExpanded(marvinMol);
-            marvinMol->sgroups.push_back(superatomSgroupExpanded);
-
-            superatomSgroupExpanded->id = "sg" + std::to_string(++tempSgCount);
-            superatomSgroupExpanded->molID  = 'm' + std::to_string(++tempMolCount);
-
-            superatomSgroupExpanded->title = sgroup.getProp<std::string>(std::string("LABEL"));
-              
-            for (auto atomIndex : sgroup.getAtoms())
-                superatomSgroupExpanded->atoms.push_back(marvinMol->atoms[atomIndex]);
-          }
-
-          else if (type == "MUL")
-          {
-                              
-            auto marvinMultipleSgroup =new MarvinMultipleSgroup(marvinMol);
-            marvinMol->sgroups.push_back(marvinMultipleSgroup);
-            marvinMultipleSgroup->id = "sg" + std::to_string(++tempSgCount);
-            marvinMultipleSgroup->molID  = 'm' + std::to_string(++tempMolCount);
-
-            std::string titleValue;
-            if (!sgroup.getPropIfPresent("MULT", titleValue) && !sgroup.getPropIfPresent("LABEL", titleValue)) 
-              throw MarvinWriterException("Title not found for a MultipleSgroup"); 
-            marvinMultipleSgroup->title = titleValue;
-              
-
-            for (auto atomIndex : sgroup.getAtoms())
-            {
-                marvinMultipleSgroup->atoms.push_back(marvinMol->atoms[atomIndex]);
-                if (!marvinMol->atoms[atomIndex]->sGroupRefIsSuperatom)
-                  marvinMol->atoms[atomIndex]->sgroupRef =  marvinMultipleSgroup->id;
-            }
-            for (auto atomIndex : sgroup.getParentAtoms())
-                marvinMultipleSgroup->parentAtoms.push_back(marvinMol->atoms[atomIndex]);
-                
-            marvinMultipleSgroup->isExpanded = true;
-          }
-
-          else if (type == "GEN")
-          {
-                              
-            auto marvinGenericSgroup =new MarvinGenericSgroup(marvinMol);
-            marvinMol->sgroups.push_back(marvinGenericSgroup);
-            marvinGenericSgroup->id = "sg" + std::to_string(++tempSgCount);
-            marvinGenericSgroup->molID  = 'm' + std::to_string(++tempMolCount);
-
-          
-            marvinGenericSgroup->charge = "onAtoms";   // RDKit has not place to put the charge location value, so we assume onAtoms here
-              
-
-            for (auto atomIndex : sgroup.getAtoms())
-            {
-                MarvinAtom *marvinAtom = marvinMol->atoms[atomIndex];
-                marvinGenericSgroup->atoms.push_back(marvinAtom);
-                if (!marvinAtom->sGroupRefIsSuperatom)
-                  marvinAtom->sgroupRef =  marvinGenericSgroup->id;
-            }
-          }
-
-          else if (type == "MON")
-          {
-                  // <molecule id="sg1" role="MonomerSgroup" title="mon" charge="onAtoms" molID="m2" atomRefs="a2 a1 a3 a4">
-                  // </molecule>             
-            auto marvinMonomerSgroup =new MarvinMonomerSgroup(marvinMol);
-            marvinMol->sgroups.push_back(marvinMonomerSgroup);
-
-            marvinMonomerSgroup->id = "sg" + std::to_string(++tempSgCount);
-            marvinMonomerSgroup->molID  = 'm' + std::to_string(++tempMolCount);
-
-            std::string titleValue;
-            if (!sgroup.getPropIfPresent("MULT", titleValue) && !sgroup.getPropIfPresent("LABEL", titleValue)) 
-              throw MarvinWriterException("Title not found for a MultipleSgroup"); 
-            marvinMonomerSgroup->title = titleValue;
-
-            marvinMonomerSgroup->charge = "onAtoms";   // RDKit has not place to put the charge location value, so we assume onAtoms here
-              
-          }
+        if (!atom->getPropIfPresent(common_properties::molAtomMapNumber,
+                                    marvinAtom->mrvMap)) {
+          marvinAtom->mrvMap = 0;
         }
-
-        // convert the superInfos to supergroups
-
-        marvinMol->processSgroupsFromRDKit();
-        marvinMol->clearMaps();
-        marvinMol->cleanUpNumbering(molCount, atomCount, bondCount, sgCount );
-
-        return marvinMol;
       }
-      catch(const std::exception& e)
-      {
-        delete marvinMol;
-        throw;
-      }
-    }
 
-    public:
+      INT_MAP_INT wedgeBonds = pickBondsToWedge(*mol);
 
-    MarvinMol *MolToMarvinMol(RWMol *mol, int confId = -1) 
-    {
-        int molCount=0, atomCount = 0, bondCount = 0, sgCount = 0;
-        
-        return MolToMarvinMol(mol, molCount, atomCount, bondCount, sgCount, confId);
-    }
+      for (auto bond : mol->bonds()) {
+        auto marvinBond = new MarvinBond();
+        marvinMol->bonds.push_back(marvinBond);
 
+        marvinBond->id = 'b' + std::to_string(++tempBondCount);
 
-    static bool compareRowsOfRectanglesReverse(std::vector<MarvinRectangle> &v1, std::vector<MarvinRectangle> &v2)
-    {
-      auto rect1 = MarvinRectangle(v1);  // composite rectangle for the previous row
-      auto rect2 = MarvinRectangle(v2);  // composite rectangle for the row
-      return MarvinRectangle::compareRectanglesByYReverse(rect1, rect2);  // just compare the first one in each row
-    }
+        GetMarvinBondSymbol(bond, marvinBond->order, marvinBond->queryType,
+                            marvinBond->convention);
 
-    double GetArrowPerdendicularPosition(
-      std::vector<MarvinMol *>molList   // list of mols (agents) to examince for a space for the arrow
-      , bool verticalFlag)              // if verticalFlag, the arrow is to be placed horizonatally, so look for a vertical (y) space
-    {
-      // dividing the mols into rows and sorted by y value
+        Bond::BondDir bondDirection;
+        bool reverse;
+        GetMarvinBondStereoInfo(bond, wedgeBonds, conf, bondDirection, reverse);
 
-      std::vector<MarvinRectangle> rectangleList;
-      for (auto mol : molList)
-      {
-        // see if there is horizontal overlap with any existing row
-
-        MarvinRectangle molRect(mol->atoms);
-        bool foundOverlap = false;
-        for (MarvinRectangle rectangle : rectangleList)
-        {           
-            if ((verticalFlag == true && molRect.overlapsVertically(rectangle))
-              ||
-                (verticalFlag == false && molRect.overlapsVHorizontally(rectangle)))
-            {
-              rectangle.extend(molRect);
-              foundOverlap = true;
-              break;
-            }          
+        if (reverse) {
+          // switch the begin and end atoms on the bond line
+          marvinBond->atomRefs2[0] =
+              marvinMol->atoms[bond->getEndAtomIdx()]->id;
+          marvinBond->atomRefs2[1] =
+              marvinMol->atoms[bond->getBeginAtomIdx()]->id;
+        } else {
+          marvinBond->atomRefs2[0] =
+              marvinMol->atoms[bond->getBeginAtomIdx()]->id;
+          marvinBond->atomRefs2[1] =
+              marvinMol->atoms[bond->getEndAtomIdx()]->id;
         }
 
-        if (!foundOverlap)  // no overlap with a current row rectangle, so make a new one
-          rectangleList.push_back(molRect);
+        switch (bondDirection) {
+          case Bond::NONE:
+            marvinBond->bondStereo.value = "";
+            break;
+          case Bond::BEGINWEDGE:
+            marvinBond->bondStereo.value = "W";
+            break;
+          case Bond::BEGINDASH:
+            marvinBond->bondStereo.value = "H";
+            break;
+          case Bond::UNKNOWN:
+            marvinBond->bondStereo.value = "";
+            marvinBond->bondStereo.convention = "MDL";
+            if (marvinBond->order == "2") {
+              marvinBond->bondStereo.conventionValue = "3";
+            } else {
+              marvinBond->bondStereo.conventionValue = "4";
+            }
+            break;
+
+          default:
+            marvinBond->bondStereo.value = "";  // other types are ignored
+        }
       }
-          
-      //sort the rows by X or Y, depending on vertical flag
 
-      if (verticalFlag)
-        std::sort(rectangleList.begin(), rectangleList.end(), MarvinRectangle::compareRectanglesByYReverse);  // sort top down
-      else        
-        std::sort(rectangleList.begin(), rectangleList.end(), MarvinRectangle::compareRectanglesByX);
+      // get all stereoGroups - add them to the correct atoms
+      int orCount = 0;
+      int andCount = 0;
 
-      // find a  spot for the arrow between rectangles, if possible
+      for (const StereoGroup group : mol->getStereoGroups()) {
+        std::string stereoGroupType;
 
-      for (auto rect1 = rectangleList.begin(); rect1 != rectangleList.end() ; ++rect1)
-      {
-        auto rect2 = rect1 + 1;
-        if (rect2 == rectangleList.end())
+        switch (group.getGroupType()) {
+          case RDKit::StereoGroupType::STEREO_ABSOLUTE:
+            stereoGroupType = "abs";
+            break;
+          case RDKit::StereoGroupType::STEREO_OR:
+            stereoGroupType = "or" + std::to_string(++orCount);
+            break;
+          case RDKit::StereoGroupType::STEREO_AND:
+            stereoGroupType = "and" + std::to_string(++andCount);
+            break;
+          default:
+            throw MarvinWriterException("Unrecognized stereo group type");
+        }
+        for (auto &&atom : group.getAtoms()) {
+          marvinMol->atoms[atom->getIdx()]->mrvStereoGroup = stereoGroupType;
+        }
+      }
+
+      for (const SubstanceGroup &sgroup : getSubstanceGroups(*mol)) {
+        auto type = sgroup.getProp<std::string>("TYPE");
+        if (type == "SRU" || type == "MOD" || type == "COP") {
+          std::string mrvType;
+          if (type == "SRU") {
+            mrvType = "SruSgroup";
+          } else if (type == "MOD") {
+            mrvType = "ModificationSgroup";
+          } else if (type == "COP") {
+            mrvType = "CopolymerSgroup";
+          }
+
+          auto marvinCoModSruSgroup =
+              new MarvinSruCoModSgroup(mrvType, marvinMol);
+          marvinMol->sgroups.push_back(marvinCoModSruSgroup);
+
+          if (!sgroup.getPropIfPresent("LABEL", marvinCoModSruSgroup->title)) {
+            throw MarvinWriterException(
+                "Expected a LABEL attribute for an SRU, MOD, or COP group");
+          }
+
+          if (!sgroup.getPropIfPresent("CONNECT",
+                                       marvinCoModSruSgroup->connect)) {
+            throw MarvinWriterException(
+                "Expected a CONNECT attribute for an SRU, MOD, or COP group");
+          }
+
+          marvinCoModSruSgroup->id = "sg" + std::to_string(++tempSgCount);
+          marvinCoModSruSgroup->molID = 'm' + std::to_string(++tempMolCount);
+
+          for (auto atomIndex : sgroup.getAtoms()) {
+            marvinCoModSruSgroup->atoms.push_back(marvinMol->atoms[atomIndex]);
+            if (!marvinMol->atoms[atomIndex]->sGroupRefIsSuperatom) {
+              marvinMol->atoms[atomIndex]->sgroupRef = marvinCoModSruSgroup->id;
+            }
+          }
+
+          for (auto bondIndex : sgroup.getBonds()) {
+            marvinCoModSruSgroup->bonds.push_back(marvinMol->bonds[bondIndex]);
+          }
+        }
+
+        else if (type == "DAT") {
+          auto marvinDataSgroup = new MarvinDataSgroup(marvinMol);
+          marvinMol->sgroups.push_back(marvinDataSgroup);
+
+          marvinDataSgroup->id = "sg" + std::to_string(++tempSgCount);
+          marvinDataSgroup->molID = 'm' + std::to_string(++tempMolCount);
+          marvinDataSgroup->fieldName =
+              sgroup.getProp<std::string>(std::string("FIELDNAME"));
+          if (sgroup.hasProp(std::string("QUERYTYPE"))) {
+            marvinDataSgroup->queryType =
+                sgroup.getProp<std::string>(std::string("QUERYTYPE"));
+          }
+          if (sgroup.hasProp(std::string("QUERYOP"))) {
+            marvinDataSgroup->queryOp =
+                sgroup.getProp<std::string>(std::string("QUERYOP"));
+          }
+          auto fieldDatas = sgroup.getProp<std::vector<std::string>>(
+              std::string("DATAFIELDS"));
+          marvinDataSgroup->fieldData =
+              boost::algorithm::join(fieldDatas, "\n");
+          marvinDataSgroup->units =
+              sgroup.getProp<std::string>(std::string("UNITS"));
+
+          marvinDataSgroup->x = sgroup.getProp<double>(std::string("X"));
+          marvinDataSgroup->y = sgroup.getProp<double>(std::string("Y"));
+          marvinDataSgroup->context =
+              sgroup.getProp<std::string>(std::string("CONTEXT"));
+          marvinDataSgroup->placement =
+              sgroup.getProp<std::string>(std::string("PLACEMENT"));
+          marvinDataSgroup->unitsDisplayed =
+              sgroup.getProp<std::string>(std::string("UNITSDISPLAYED"));
+
+          for (auto atomIndex : sgroup.getAtoms()) {
+            marvinDataSgroup->atoms.push_back(marvinMol->atoms[atomIndex]);
+            if (!marvinMol->atoms[atomIndex]->sGroupRefIsSuperatom) {
+              marvinMol->atoms[atomIndex]->sgroupRef = marvinDataSgroup->id;
+            }
+          }
+
+        }
+
+        else if (type == "SUP") {
+          auto superatomSgroupExpanded =
+              new MarvinSuperatomSgroupExpanded(marvinMol);
+          marvinMol->sgroups.push_back(superatomSgroupExpanded);
+
+          superatomSgroupExpanded->id = "sg" + std::to_string(++tempSgCount);
+          superatomSgroupExpanded->molID = 'm' + std::to_string(++tempMolCount);
+
+          superatomSgroupExpanded->title =
+              sgroup.getProp<std::string>(std::string("LABEL"));
+
+          for (auto atomIndex : sgroup.getAtoms()) {
+            superatomSgroupExpanded->atoms.push_back(
+                marvinMol->atoms[atomIndex]);
+          }
+        }
+
+        else if (type == "MUL") {
+          auto marvinMultipleSgroup = new MarvinMultipleSgroup(marvinMol);
+          marvinMol->sgroups.push_back(marvinMultipleSgroup);
+          marvinMultipleSgroup->id = "sg" + std::to_string(++tempSgCount);
+          marvinMultipleSgroup->molID = 'm' + std::to_string(++tempMolCount);
+
+          std::string titleValue;
+          if (!sgroup.getPropIfPresent("MULT", titleValue) &&
+              !sgroup.getPropIfPresent("LABEL", titleValue)) {
+            throw MarvinWriterException("Title not found for a MultipleSgroup");
+          }
+          marvinMultipleSgroup->title = titleValue;
+
+          for (auto atomIndex : sgroup.getAtoms()) {
+            marvinMultipleSgroup->atoms.push_back(marvinMol->atoms[atomIndex]);
+            if (!marvinMol->atoms[atomIndex]->sGroupRefIsSuperatom) {
+              marvinMol->atoms[atomIndex]->sgroupRef = marvinMultipleSgroup->id;
+            }
+          }
+          for (auto atomIndex : sgroup.getParentAtoms()) {
+            marvinMultipleSgroup->parentAtoms.push_back(
+                marvinMol->atoms[atomIndex]);
+          }
+
+          marvinMultipleSgroup->isExpanded = true;
+        }
+
+        else if (type == "GEN") {
+          auto marvinGenericSgroup = new MarvinGenericSgroup(marvinMol);
+          marvinMol->sgroups.push_back(marvinGenericSgroup);
+          marvinGenericSgroup->id = "sg" + std::to_string(++tempSgCount);
+          marvinGenericSgroup->molID = 'm' + std::to_string(++tempMolCount);
+
+          marvinGenericSgroup->charge =
+              "onAtoms";  // RDKit has not place to put the charge location
+                          // value, so we assume onAtoms here
+
+          for (auto atomIndex : sgroup.getAtoms()) {
+            MarvinAtom *marvinAtom = marvinMol->atoms[atomIndex];
+            marvinGenericSgroup->atoms.push_back(marvinAtom);
+            if (!marvinAtom->sGroupRefIsSuperatom) {
+              marvinAtom->sgroupRef = marvinGenericSgroup->id;
+            }
+          }
+        }
+
+        else if (type == "MON") {
+          // <molecule id="sg1" role="MonomerSgroup" title="mon"
+          // charge="onAtoms" molID="m2" atomRefs="a2 a1 a3 a4">
+          // </molecule>
+          auto marvinMonomerSgroup = new MarvinMonomerSgroup(marvinMol);
+          marvinMol->sgroups.push_back(marvinMonomerSgroup);
+
+          marvinMonomerSgroup->id = "sg" + std::to_string(++tempSgCount);
+          marvinMonomerSgroup->molID = 'm' + std::to_string(++tempMolCount);
+
+          std::string titleValue;
+          if (!sgroup.getPropIfPresent("MULT", titleValue) &&
+              !sgroup.getPropIfPresent("LABEL", titleValue)) {
+            throw MarvinWriterException("Title not found for a MultipleSgroup");
+          }
+          marvinMonomerSgroup->title = titleValue;
+
+          marvinMonomerSgroup->charge =
+              "onAtoms";  // RDKit has not place to put the charge location
+                          // value, so we assume onAtoms here
+        }
+      }
+
+      // convert the superInfos to supergroups
+
+      marvinMol->processSgroupsFromRDKit();
+      marvinMol->clearMaps();
+      marvinMol->cleanUpNumbering(molCount, atomCount, bondCount, sgCount);
+
+      return marvinMol;
+    } catch (const std::exception &e) {
+      delete marvinMol;
+      throw;
+    }
+  }
+
+ public:
+  MarvinMol *MolToMarvinMol(RWMol *mol, int confId = -1) {
+    int molCount = 0, atomCount = 0, bondCount = 0, sgCount = 0;
+
+    return MolToMarvinMol(mol, molCount, atomCount, bondCount, sgCount, confId);
+  }
+
+  static bool compareRowsOfRectanglesReverse(std::vector<MarvinRectangle> &v1,
+                                             std::vector<MarvinRectangle> &v2) {
+    auto rect1 =
+        MarvinRectangle(v1);  // composite rectangle for the previous row
+    auto rect2 = MarvinRectangle(v2);  // composite rectangle for the row
+    return MarvinRectangle::compareRectanglesByYReverse(
+        rect1, rect2);  // just compare the first one in each row
+  }
+
+  double GetArrowPerdendicularPosition(
+      std::vector<MarvinMol *> molList  // list of mols (agents) to examince for
+                                        // a space for the arrow
+      ,
+      bool verticalFlag)  // if verticalFlag, the arrow is to be placed
+                          // horizonatally, so look for a vertical (y) space
+  {
+    // dividing the mols into rows and sorted by y value
+
+    std::vector<MarvinRectangle> rectangleList;
+    for (auto mol : molList) {
+      // see if there is horizontal overlap with any existing row
+
+      MarvinRectangle molRect(mol->atoms);
+      bool foundOverlap = false;
+      for (MarvinRectangle rectangle : rectangleList) {
+        if ((verticalFlag == true && molRect.overlapsVertically(rectangle)) ||
+            (verticalFlag == false &&
+             molRect.overlapsVHorizontally(rectangle))) {
+          rectangle.extend(molRect);
+          foundOverlap = true;
           break;
-        
-        // see if there is room between for the arrow
-        
-        if (verticalFlag)
-        {
-          if (rect2->upperLeft.y - rect1->lowerRight.y >= ARROW_SPACE)
-              return (rect2->upperLeft.y + rect1->lowerRight.y)/2.0;
-        }
-        else
-        {
-          if (rect2->upperLeft.x - rect1->lowerRight.x >= ARROW_SPACE)
-              return (rect2->upperLeft.x + rect1->lowerRight.x)/2.0;
         }
       }
 
-      //if made it to here no spot was found, so place the arrow under the bottom rectangle or left of the the leftmost one
-
-      if (verticalFlag)
-        return rectangleList.front().lowerRight.y - ARROW_SPACE;
-      else
-        return rectangleList.front().upperLeft.x - ARROW_SPACE;
+      if (!foundOverlap) {  // no overlap with a current row rectangle, so make
+                            // a new one
+        rectangleList.push_back(molRect);
+      }
     }
 
-    void AddMarvinPluses(MarvinReaction &rxn, std::vector<MarvinMol *>molList, int &plusCount)
-    {
-      // dividing the mols into rows and sorted by y value
+    // sort the rows by X or Y, depending on vertical flag
 
-      std::vector<std::vector<MarvinRectangle>> rowsOfRectangles;
-      for (auto mol : molList)
-      {
-        if (!mol->hasCoords())
-          return;  // no good way to make arrows
+    if (verticalFlag) {
+      std::sort(rectangleList.begin(), rectangleList.end(),
+                MarvinRectangle::compareRectanglesByYReverse);  // sort top down
+    } else {
+      std::sort(rectangleList.begin(), rectangleList.end(),
+                MarvinRectangle::compareRectanglesByX);
+    }
 
-        // see if there is horizontal overlap with any existing row
+    // find a  spot for the arrow between rectangles, if possible
 
-        MarvinRectangle molRect(mol->atoms);
-        bool foundRow = false;
-        for (std::vector<MarvinRectangle> &row : rowsOfRectangles)
-        {
-            for ( MarvinRectangle rect : row)
-            {
-              if (molRect.overlapsVertically(rect))
-              {
-                foundRow = true;
-                row.push_back(molRect);
-                break;
-              }
-            }
+    for (auto rect1 = rectangleList.begin(); rect1 != rectangleList.end();
+         ++rect1) {
+      auto rect2 = rect1 + 1;
+      if (rect2 == rectangleList.end()) {
+        break;
+      }
+
+      // see if there is room between for the arrow
+
+      if (verticalFlag) {
+        if (rect2->upperLeft.y - rect1->lowerRight.y >= ARROW_SPACE) {
+          return (rect2->upperLeft.y + rect1->lowerRight.y) / 2.0;
         }
+      } else {
+        if (rect2->upperLeft.x - rect1->lowerRight.x >= ARROW_SPACE) {
+          return (rect2->upperLeft.x + rect1->lowerRight.x) / 2.0;
+        }
+      }
+    }
 
-        if (!foundRow)  // no overlap with a current row, so make a new one
-        {
-          std::vector<MarvinRectangle> newRow;
-          newRow.push_back(molRect);
-          rowsOfRectangles.push_back(newRow);
+    // if made it to here no spot was found, so place the arrow under the bottom
+    // rectangle or left of the the leftmost one
+
+    if (verticalFlag) {
+      return rectangleList.front().lowerRight.y - ARROW_SPACE;
+    } else {
+      return rectangleList.front().upperLeft.x - ARROW_SPACE;
+    }
+  }
+
+  void AddMarvinPluses(MarvinReaction &rxn, std::vector<MarvinMol *> molList,
+                       int &plusCount) {
+    // dividing the mols into rows and sorted by y value
+
+    std::vector<std::vector<MarvinRectangle>> rowsOfRectangles;
+    for (auto mol : molList) {
+      if (!mol->hasCoords()) {
+        return;  // no good way to make arrows
+      }
+
+      // see if there is horizontal overlap with any existing row
+
+      MarvinRectangle molRect(mol->atoms);
+      bool foundRow = false;
+      for (std::vector<MarvinRectangle> &row : rowsOfRectangles) {
+        for (MarvinRectangle rect : row) {
+          if (molRect.overlapsVertically(rect)) {
+            foundRow = true;
+            row.push_back(molRect);
+            break;
+          }
         }
       }
 
-      // sort the members of each  row by X
-
-      for (std::vector<MarvinRectangle> row : rowsOfRectangles)
-          std::sort(row.begin(), row.end(), MarvinRectangle::compareRectanglesByX);
-          
-      //sort the rows by Y
-
-      std::sort(rowsOfRectangles.begin(), rowsOfRectangles.end(), compareRowsOfRectanglesReverse);
-
-      // make a plus between each rect on each row
-
-      for (auto rowPtr = rowsOfRectangles.begin(); rowPtr != rowsOfRectangles.end() ; ++ rowPtr)
+      if (!foundRow)  // no overlap with a current row, so make a new one
       {
-        for (auto rect1 = rowPtr->begin() ; rect1 != rowPtr->end() ; ++rect1)
-        {
-            auto rect2 = rect1 + 1;
-            if (rect2 == rowPtr->end())
-              break;
-            
-            double x = (rect2->upperLeft.x + rect1->lowerRight.x)/2.0;
-            double y;
+        std::vector<MarvinRectangle> newRow;
+        newRow.push_back(molRect);
+        rowsOfRectangles.push_back(newRow);
+      }
+    }
 
-            // see if there is room between for the +
-            if (rect2->lowerRight.x - rect1->upperLeft.x >= PLUS_SPACE)
-                y = (rect2->getCenter().y + rect1->getCenter().y)/2.0;
-            else  // put it under the two rectangles
-              y = std::min<double>(rect1->lowerRight.y, rect2->lowerRight.y) - PLUS_SPACE/2.0;
+    // sort the members of each  row by X
 
-            auto newMarvinPlus = new MarvinPlus();
-            rxn.pluses.push_back(newMarvinPlus);
+    for (std::vector<MarvinRectangle> row : rowsOfRectangles) {
+      std::sort(row.begin(), row.end(), MarvinRectangle::compareRectanglesByX);
+    }
 
-            newMarvinPlus->id = "o" + std::to_string(++plusCount);
-            newMarvinPlus->x1 = x;
-            newMarvinPlus->y1 = y;
-            newMarvinPlus->x2 = x + PLUS_SPACE;
-            newMarvinPlus->y2 = y + PLUS_SPACE;
+    // sort the rows by Y
+
+    std::sort(rowsOfRectangles.begin(), rowsOfRectangles.end(),
+              compareRowsOfRectanglesReverse);
+
+    // make a plus between each rect on each row
+
+    for (auto rowPtr = rowsOfRectangles.begin();
+         rowPtr != rowsOfRectangles.end(); ++rowPtr) {
+      for (auto rect1 = rowPtr->begin(); rect1 != rowPtr->end(); ++rect1) {
+        auto rect2 = rect1 + 1;
+        if (rect2 == rowPtr->end()) {
+          break;
         }
+
+        double x = (rect2->upperLeft.x + rect1->lowerRight.x) / 2.0;
+        double y;
+
+        // see if there is room between for the +
+        if (rect2->lowerRight.x - rect1->upperLeft.x >= PLUS_SPACE) {
+          y = (rect2->getCenter().y + rect1->getCenter().y) / 2.0;
+        } else {  // put it under the two rectangles
+          y = std::min<double>(rect1->lowerRight.y, rect2->lowerRight.y) -
+              PLUS_SPACE / 2.0;
+        }
+
+        auto newMarvinPlus = new MarvinPlus();
+        rxn.pluses.push_back(newMarvinPlus);
+
+        newMarvinPlus->id = "o" + std::to_string(++plusCount);
+        newMarvinPlus->x1 = x;
+        newMarvinPlus->y1 = y;
+        newMarvinPlus->x2 = x + PLUS_SPACE;
+        newMarvinPlus->y2 = y + PLUS_SPACE;
+      }
 
       // for each row after the first, add plus
 
-        if (rowPtr != rowsOfRectangles.begin())   // 2nd and subsequent rows
+      if (rowPtr != rowsOfRectangles.begin())  // 2nd and subsequent rows
+      {
+        // if these two rows only have enough space, put the  plus between them
+
+        auto rectPrev = MarvinRectangle(
+            *(rowPtr - 1));  // composite rectangle for the previous row
+        auto rectCurr =
+            MarvinRectangle(*rowPtr);  // composite rectangle for the row
+
+        if (rectPrev.lowerRight.y - rectCurr.upperLeft.y > PLUS_SPACE) {
+          auto newMarvinPlus = new MarvinPlus();
+          rxn.pluses.push_back(newMarvinPlus);
+
+          double x = (rectPrev.getCenter().x + rectCurr.getCenter().x) / 2;
+          double y = (rectPrev.lowerRight.y + rectCurr.upperLeft.y) / 2;
+          newMarvinPlus->id = "o" + std::to_string(++plusCount);
+          newMarvinPlus->x1 = x;
+          newMarvinPlus->y1 = y;
+          newMarvinPlus->x2 = x + (PLUS_SPACE);
+          newMarvinPlus->y2 = y + (PLUS_SPACE);
+        } else  // just put it in front of the current row
         {
-          // if these two rows only have enough space, put the  plus between them
+          auto newMarvinPlus = new MarvinPlus();
+          rxn.pluses.push_back(newMarvinPlus);
 
-          auto rectPrev = MarvinRectangle(*(rowPtr-1));  // composite rectangle for the previous row
-          auto rectCurr = MarvinRectangle(*rowPtr);  // composite rectangle for the row
-
-          if (rectPrev.lowerRight.y - rectCurr.upperLeft.y > PLUS_SPACE)
-          {
-            auto newMarvinPlus = new MarvinPlus();
-            rxn.pluses.push_back(newMarvinPlus);
-
-            double x = (rectPrev.getCenter().x + rectCurr.getCenter().x)/2;
-            double y = (rectPrev.lowerRight.y + rectCurr.upperLeft.y)/2;
-            newMarvinPlus->id = "o" + std::to_string(++plusCount);
-            newMarvinPlus->x1 = x ;
-            newMarvinPlus->y1 = y ;
-            newMarvinPlus->x2 = x + (PLUS_SPACE);
-            newMarvinPlus->y2 = y + (PLUS_SPACE);           
-          }
-          else  // just put it in front of the current row
-          {
-            auto newMarvinPlus = new MarvinPlus();
-            rxn.pluses.push_back(newMarvinPlus);
-
-            double x = rowPtr->front().upperLeft.x;
-            double y = rowPtr->front().getCenter().y;
-            newMarvinPlus->id = "o" + std::to_string(++plusCount);
-            newMarvinPlus->x1 = x ;
-            newMarvinPlus->y1 = y ;
-            newMarvinPlus->x2 = x + (PLUS_SPACE);
-            newMarvinPlus->y2 = y + (PLUS_SPACE);
-          }
+          double x = rowPtr->front().upperLeft.x;
+          double y = rowPtr->front().getCenter().y;
+          newMarvinPlus->id = "o" + std::to_string(++plusCount);
+          newMarvinPlus->x1 = x;
+          newMarvinPlus->y1 = y;
+          newMarvinPlus->x2 = x + (PLUS_SPACE);
+          newMarvinPlus->y2 = y + (PLUS_SPACE);
         }
       }
     }
+  }
 
-    void SetArrow(MarvinReaction *marvinReaction)
-    {
+  void SetArrow(MarvinReaction *marvinReaction) {
+    // add a reaction arrow
+    // get the overall rectangle for the reactants and the one for the products
+
+    // first set the bad (but parsable results) in case we cannot place the
+    // arrow
+
+    marvinReaction->arrow.x1 = 0.0;
+    marvinReaction->arrow.x2 = 0.0;
+    marvinReaction->arrow.y1 = 0.0;
+    marvinReaction->arrow.y2 = 0.0;
+
+    // make sure we have both reactants and products
+
+    if (marvinReaction->reactants.size() == 0 ||
+        marvinReaction->products.size() == 0) {
+      return;
+    }
+
+    // make sure all atoms have coords
+
+    for (auto reactantPtr : marvinReaction->reactants) {
+      if (!reactantPtr->hasCoords()) {
+        return;
+      }
+    }
+    for (auto prodPtr : marvinReaction->products) {
+      if (!prodPtr->hasCoords()) {
+        return;
+      }
+    }
+
+    marvinReaction->arrow.type = "DEFAULT";
+
+    MarvinRectangle reactantRect(marvinReaction->reactants.front()->atoms);
+    for (auto reactantPtr = marvinReaction->reactants.begin() + 1;
+         reactantPtr != marvinReaction->reactants.end(); ++reactantPtr) {
+      reactantRect.extend(MarvinRectangle((*reactantPtr)->atoms));
+    }
+
+    MarvinRectangle productRect(marvinReaction->products.front()->atoms);
+    for (auto productPtr = marvinReaction->products.begin() + 1;
+         productPtr != marvinReaction->products.end(); ++productPtr) {
+      productRect.extend(MarvinRectangle((*productPtr)->atoms));
+    }
+
+    // if there is room between the reactants and products, put the arrow there
+
+    if (productRect.upperLeft.x - reactantRect.lowerRight.x >
+        ARROW_MIN_LENGTH + 2.0 * ARROW_SPACE) {
+      marvinReaction->arrow.x1 = reactantRect.lowerRight.x + ARROW_SPACE;
+      marvinReaction->arrow.x2 = productRect.upperLeft.x - ARROW_SPACE;
+      if (marvinReaction->agents.size() > 0) {
+        marvinReaction->arrow.y1 =
+            GetArrowPerdendicularPosition(marvinReaction->agents, true);
+      } else {
+        marvinReaction->arrow.y1 =
+            (reactantRect.getCenter().y + productRect.getCenter().y) /
+            2.0;  // no agents = just put it based on the reactant and products
+      }
+      marvinReaction->arrow.y2 = marvinReaction->arrow.y1;
+    }
+    // if not enough room between the reactants and product horizontally, try
+    // vertically
+
+    else if (reactantRect.lowerRight.y - productRect.upperLeft.y >
+             ARROW_MIN_LENGTH + 2.0 * ARROW_SPACE) {
+      if (marvinReaction->agents.size() > 0) {
+        marvinReaction->arrow.x1 =
+            GetArrowPerdendicularPosition(marvinReaction->agents, false);
+      } else {
+        marvinReaction->arrow.x1 =
+            (reactantRect.getCenter().x + productRect.getCenter().x) /
+            2.0;  // no agents = just put it based on the reactant and products
+      }
+      marvinReaction->arrow.x2 = marvinReaction->arrow.x1;
+      marvinReaction->arrow.y1 = reactantRect.lowerRight.y - ARROW_SPACE;
+      marvinReaction->arrow.y2 = productRect.upperLeft.y + ARROW_SPACE;
+    }
+
+    // if not good horizontal nor vertical place, just put it between the
+    // centers (hack)
+
+    else if ((reactantRect.getCenter() - productRect.getCenter()).length() >
+             ARROW_MIN_LENGTH + 2.0 * ARROW_SPACE) {
+      marvinReaction->arrow.x1 = reactantRect.getCenter().x;
+      marvinReaction->arrow.x2 = productRect.getCenter().x;
+      marvinReaction->arrow.y1 = reactantRect.getCenter().y;
+      marvinReaction->arrow.y2 = productRect.getCenter().y;
+    }
+
+    // really no good place for the arrow
+
+    else {
+      marvinReaction->arrow.x1 = reactantRect.lowerRight.x + ARROW_SPACE;
+      marvinReaction->arrow.x2 =
+          reactantRect.lowerRight.x + ARROW_MIN_LENGTH + ARROW_SPACE;
+      marvinReaction->arrow.y1 =
+          (reactantRect.getCenter().y + productRect.getCenter().y) / 2.0;
+      marvinReaction->arrow.y2 = marvinReaction->arrow.y1;
+    }
+  }
+
+  MarvinReaction *ChemicalReactionToMarvinRxn(const ChemicalReaction *rxn,
+                                              int confId = (-1)) {
+    MarvinReaction *marvinReaction = nullptr;
+    try {
+      auto marvinReaction = new MarvinReaction();
+      int molCount = 0, atomCount = 0, bondCount = 0, sgCount = 0;
+      for (auto mol : rxn->getReactants()) {
+        RWMol rwMol(*mol);
+        marvinReaction->reactants.push_back(MolToMarvinMol(
+            &rwMol, molCount, atomCount, bondCount, sgCount, confId));
+      }
+      for (auto mol : rxn->getAgents()) {
+        RWMol rwMol(*mol);
+        marvinReaction->agents.push_back(MolToMarvinMol(
+            &rwMol, molCount, atomCount, bondCount, sgCount, confId));
+      }
+      for (auto mol : rxn->getProducts()) {
+        RWMol rwMol(*mol);
+        marvinReaction->products.push_back(MolToMarvinMol(
+            &rwMol, molCount, atomCount, bondCount, sgCount, confId));
+      }
+
+      // make up some pluses
+
+      int plusCount = 0;
+      AddMarvinPluses(*marvinReaction, marvinReaction->reactants, plusCount);
+      AddMarvinPluses(*marvinReaction, marvinReaction->products, plusCount);
+
       // add a reaction arrow
-      // get the overall rectangle for the reactants and the one for the products
 
-      // first set the bad (but parsable results) in case we cannot place the arrow
+      SetArrow(marvinReaction);
 
-      marvinReaction->arrow.x1 = 0.0;
-      marvinReaction->arrow.x2 = 0.0;
-      marvinReaction->arrow.y1 = 0.0;
-      marvinReaction->arrow.y2 = 0.0;
-
-      // make sure we have both reactants and products
-
-      if (marvinReaction->reactants.size() == 0 || marvinReaction->products.size() == 0)
-        return;  
-
-      // make sure all atoms have coords
-
-      for (auto reactantPtr : marvinReaction->reactants)
-        if (!reactantPtr->hasCoords())
-          return;
-      for (auto prodPtr : marvinReaction->products)
-        if (!prodPtr->hasCoords())
-          return;
-        
-      marvinReaction->arrow.type = "DEFAULT";
-
-      MarvinRectangle reactantRect(marvinReaction->reactants.front()->atoms);
-      for (auto reactantPtr = marvinReaction->reactants.begin()+1 ; reactantPtr != marvinReaction->reactants.end(); ++reactantPtr )
-        reactantRect.extend(MarvinRectangle((*reactantPtr)->atoms));
-
-      MarvinRectangle productRect(marvinReaction->products.front()->atoms);
-      for (auto productPtr = marvinReaction->products.begin()+1 ; productPtr != marvinReaction->products.end(); ++productPtr)
-        productRect.extend(MarvinRectangle((*productPtr)->atoms));
-
-      // if there is room between the reactants and products, put the arrow there
-
-      if (productRect.upperLeft.x - reactantRect.lowerRight.x  > ARROW_MIN_LENGTH + 2.0*ARROW_SPACE)
-      {
-        marvinReaction->arrow.x1 = reactantRect.lowerRight.x + ARROW_SPACE;
-        marvinReaction->arrow.x2 = productRect.upperLeft.x - ARROW_SPACE;
-        if (marvinReaction->agents.size() > 0)
-          marvinReaction->arrow.y1 = GetArrowPerdendicularPosition(marvinReaction->agents, true);
-        else
-          marvinReaction->arrow.y1 =(reactantRect.getCenter().y + productRect.getCenter().y)/2.0;  // no agents = just put it based on the reactant and products
-        marvinReaction->arrow.y2 = marvinReaction->arrow.y1;
-      }
-      // if not enough room between the reactants and product horizontally, try vertically
-
-      else if (reactantRect.lowerRight.y -productRect.upperLeft.y   > ARROW_MIN_LENGTH + 2.0*ARROW_SPACE)
-      {
-        if (marvinReaction->agents.size() > 0)
-          marvinReaction->arrow.x1 = GetArrowPerdendicularPosition(marvinReaction->agents, false);
-        else
-          marvinReaction->arrow.x1 = (reactantRect.getCenter().x + productRect.getCenter().x)/2.0; // no agents = just put it based on the reactant and products
-        marvinReaction->arrow.x2 = marvinReaction->arrow.x1;
-        marvinReaction->arrow.y1 = reactantRect.lowerRight.y - ARROW_SPACE;
-        marvinReaction->arrow.y2 = productRect.upperLeft.y + ARROW_SPACE;
-      }
-
-      // if not good horizontal nor vertical place, just put it between the centers (hack)
-
-      else if ((reactantRect.getCenter() - productRect.getCenter()).length() > ARROW_MIN_LENGTH + 2.0*ARROW_SPACE)
-      {
-        marvinReaction->arrow.x1 = reactantRect.getCenter().x;
-        marvinReaction->arrow.x2 = productRect.getCenter().x;
-        marvinReaction->arrow.y1 = reactantRect.getCenter().y;
-        marvinReaction->arrow.y2 = productRect.getCenter().y;
-      }
-
-      // really no good place for the arrow
-
-      else
-      {
-        marvinReaction->arrow.x1 = reactantRect.lowerRight.x + ARROW_SPACE;
-        marvinReaction->arrow.x2 = reactantRect.lowerRight.x + ARROW_MIN_LENGTH + ARROW_SPACE;
-        marvinReaction->arrow.y1 =(reactantRect.getCenter().y + productRect.getCenter().y)/2.0;
-        marvinReaction->arrow.y2 = marvinReaction->arrow.y1;
-      }
-      
+      return marvinReaction;
+    } catch (const std::exception &e) {
+      delete marvinReaction;
+      throw;
     }
+  }
+};
 
-    MarvinReaction *ChemicalReactionToMarvinRxn(const ChemicalReaction *rxn, int confId=(-1))
-    {
-      MarvinReaction *marvinReaction = NULL;
-      try
-      {
-        auto marvinReaction = new MarvinReaction();
-        int molCount=0, atomCount = 0, bondCount = 0, sgCount = 0;
-        for (auto mol : rxn->getReactants())
-        {
-          RWMol rwMol(*mol);
-          marvinReaction->reactants.push_back(MolToMarvinMol(&rwMol, molCount, atomCount, bondCount, sgCount, confId));
-        }
-        for (auto mol : rxn->getAgents())
-        {
-          RWMol rwMol(*mol);
-          marvinReaction->agents.push_back(MolToMarvinMol(&rwMol, molCount, atomCount, bondCount, sgCount,confId));
-         }
-        for (auto mol : rxn->getProducts())
-        {
-          RWMol rwMol(*mol);
-          marvinReaction->products.push_back(MolToMarvinMol(&rwMol, molCount, atomCount, bondCount, sgCount, confId));
-        }
-
-        // make up some pluses
-
-        int plusCount = 0;
-        AddMarvinPluses(*marvinReaction, marvinReaction->reactants, plusCount);
-        AddMarvinPluses(*marvinReaction, marvinReaction->products, plusCount);
-
-        // add a reaction arrow
-
-        SetArrow(marvinReaction);
-        
-        return marvinReaction;
-      }
-      catch(const std::exception& e)
-      {
-        delete marvinReaction;
-        throw;
-      }
-    }
-  };
-
-  std::string MolToMrvBlock(const ROMol &mol, bool includeStereo, int confId, bool kekulize) 
-  {
-    RDKit::Utils::LocaleSwitcher switcher;
-    RWMol trwmol(mol);
-    // NOTE: kekulize the molecule before writing it out
-    // because of the way mol files handle aromaticity
-    if (trwmol.needsUpdatePropertyCache()) 
-      trwmol.updatePropertyCache(false);
-    if (kekulize) 
-      MolOps::Kekulize(trwmol);
-
-    if (includeStereo && !trwmol.getNumConformers()) 
-      // generate coordinates so that the stereo we generate makes sense
-      RDDepict::compute2DCoords(trwmol);
-  
-    GenericGroups::convertGenericQueriesToSubstanceGroups(trwmol);
-
-    MarvinCMLWriter marvinCMLWriter;
-
-    auto marvinMol = marvinCMLWriter.MolToMarvinMol(&trwmol, confId);
-    std::string res = marvinMol->generateMolString();
-    delete marvinMol;
-    return res;
+std::string MolToMrvBlock(const ROMol &mol, bool includeStereo, int confId,
+                          bool kekulize) {
+  RDKit::Utils::LocaleSwitcher switcher;
+  RWMol trwmol(mol);
+  // NOTE: kekulize the molecule before writing it out
+  // because of the way mol files handle aromaticity
+  if (trwmol.needsUpdatePropertyCache()) {
+    trwmol.updatePropertyCache(false);
+  }
+  if (kekulize) {
+    MolOps::Kekulize(trwmol);
   }
 
-  //------------------------------------------------
-  //
-  //  Dump a molecule to a file
-  //
-  //------------------------------------------------
-  void MolToMrvFile(const ROMol &mol, const std::string &fName, bool includeStereo, int confId, bool kekulize) 
-  {
-    auto *outStream = new std::ofstream(fName.c_str());
-    if (!(*outStream) || outStream->bad())
-    {
-      delete outStream;
-      std::ostringstream errout;
-      errout << "Bad output file " << fName;
-      throw BadFileException(errout.str());
-    }
-    std::string outString = MolToMrvBlock(mol, includeStereo, confId, kekulize);
-    *outStream << outString;
-    delete outStream;
+  if (includeStereo && !trwmol.getNumConformers()) {
+    // generate coordinates so that the stereo we generate makes sense
+    RDDepict::compute2DCoords(trwmol);
   }
 
-  std::string ChemicalReactionToMrvBlock(const ChemicalReaction &rxn) 
-  {
-    MarvinCMLWriter marvinCMLWriter;
+  GenericGroups::convertGenericQueriesToSubstanceGroups(trwmol);
 
-    auto marvinRxn = marvinCMLWriter.ChemicalReactionToMarvinRxn(&rxn);
-    std::string res = marvinRxn->toString();
-    delete marvinRxn;
-    return res;
-  };
+  MarvinCMLWriter marvinCMLWriter;
 
-  void  ChemicalReactionToMrvFile(const ChemicalReaction &rxn, const std::string &fName) 
-  {
-    auto *outStream = new std::ofstream(fName.c_str());
-    if (!(*outStream) || outStream->bad())
-    {
-      delete outStream;
-      std::ostringstream errout;
-      errout << "Bad output file " << fName;
-      throw BadFileException(errout.str());
-    }
-    std::string outString = ChemicalReactionToMrvBlock(rxn);
-    *outStream << outString;
-    delete outStream;
-  };
+  auto marvinMol = marvinCMLWriter.MolToMarvinMol(&trwmol, confId);
+  std::string res = marvinMol->generateMolString();
+  delete marvinMol;
+  return res;
 }
+
+//------------------------------------------------
+//
+//  Dump a molecule to a file
+//
+//------------------------------------------------
+void MolToMrvFile(const ROMol &mol, const std::string &fName,
+                  bool includeStereo, int confId, bool kekulize) {
+  auto *outStream = new std::ofstream(fName.c_str());
+  if (!(*outStream) || outStream->bad()) {
+    delete outStream;
+    std::ostringstream errout;
+    errout << "Bad output file " << fName;
+    throw BadFileException(errout.str());
+  }
+  std::string outString = MolToMrvBlock(mol, includeStereo, confId, kekulize);
+  *outStream << outString;
+  delete outStream;
+}
+
+std::string ChemicalReactionToMrvBlock(const ChemicalReaction &rxn) {
+  MarvinCMLWriter marvinCMLWriter;
+
+  auto marvinRxn = marvinCMLWriter.ChemicalReactionToMarvinRxn(&rxn);
+  std::string res = marvinRxn->toString();
+  delete marvinRxn;
+  return res;
+};
+
+void ChemicalReactionToMrvFile(const ChemicalReaction &rxn,
+                               const std::string &fName) {
+  auto *outStream = new std::ofstream(fName.c_str());
+  if (!(*outStream) || outStream->bad()) {
+    delete outStream;
+    std::ostringstream errout;
+    errout << "Bad output file " << fName;
+    throw BadFileException(errout.str());
+  }
+  std::string outString = ChemicalReactionToMrvBlock(rxn);
+  *outStream << outString;
+  delete outStream;
+};
+}  // namespace RDKit

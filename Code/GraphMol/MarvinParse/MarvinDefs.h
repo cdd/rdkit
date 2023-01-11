@@ -41,8 +41,8 @@ const std::vector<std::string> marvinRadicalVals{
     "monovalent", "divalent",   "divalent1",  "divalent3",
     "trivalent",  "trivalent2", "trivalent4", "4"};
 const std::map<std::string, int> marvinRadicalToRadicalElectrons{
-    {"monovalent", 1}, {"divalent", 2},   {"divalent1", 2}, {"divalent3", 2},
-    {"trivalent", 3},  {"trivalent2", 3}, {"trivalent4", 3}};
+    {"monovalent", 1}, {"divalent", 2},   {"divalent1", 2},  {"divalent3", 2},
+    {"trivalent", 3},  {"trivalent2", 3}, {"trivalent4", 3}, {"4", 4}};
 
 const std::map<int, std::string> radicalElectronsToMarvinRadical{
     {1, "monovalent"}, {2, "divalent"}, {3, "trivalent4"}, {4, "4"}};

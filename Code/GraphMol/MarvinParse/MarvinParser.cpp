@@ -278,9 +278,10 @@ class MarvinCMLReader {
     }
   }
 
-  void molBondFromMarvinBond(MarvinBond *marvinBond, MarvinMol *marvinMol,
-                             RWMol *mol, bool &chiralityPossible) {
-    unsigned int bType, stereo;
+  void molBondFromMarvinBond(const MarvinBond *marvinBond,
+                             const MarvinMol *marvinMol, RWMol *mol,
+                             bool &chiralityPossible) {
+    unsigned int bType;
     Bond *bond = nullptr;
 
     try {
@@ -337,22 +338,16 @@ class MarvinCMLReader {
 
       bond->setBeginAtomIdx(idx1);
       bond->setEndAtomIdx(idx2);
-      // bond->setBondType(type);
-      // bond->setProp(common_properties::_MolFileBondType, bType);
       Bond::BondDir bondDir = Bond::NONE;
       Bond::BondStereo bondStereo = Bond::STEREONONE;
-      stereo = 0;
+      unsigned int cfg = 0;
 
       std::string temp =
           boost::algorithm::to_lower_copy(marvinBond->bondStereo.value);
       if (temp != "") {
         if (temp == "w") {
           bondDir = Bond::BEGINWEDGE;
-          chiralityPossible = true;
-          stereo = 1;
         } else if (temp == "h") {
-          stereo = 6;
-          chiralityPossible = true;
           bondDir = Bond::BEGINDASH;
         } else {
           std::ostringstream err;
@@ -376,51 +371,62 @@ class MarvinCMLReader {
         switch (mdlStereoVal) {
           case 1:
             bondDir = Bond::BEGINWEDGE;
-            bType = 1;  // overrides the type specification
-            type = Bond::SINGLE;
-            stereo = 1;
             break;
           case 6:
             bondDir = Bond::BEGINDASH;
-            bType = 1;  // overrides the type specification
-            type = Bond::SINGLE;
-            stereo = 6;
             break;
           case 3:  // "either" double bond
             bondDir = Bond::EITHERDOUBLE;
-            bondStereo = Bond::STEREOANY;
-            bType = 2;  // overrides the type specification
-            type = Bond::DOUBLE;
-            stereo = 3;
             break;
           case 4:  // "either" single bond
             bondDir = Bond::UNKNOWN;
-            bType = 1;  // overrides the type specification
-            type = Bond::SINGLE;
-            stereo = 4;
             break;
         }
       } else if (marvinBond->bondStereo.dictRef != "") {
         if (marvinBond->bondStereo.dictRef == "cml:W") {
           bondDir = Bond::BEGINWEDGE;
-          bType = 1;  // overrides the type specification
-          type = Bond::SINGLE;
-          stereo = 1;
         } else if (marvinBond->bondStereo.dictRef == "cml:H") {
           bondDir = Bond::BEGINDASH;
-          bType = 1;  // overrides the type specification
-          type = Bond::SINGLE;
-          stereo = 6;
         }
       } else {
         // nothing to do, no stereo information
       }
 
+      switch (bondDir) {
+        case Bond::BEGINWEDGE:
+          bType = 1;  // overrides the type specification
+          type = Bond::SINGLE;
+          chiralityPossible = true;
+          cfg = 1;
+          break;
+        case Bond::BEGINDASH:
+          bType = 1;  // overrides the type specification
+          type = Bond::SINGLE;
+          cfg = 3;
+          chiralityPossible = true;
+          break;
+        case Bond::EITHERDOUBLE:
+          bondStereo = Bond::STEREOANY;
+          bType = 2;  // overrides the type specification
+          type = Bond::DOUBLE;
+          cfg = 2;
+          break;
+        case Bond::UNKNOWN:
+          bType = 1;  // overrides the type specification
+          type = Bond::SINGLE;
+          cfg = 2;
+          break;
+        case Bond::STEREONONE:
+          // nothing to do
+          break;
+      }
+
       bond->setBondType(type);
       bond->setProp(common_properties::_MolFileBondType, bType);
       bond->setBondDir(bondDir);
-      if (stereo != Bond::STEREONONE) {
-        bond->setProp(common_properties::_MolFileBondStereo, stereo);
+
+      if (cfg != 0) {
+        bond->setProp(common_properties::_MolFileBondCfg, cfg);
       }
       if (bondStereo != Bond::STEREONONE) {
         bond->setStereo(bondStereo);
@@ -923,8 +929,8 @@ class MarvinCMLReader {
           auto atomArray = molTree.get_child_optional("atomArray");
 
           if (atomRefs == "" &&
-              atomArray)  // no atomRefs means regular superatom - the atoms are
-                          // in this superatom
+              atomArray)  // no atomRefs means regular superatom
+                          // - the atoms are in this superatom
           {
             auto *marvinSuperatomSgroup = new MarvinSuperatomSgroup(parentMol);
             res = marvinSuperatomSgroup;
@@ -1134,19 +1140,11 @@ class MarvinCMLReader {
 
           marvinDataSgroup->context =
               molTree.get<std::string>("<xmlattr>.context", "");
-          if (marvinDataSgroup->context == "") {
-            throw FileParseException(
-                "Expected context for a DataSgroup definition in MRV file");
-          }
 
           marvinDataSgroup->fieldName =
               molTree.get<std::string>("<xmlattr>.fieldName", "");
           marvinDataSgroup->placement =
               molTree.get<std::string>("<xmlattr>.placement", "");
-          if (marvinDataSgroup->placement == "") {
-            throw FileParseException(
-                "Expected placement for a DataSgroup definition in MRV file");
-          }
 
           marvinDataSgroup->unitsDisplayed = molTree.get<std::string>(
               "<xmlattr>.unitsDisplayed", "Unit not displayed");
@@ -1168,8 +1166,8 @@ class MarvinCMLReader {
           marvinDataSgroup->fieldData =
               molTree.get<std::string>("<xmlattr>.fieldData", "");
 
-          std::string x = molTree.get<std::string>("<xmlattr>.x", "");
-          std::string y = molTree.get<std::string>("<xmlattr>.y", "");
+          std::string x = molTree.get<std::string>("<xmlattr>.x", "0.0");
+          std::string y = molTree.get<std::string>("<xmlattr>.y", "0.0");
 
           if (x == "") {
             throw FileParseException(
@@ -2006,8 +2004,6 @@ class MarvinCMLReader {
           QueryOps::replaceAtomWithQueryAtom((RWMol *)iter->get(), (*atomIt));
         }
       }
-
-      // updateProductsStereochem(rxn);
 
       // RXN-based reactions do not have implicit properties
       // rxn->setImplicitPropertiesFlag(false);

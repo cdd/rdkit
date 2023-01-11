@@ -159,79 +159,64 @@ void testSmilesToMarvin(const SmilesTest *smilesTest) {
     TEST_ASSERT(localVars.smilesMol->getNumAtoms() == smilesTest->atomCount);
     TEST_ASSERT(localVars.smilesMol->getNumBonds() == smilesTest->bondCount);
 
-    std::string mrvBlock;
-    // test the MRV generation directly from the smiles
-
+    // test round trip back to smiles
     {
-      std::string expectedMrvName = fName + ".expected.mrv";
-      try {
-        mrvBlock = MolToMrvBlock(*localVars.smilesMol, true, -1, true);
-      } catch (const RDKit::KekulizeException &e) {
-        mrvBlock = "";
-      } catch (...) {
-        throw;  // re-trhow the error if not a kekule error
-      }
-      if (mrvBlock == "") {
-        mrvBlock = MolToMrvBlock(*localVars.smilesMol, true, -1,
-                                 false);  // try without kekule'ing
-      }
+      std::string expectedMrvName = fName + ".expected.smi";
+
+      SmilesWriteParams ps;
+      ps.canonical = false;
+
+      std::string smilesOut = MolToSmiles(*localVars.smilesMol, ps);
 
       // code to generate the expected files
-      //  {
-      //    std::ofstream  out;
-      //    out.open(fName + ".NEW.mrv");
-      //    out << mrvBlock;
-      //  }
+
+      // {
+      //   std::ofstream out;
+      //   out.open(fName + ".NEW.smi");
+      //   out << smilesOut;
+      // }
       std::stringstream expectedMolStr;
       std::ifstream in;
       in.open(expectedMrvName);
       expectedMolStr << in.rdbuf();
       std::string expectedStr = expectedMolStr.str();
 
-      TEST_ASSERT(expectedStr == mrvBlock);
+      TEST_ASSERT(expectedStr == smilesOut);
     }
 
-    // std::string mrvBlock = MolToMrvBlock(*localVars.smilesMol, true, -1,
-    // true);
-
-    delete localVars.smilesMol;
-    localVars.smilesMol = nullptr;
-
-    localVars.smilesMol = MrvMolStringParser(mrvBlock);
-    reapplyMolBlockWedging(*localVars.smilesMol);
-
     {
-      std::string expectedSdfName = fName + ".expected.sdf";
+      std::string expectedMrvName = fName + ".expected.sdf";
       std::string outMolStr = "";
       try {
         outMolStr = MolToMolBlock(*localVars.smilesMol, true, 0, true, true);
       } catch (const RDKit::KekulizeException &e) {
         outMolStr = "";
       } catch (...) {
-        throw;  // re-throw the error if not a kekule error
+        throw;  // re-trhow the error if not a kekule error
       }
       if (outMolStr == "") {
         outMolStr = MolToMolBlock(*localVars.smilesMol, true, 0, false,
                                   true);  // try without kekule'ing
       }
 
-      // code to generate the expected files
-      //  {
-      //    std::ofstream  out;
-      //    out.open(fName + ".NEW.sdf");
-      //    out << outMolStr;
-      //  }
+      // code to create the expected files for new or changed tests
+
+      // {
+      //   std::ofstream out;
+      //   out.open(fName + ".NEW.sdf");
+      //   out << outMolStr;
+      // }
 
       std::stringstream expectedMolStr;
       std::ifstream in;
-      in.open(expectedSdfName);
+      in.open(expectedMrvName);
       expectedMolStr << in.rdbuf();
       std::string expectedStr = expectedMolStr.str();
 
       TEST_ASSERT(expectedStr == outMolStr);
     }
-
     {
+      std::string mrvBlock;
       std::string expectedMrvName = fName + ".expected.mrv";
       std::string outMolStr = "";
       try {
@@ -247,11 +232,11 @@ void testSmilesToMarvin(const SmilesTest *smilesTest) {
       }
 
       // code to generate the expected files
-      //  {
-      //    std::ofstream  out;
-      //    out.open(fName + ".NEW.mrv");
-      //    out << outMolStr;
-      //  }
+      // {
+      //   std::ofstream out;
+      //   out.open(fName + ".NEW.mrv");
+      //   out << outMolStr;
+      // }
       std::stringstream expectedMolStr;
       std::ifstream in;
       in.open(expectedMrvName);
@@ -363,7 +348,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest) {
         //  code to create the expected files for new or changed tests
 
         // {
-        //   std::ofstream  out;
+        //   std::ofstream out;
         //   out.open(fName + ".NEW.rxn");
         //   out << outMolStr;
         // }
@@ -385,7 +370,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest) {
         //  code to create the expected files for new or changed tests
 
         // {
-        //   std::ofstream  out;
+        //   std::ofstream out;
         //   out.open(fName + ".NEW.mrv");
         //   out << outMolStr;
         // }
@@ -410,11 +395,6 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest) {
       auto molTest = (MolTest *)molOrRxnTest;
       TEST_ASSERT(mol != nullptr);
 
-      // code to get the number of atoms and bonds - must be checked by hand
-
-      // printf("NumAtoms: %d\n", mol->getNumAtoms());
-      // printf("NumBonds: %d\n", mol->getNumBonds());
-
       TEST_ASSERT(mol->getNumAtoms() == molTest->atomCount)
       TEST_ASSERT(mol->getNumBonds() == molTest->bondCount)
 
@@ -436,7 +416,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest) {
         // code to create the expected files for new or changed tests
 
         // {
-        //   std::ofstream  out;
+        //   std::ofstream out;
         //   out.open(fName + ".NEW.sdf");
         //   out << outMolStr;
         // }
@@ -468,7 +448,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest) {
         // code to create the expected files for new or changed tests
 
         // {
-        //   std::ofstream  out;
+        //   std::ofstream out;
         //   out.open(fName + ".NEW.mrv");
         //   out << outMolStr;
         // }
@@ -539,7 +519,7 @@ void testMolFiles(const MolTest *molFileTest) {
       // code to create the expected files for new or changed tests
 
       // {
-      //   std::ofstream  out;
+      //   std::ofstream out;
       //   out.open(fName + ".NEW.sdf");
       //   out << outMolStr;
       // }
@@ -571,7 +551,7 @@ void testMolFiles(const MolTest *molFileTest) {
       // code to create the expected files for new or changed tests
 
       // {
-      //   std::ofstream  out;
+      //   std::ofstream out;
       //   out.open(fName + ".NEW.mrv");
       //   out << outMolStr;
       // }
@@ -602,6 +582,8 @@ void RunTests() {
   // the molecule tests - staromg with molfiles/sdf
 
   std::list<MolTest> sdfTests{
+      MolTest("DoubleBondChain.sdf", true, LoadAsMolOrRxn, 22, 22),
+      MolTest("UnitsError.sdf", true, LoadAsMolOrRxn, 17, 18),
       MolTest("StarAtom.sdf", true, LoadAsMolOrRxn, 17, 16),
       MolTest("nonProprietary.mol", true, LoadAsMolOrRxn, 17, 16),
       MolTest("ChiralTest.sdf", true, LoadAsMolOrRxn, 8, 7),
@@ -616,6 +598,8 @@ void RunTests() {
   }
 
   std::list<MolTest> molFileTests{
+      MolTest("DoubleBondChain.mrv", true, LoadAsMolOrRxn, 22, 22),
+      MolTest("WigglyAndCrossed.mrv", true, LoadAsMolOrRxn, 8, 7),
       MolTest("BondTypes.mrv", true, LoadAsMolOrRxn, 26, 25),
       MolTest("EmbeddedSGroupSUP_MUL.mrv", true, LoadAsMolOrRxn, 17, 17),
       MolTest("EmbeddedSGroupSUP_MUL.mrv", true, LoadAsMolOrRxn, 17, 17),
@@ -679,96 +663,37 @@ void RunTests() {
       MolTest("copolymer_sgroup.mrv", true, LoadAsMolOrRxn, 19, 18),
       MolTest("MultipleSgroupParentInMiddleOfAtomBlock.mrv", true,
               LoadAsMolOrRxn, 23, 22),
-      MolTest("EmbeddedSgroups.mrv", false, LoadAsMolOrRxn, 14,
-              14)  // should fail embedded sgroup has an X (unkown) atom
-      ,
-      MolTest("marvin03.mrv", false, LoadAsMolOrRxn, 31,
-              33)  // should fail - this is a reaction
-      ,
-      MolTest("MarvinBadMissingMolID.mrv", false, LoadAsMolOrRxn, 12,
-              11)  // should fail - no molId
-      ,
-      MolTest("MarvinBadMissingAtomID.mrv", false, LoadAsMolOrRxn, 12,
-              11)  // should fail - missing atom Id
-      ,
-      MolTest("MarvinBadX2.mrv", false, LoadAsMolOrRxn, 12,
-              11)  // should fail -
-      ,
-      MolTest("MarvinBadY2.mrv", false, LoadAsMolOrRxn, 12,
-              11)  // should fail -
-      ,
-      MolTest("MarvinBadStereoGroupsAbs.mrv", false, LoadAsMolOrRxn, 8,
-              8)  // should fail -
-      ,
-      MolTest("MarvinBadElementType.mrv", false, LoadAsMolOrRxn, 12,
-              11)  // should fail -
-      ,
-      MolTest("MarvinBadMissingBondID.mrv", false, LoadAsMolOrRxn, 12,
-              11)  // should fail -
-      ,
-      MolTest("MarvinBadMissingBondAtomRefs", false, LoadAsMolOrRxn, 12,
-              11)  // should fail -
-      ,
-      MolTest("MarvinBadMissingBondOrder.mrv", false, LoadAsMolOrRxn, 12,
-              11)  // should fail -
-      ,
-      MolTest("MarvinBadMissingSruMolID.mrv", false, LoadAsMolOrRxn, 12,
-              11)  // should fail -
-      ,
-      MolTest("MarvinBadMissingSruID.mrv", false, LoadAsMolOrRxn, 12,
-              11)  // should fail -
-      ,
-      MolTest("MarvinBadMissingSruRole.mrv", false, LoadAsMolOrRxn, 12,
-              11)  // should fail -
-      ,
-      MolTest("MarvinBadMissingSruAtomRef.mrv", false, LoadAsMolOrRxn, 12,
-              11)  // should fail -
-      ,
-      MolTest("MarvinBadMissingSruTitle.mrv", false, LoadAsMolOrRxn, 12,
-              11)  // should fail -
-      ,
-      MolTest("MarvinBadSruAtomRef.mrv", false, LoadAsMolOrRxn, 12,
-              11)  // should fail -
-      ,
-      MolTest("MarvinBadSruID.mrv", false, LoadAsMolOrRxn, 12,
-              11)  // should fail -
-      ,
-      MolTest("MarvinBadSruRole.mrv", false, LoadAsMolOrRxn, 12,
-              11)  // should fail -
-      ,
-      MolTest("MarvinBadSruAtomRef.mrv", false, LoadAsMolOrRxn, 12,
-              11)  // should fail -
-      ,
-      MolTest("MarvinBadSruAtomRef.mrv", false, LoadAsMolOrRxn, 12,
-              11)  // should fail -
-      ,
-      MolTest("MarvinBadSruConnect.mrv", false, LoadAsMolOrRxn, 12,
-              11)  // should fail -
-      ,
-      MolTest("MarvinBadSupAttachAtom.mrv", false, LoadAsMolOrRxn, 9,
-              9)  // should fail -
-      ,
-      MolTest("MarvinBadSupAttachBond.mrv", false, LoadAsMolOrRxn, 9,
-              9)  // should fail -
-      ,
-      MolTest("MarvinBadSupAttachOrder.mrv", false, LoadAsMolOrRxn, 9,
-              9)  // should fail -
-      ,
-      MolTest("MarvinBadSupAttachAtom.mrv", false, LoadAsMolOrRxn, 9,
-              9)  // should fail -
-      ,
-      MolTest("MarvinBadSupAttachAtom.mrv", false, LoadAsMolOrRxn, 9,
-              9)  // should fail -
-      ,
-      MolTest("MarvinBadSupAttachAtom.mrv", false, LoadAsMolOrRxn, 9,
-              9)  // should fail -
-      ,
-      MolTest("MarvinBadSupMissingAttachBond.mrv", false, LoadAsMolOrRxn, 9,
-              9)  // should fail -
-      ,
+      MolTest("EmbeddedSgroups.mrv", false, LoadAsMolOrRxn, 14, 14),
+      MolTest("marvin03.mrv", false, LoadAsMolOrRxn, 31, 33),
+      MolTest("MarvinBadMissingMolID.mrv", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadMissingAtomID.mrv", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadX2.mrv", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadY2.mrv", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadStereoGroupsAbs.mrv", false, LoadAsMolOrRxn, 8, 8),
+      MolTest("MarvinBadElementType.mrv", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadMissingBondID.mrv", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadMissingBondAtomRefs", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadMissingBondOrder.mrv", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadMissingSruMolID.mrv", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadMissingSruID.mrv", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadMissingSruRole.mrv", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadMissingSruAtomRef.mrv", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadMissingSruTitle.mrv", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadSruAtomRef.mrv", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadSruID.mrv", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadSruRole.mrv", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadSruAtomRef.mrv", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadSruAtomRef.mrv", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadSruConnect.mrv", false, LoadAsMolOrRxn, 12, 11),
+      MolTest("MarvinBadSupAttachAtom.mrv", false, LoadAsMolOrRxn, 9, 9),
+      MolTest("MarvinBadSupAttachBond.mrv", false, LoadAsMolOrRxn, 9, 9),
+      MolTest("MarvinBadSupAttachOrder.mrv", false, LoadAsMolOrRxn, 9, 9),
+      MolTest("MarvinBadSupAttachAtom.mrv", false, LoadAsMolOrRxn, 9, 9),
+      MolTest("MarvinBadSupAttachAtom.mrv", false, LoadAsMolOrRxn, 9, 9),
+      MolTest("MarvinBadSupAttachAtom.mrv", false, LoadAsMolOrRxn, 9, 9),
+      MolTest("MarvinBadSupMissingAttachBond.mrv", false, LoadAsMolOrRxn, 9, 9),
       MolTest("MarvinBadSupMissingAttachOrder.mrv", false, LoadAsMolOrRxn, 9,
-              9)  // should fail -
-  };
+              9)};
 
   for (auto molFileTest : molFileTests) {
     BOOST_LOG(rdInfoLog) << "Test: " << molFileTest.fileName << std::endl;
@@ -780,11 +705,14 @@ void RunTests() {
   // now the reactions
 
   std::list<RxnTest> rxnFileTests{
+
+      RxnTest("AlexRxn.mrv", true, LoadAsMolOrRxn, 1, 0, 1, 2, 0),
       RxnTest("BadReactionSign.mrv", true, LoadAsMolOrRxn, 2, 0, 1, 3, 0),
       RxnTest("bondArray_node.mrv", true, LoadAsMolOrRxn, 2, 4, 1, 3, 0),
       RxnTest("marvin03.mrv", true, LoadAsMolOrRxn, 1, 1, 1, 2, 0),
       RxnTest("marvin03.mrv", true, LoadAsRxn, 1, 1, 1, 2, 0),
-      RxnTest("marvin03.mrv", false, LoadAsMol, 1, 1, 1, 2, 0),  // should fail
+      RxnTest("marvin03.mrv", false, LoadAsMol, 1, 1, 1, 2,
+              0),  // should fail
       RxnTest("marvin04.mrv", true, LoadAsMolOrRxn, 2, 1, 2, 4, 0),
       RxnTest("marvin08.mrv", true, LoadAsMolOrRxn, 2, 3, 2, 4, 0),
       RxnTest("marvin09.mrv", true, LoadAsMolOrRxn, 2, 3, 2, 4, 0),
@@ -796,11 +724,9 @@ void RunTests() {
       RxnTest("RxnNoCoords.mrv", true, LoadAsMolOrRxn, 2, 0, 1, 3, 0),
       RxnTest("condition_coordinates_mpoint.mrv", true, LoadAsMolOrRxn, 1, 0, 1,
               0, 0),
-      RxnTest("marvin01.mrv", false, LoadAsMolOrRxn, 2, 1, 1, 3,
-              0),  // should fail - this is a mol file
+      RxnTest("marvin01.mrv", false, LoadAsMolOrRxn, 2, 1, 1, 3, 0),
       RxnTest("aspirineSynthesisWithAttributes.mrv", true, LoadAsMolOrRxn, 2, 0,
-              1, 3, 0)  // should fail - this is a mol file
-  };
+              1, 3, 0)};
 
   for (auto rxnFileTest : rxnFileTests) {
     printf("Test\n\n %s\n\n", rxnFileTest.fileName.c_str());
@@ -810,7 +736,21 @@ void RunTests() {
   // now smiles tests
 
   std::list<SmilesTest> smiTests{
+      // these first two do NOT work - still working on a solution for then
 
+      SmilesTest("DoubleBondChain",
+                 R"(CC1=C(\C=C\C(C)=C\C=C\C(C)=C/C(O)=O)C(C)(C)CCC1)", true, 22,
+                 22),
+      // SmilesTest(
+      //     "Macrocycle2",
+      //     R"(CC1OC(=O)CC(O)CC(O)CC(O)CCC(O)C(O)CC2(O)CC(O)C(C(CC(O[C@@H]3O[C@H](C)[C@@H](O)[C@H](N)[C@@H]3O)\C=C\C=C\C=C\C=C\CC\C=C\C=C\C(C)C(O)C1C)O2)C(O)=O
+      //     |t:42,44,46,48,52,54|)",
+      //     true, 65, 67),
+      SmilesTest("Na_Mg_Al_OH",
+                 "[OH-].[OH-].[OH-].[O--].[Na+].[Mg++].[Al+3].[Si].OC([O-])=O",
+                 true, 12, 3),
+      SmilesTest("Pb", "[Pb]", true, 1, 0),
+      SmilesTest("O_Mg_Si", "[O].[Mg].[Si]", true, 3, 0),
       SmilesTest("SquiggleBond", "CN1N=C(SC1=NC(C)=O)S(N)(=O)=O |c:2|", true,
                  14, 14),
       SmilesTest(

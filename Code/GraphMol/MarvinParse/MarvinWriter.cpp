@@ -652,7 +652,10 @@ class MarvinCMLWriter {
       }
 
       for (const SubstanceGroup &sgroup : getSubstanceGroups(*mol)) {
-        auto type = sgroup.getProp<std::string>("TYPE");
+        std::string type;
+        if (!sgroup.getPropIfPresent("TYPE", type)) {
+          throw MarvinWriterException("TYPE not found for an Sgroup");
+        }
         if (type == "SRU" || type == "MOD" || type == "COP") {
           std::string mrvType;
           if (type == "SRU") {
@@ -699,31 +702,50 @@ class MarvinCMLWriter {
 
           marvinDataSgroup->id = "sg" + std::to_string(++tempSgCount);
           marvinDataSgroup->molID = 'm' + std::to_string(++tempMolCount);
-          marvinDataSgroup->fieldName =
-              sgroup.getProp<std::string>(std::string("FIELDNAME"));
-          if (sgroup.hasProp(std::string("QUERYTYPE"))) {
-            marvinDataSgroup->queryType =
-                sgroup.getProp<std::string>(std::string("QUERYTYPE"));
+          if (!sgroup.getPropIfPresent("FIELDNAME",
+                                       marvinDataSgroup->fieldName)) {
+            throw MarvinWriterException(
+                "FIELDNAME not found for a SuperatomSgroup");
           }
-          if (sgroup.hasProp(std::string("QUERYOP"))) {
-            marvinDataSgroup->queryOp =
-                sgroup.getProp<std::string>(std::string("QUERYOP"));
-          }
-          auto fieldDatas = sgroup.getProp<std::vector<std::string>>(
-              std::string("DATAFIELDS"));
-          marvinDataSgroup->fieldData =
-              boost::algorithm::join(fieldDatas, "\n");
-          marvinDataSgroup->units =
-              sgroup.getProp<std::string>(std::string("UNITS"));
 
-          marvinDataSgroup->x = sgroup.getProp<double>(std::string("X"));
-          marvinDataSgroup->y = sgroup.getProp<double>(std::string("Y"));
-          marvinDataSgroup->context =
-              sgroup.getProp<std::string>(std::string("CONTEXT"));
-          marvinDataSgroup->placement =
-              sgroup.getProp<std::string>(std::string("PLACEMENT"));
-          marvinDataSgroup->unitsDisplayed =
-              sgroup.getProp<std::string>(std::string("UNITSDISPLAYED"));
+          if (!sgroup.getPropIfPresent("QUERYTYPE",
+                                       marvinDataSgroup->queryType)) {
+            marvinDataSgroup->queryType = "";
+          }
+          if (!sgroup.getPropIfPresent("QUERYOP", marvinDataSgroup->queryOp)) {
+            marvinDataSgroup->queryOp = "";
+          }
+
+          std::vector<std::string> fieldDatas;
+          if (!sgroup.getPropIfPresent<std::vector<std::string>>("DATAFIELDS",
+                                                                 fieldDatas)) {
+            marvinDataSgroup->fieldData = "";
+          } else {
+            marvinDataSgroup->fieldData =
+                boost::algorithm::join(fieldDatas, "\n");
+          }
+
+          if (!sgroup.getPropIfPresent("UNITS", marvinDataSgroup->units)) {
+            marvinDataSgroup->units = "";
+          }
+
+          if (!sgroup.getPropIfPresent<double>("X", marvinDataSgroup->x)) {
+            marvinDataSgroup->x = 0.0;
+          }
+          if (!sgroup.getPropIfPresent<double>("Y", marvinDataSgroup->y)) {
+            marvinDataSgroup->y = 0.0;
+          }
+          if (!sgroup.getPropIfPresent("CONTEXT", marvinDataSgroup->context)) {
+            marvinDataSgroup->context = "";
+          }
+          if (!sgroup.getPropIfPresent("PLACEMENT",
+                                       marvinDataSgroup->placement)) {
+            marvinDataSgroup->placement = "";
+          }
+          if (!sgroup.getPropIfPresent("UNITSDISPLAYED",
+                                       marvinDataSgroup->unitsDisplayed)) {
+            marvinDataSgroup->unitsDisplayed = "";
+          }
 
           for (auto atomIndex : sgroup.getAtoms()) {
             marvinDataSgroup->atoms.push_back(marvinMol->atoms[atomIndex]);
@@ -731,7 +753,6 @@ class MarvinCMLWriter {
               marvinMol->atoms[atomIndex]->sgroupRef = marvinDataSgroup->id;
             }
           }
-
         }
 
         else if (type == "SUP") {
@@ -742,8 +763,11 @@ class MarvinCMLWriter {
           superatomSgroupExpanded->id = "sg" + std::to_string(++tempSgCount);
           superatomSgroupExpanded->molID = 'm' + std::to_string(++tempMolCount);
 
-          superatomSgroupExpanded->title =
-              sgroup.getProp<std::string>(std::string("LABEL"));
+          if (!sgroup.getPropIfPresent("LABEL",
+                                       superatomSgroupExpanded->title)) {
+            throw MarvinWriterException(
+                "LABEL not found for a SuperatomSgroup");
+          }
 
           for (auto atomIndex : sgroup.getAtoms()) {
             superatomSgroupExpanded->atoms.push_back(
@@ -850,8 +874,8 @@ class MarvinCMLWriter {
   }
 
   double GetArrowPerdendicularPosition(
-      std::vector<MarvinMol *> molList  // list of mols (agents) to examince for
-                                        // a space for the arrow
+      std::vector<MarvinMol *> molList  // list of mols (agents) to examine
+                                        // for a space for the arrow
       ,
       bool verticalFlag)  // if verticalFlag, the arrow is to be placed
                           // horizonatally, so look for a vertical (y) space
@@ -874,8 +898,8 @@ class MarvinCMLWriter {
         }
       }
 
-      if (!foundOverlap) {  // no overlap with a current row rectangle, so make
-                            // a new one
+      if (!foundOverlap) {  // no overlap with a current row rectangle, so
+                            // make a new one
         rectangleList.push_back(molRect);
       }
     }
@@ -912,8 +936,8 @@ class MarvinCMLWriter {
       }
     }
 
-    // if made it to here no spot was found, so place the arrow under the bottom
-    // rectangle or left of the the leftmost one
+    // if made it to here no spot was found, so place the arrow under the
+    // bottom rectangle or left of the the leftmost one
 
     if (verticalFlag) {
       return rectangleList.front().lowerRight.y - ARROW_SPACE;
@@ -1000,7 +1024,8 @@ class MarvinCMLWriter {
 
       if (rowPtr != rowsOfRectangles.begin())  // 2nd and subsequent rows
       {
-        // if these two rows only have enough space, put the  plus between them
+        // if these two rows only have enough space, put the  plus between
+        // them
 
         auto rectPrev = MarvinRectangle(
             *(rowPtr - 1));  // composite rectangle for the previous row
@@ -1037,7 +1062,8 @@ class MarvinCMLWriter {
 
   void SetArrow(MarvinReaction *marvinReaction) {
     // add a reaction arrow
-    // get the overall rectangle for the reactants and the one for the products
+    // get the overall rectangle for the reactants and the one for the
+    // products
 
     // first set the bad (but parsable results) in case we cannot place the
     // arrow
@@ -1081,7 +1107,8 @@ class MarvinCMLWriter {
       productRect.extend(MarvinRectangle((*productPtr)->atoms));
     }
 
-    // if there is room between the reactants and products, put the arrow there
+    // if there is room between the reactants and products, put the arrow
+    // there
 
     if (productRect.upperLeft.x - reactantRect.lowerRight.x >
         ARROW_MIN_LENGTH + 2.0 * ARROW_SPACE) {
@@ -1093,12 +1120,13 @@ class MarvinCMLWriter {
       } else {
         marvinReaction->arrow.y1 =
             (reactantRect.getCenter().y + productRect.getCenter().y) /
-            2.0;  // no agents = just put it based on the reactant and products
+            2.0;  // no agents = just put it based on the reactant and
+                  // products
       }
       marvinReaction->arrow.y2 = marvinReaction->arrow.y1;
     }
-    // if not enough room between the reactants and product horizontally, try
-    // vertically
+    // if not enough room between the reactants and product horizontally,
+    // try vertically
 
     else if (reactantRect.lowerRight.y - productRect.upperLeft.y >
              ARROW_MIN_LENGTH + 2.0 * ARROW_SPACE) {
@@ -1108,7 +1136,8 @@ class MarvinCMLWriter {
       } else {
         marvinReaction->arrow.x1 =
             (reactantRect.getCenter().x + productRect.getCenter().x) /
-            2.0;  // no agents = just put it based on the reactant and products
+            2.0;  // no agents = just put it based on the reactant and
+                  // products
       }
       marvinReaction->arrow.x2 = marvinReaction->arrow.x1;
       marvinReaction->arrow.y1 = reactantRect.lowerRight.y - ARROW_SPACE;

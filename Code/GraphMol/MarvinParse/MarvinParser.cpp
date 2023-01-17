@@ -416,7 +416,7 @@ class MarvinCMLReader {
           type = Bond::SINGLE;
           cfg = 2;
           break;
-        case Bond::STEREONONE:
+        default:
           // nothing to do
           break;
       }

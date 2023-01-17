@@ -63,15 +63,19 @@ RDKIT_FILEPARSERS_EXPORT ChemicalReaction *MrvRxnFileParser(
 RDKIT_FILEPARSERS_EXPORT void MolToMrvFile(const ROMol &mol,
                                            const std::string &fName,
                                            bool includeStereo, int confId,
-                                           bool kekulize);
+                                           bool kekulize,
+                                           bool prettyPrint = false);
 RDKIT_FILEPARSERS_EXPORT std::string MolToMrvBlock(const ROMol &mol,
                                                    bool includeStereo,
-                                                   int confId, bool kekulize);
+                                                   int confId, bool kekulize,
+                                                   bool prettyPrint = false);
 
 RDKIT_FILEPARSERS_EXPORT std::string ChemicalReactionToMrvBlock(
-    const ChemicalReaction &rxn);
+    const ChemicalReaction &rxn, bool prettyPrint = false);
+
 RDKIT_FILEPARSERS_EXPORT void ChemicalReactionToMrvFile(
-    const ChemicalReaction &rxn, const std::string &fName);
+    const ChemicalReaction &rxn, const std::string &fName,
+    bool prettyPrint = false);
 }  // namespace RDKit
 
 #endif

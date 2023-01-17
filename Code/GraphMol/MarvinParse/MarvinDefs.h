@@ -25,8 +25,7 @@
 #include <boost/format.hpp>
 #include <RDGeneral/BoostEndInclude.h>
 
-#include <string>
-#include <iostream>
+using boost::property_tree::ptree;
 
 namespace RDKit {
 
@@ -68,6 +67,7 @@ class MarvinArrow {
   double y2;
 
   std::string toString() const;
+  ptree toPtree() const;
 };
 
 class MarvinPlus {
@@ -79,6 +79,7 @@ class MarvinPlus {
   double y2;
 
   std::string toString() const;
+  ptree toPtree() const;
 };
 
 class MarvinCondition {
@@ -93,6 +94,7 @@ class MarvinCondition {
   std::string valign;
 
   std::string toString() const;
+  ptree toPtree() const;
 };
 
 class MarvinAttachmentPoint {
@@ -103,6 +105,7 @@ class MarvinAttachmentPoint {
   std::string order;
 
   std::string toString() const;
+  ptree toPtree() const;
 };
 
 class MarvinAtom {
@@ -135,6 +138,7 @@ class MarvinAtom {
   bool isElement() const;
 
   std::string toString() const;
+  ptree toPtree() const;
 };
 
 class MarvinBondStereo {
@@ -145,6 +149,7 @@ class MarvinBondStereo {
   std::string dictRef;
 
   std::string toString() const;
+  ptree toPtree() const;
 };
 
 class MarvinBond {
@@ -168,6 +173,7 @@ class MarvinBond {
   const std::string getBondType() const;
 
   std::string toString() const;
+  ptree toPtree() const;
 };
 
 class MarvinRectangle {
@@ -212,6 +218,9 @@ class MarvinMolBase {
   virtual std::string role() const = 0;
   virtual bool hasAtomBondBlocks() const = 0;
   virtual std::string toString() const = 0;
+  virtual ptree toPtree() const;
+  void addSgroupsToPtree(ptree &pt) const;
+
   virtual MarvinMolBase *copyMol(std::string idAppend) const = 0;
 
   int getExplicitValence(const MarvinAtom &marvinAtom) const;
@@ -287,6 +296,7 @@ class MarvinSruCoModSgroup : public MarvinMolBase {
   std::string correspondence;
 
   std::string toString() const override;
+  ptree toPtree() const override;
 
   std::string role() const override;
   bool hasAtomBondBlocks() const override;
@@ -309,6 +319,7 @@ class MarvinDataSgroup : public MarvinMolBase {
   double y;
 
   std::string toString() const override;
+  ptree toPtree() const override;
 
   std::string role() const override;
   bool hasAtomBondBlocks() const override;
@@ -326,6 +337,7 @@ class MarvinSuperatomSgroupExpanded : public MarvinMolBase {
   MarvinMolBase *convertToOneSuperAtom();
 
   std::string toString() const override;
+  ptree toPtree() const override;
 
   std::string role() const override;
   bool hasAtomBondBlocks() const override;
@@ -349,6 +361,7 @@ class MarvinMultipleSgroup : public MarvinMolBase {
                                 std::vector<MarvinBond *> &orphanedBonds) const;
 
   std::string toString() const override;
+  ptree toPtree() const override;
 
   std::string role() const override;
   bool hasAtomBondBlocks() const override;
@@ -364,6 +377,8 @@ class MarvinMulticenterSgroup : public MarvinMolBase {
   void processOneMulticenterSgroup();
 
   std::string toString() const override;
+  ptree toPtree() const override;
+
   MarvinAtom *center;
   std::string role() const override;
   bool hasAtomBondBlocks() const override;
@@ -378,6 +393,8 @@ class MarvinGenericSgroup : public MarvinMolBase {
 
   std::string charge;  // onAtoms or onBrackets
   std::string toString() const override;
+  ptree toPtree() const override;
+
   std::string role() const override;
   bool hasAtomBondBlocks() const override;
 };
@@ -393,6 +410,8 @@ class MarvinMonomerSgroup : public MarvinMolBase {
   std::string title;
   std::string charge;  // onAtoms or onBrackets
   std::string toString() const override;
+  ptree toPtree() const override;
+
   std::string role() const override;
   bool hasAtomBondBlocks() const override;
 };
@@ -413,6 +432,7 @@ class MarvinSuperatomSgroup : public MarvinMolBase {
   bool hasAtomBondBlocks() const override;
 
   std::string toString() const override;
+  ptree toPtree() const override;
 };
 
 class MarvinMol : public MarvinMolBase {
@@ -426,8 +446,10 @@ class MarvinMol : public MarvinMolBase {
   bool hasAtomBondBlocks() const override;
 
   std::string toString() const override;
+  ptree toPtree() const override;
 
   std::string generateMolString();
+  ptree toMolPtree() const;
 };
 
 class MarvinReaction {
@@ -445,6 +467,7 @@ class MarvinReaction {
   void prepSgroupsForRDKit();
 
   std::string toString();
+  ptree toPtree() const;
 };
 
 class MarvinStereoGroup {

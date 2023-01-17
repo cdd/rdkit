@@ -220,14 +220,14 @@ void testSmilesToMarvin(const SmilesTest *smilesTest) {
       std::string expectedMrvName = fName + ".expected.mrv";
       std::string outMolStr = "";
       try {
-        outMolStr = MolToMrvBlock(*localVars.smilesMol, true, -1, true);
+        outMolStr = MolToMrvBlock(*localVars.smilesMol, true, -1, true, false);
       } catch (const RDKit::KekulizeException &e) {
         outMolStr = "";
       } catch (...) {
         throw;  // re-trhow the error if not a kekule error
       }
       if (outMolStr == "") {
-        outMolStr = MolToMrvBlock(*localVars.smilesMol, true, -1,
+        outMolStr = MolToMrvBlock(*localVars.smilesMol, true, -1, false,
                                   false);  // try without kekule'ing
       }
 
@@ -283,6 +283,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest) {
 
   try {
     localVars.molOrRxn = GetMolOrReaction(molOrRxnTest, localVars.isReaction);
+
     if (localVars.isReaction != molOrRxnTest->isRxnTest()) {
       // printf("Wrong type of MRV file\n");
       TEST_ASSERT(molOrRxnTest->expectedResult == false);
@@ -365,7 +366,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest) {
       }
 
       {
-        std::string outMolStr = ChemicalReactionToMrvBlock(*rxn);
+        std::string outMolStr = ChemicalReactionToMrvBlock(*rxn, false);
 
         //  code to create the expected files for new or changed tests
 
@@ -384,7 +385,6 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest) {
 
         TEST_ASSERT(expectedStr == outMolStr);
       }
-
       BOOST_LOG(rdInfoLog) << "done" << std::endl;
     } else {
       // mol  test
@@ -435,15 +435,15 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest) {
 
         std::string outMolStr = "";
         try {
-          outMolStr = MolToMrvBlock(*mol, true, -1, true);
+          outMolStr = MolToMrvBlock(*mol, true, -1, true, false);
         } catch (const RDKit::KekulizeException &e) {
           outMolStr = "";
         } catch (...) {
           throw;  // re-trhow the error if not a kekule error
         }
         if (outMolStr == "") {
-          outMolStr =
-              MolToMrvBlock(*mol, true, -1, false);  // try without kekule'ing
+          outMolStr = MolToMrvBlock(*mol, true, -1, false,
+                                    false);  // try without kekule'ing
         }
         // code to create the expected files for new or changed tests
 
@@ -538,15 +538,15 @@ void testMolFiles(const MolTest *molFileTest) {
 
       std::string outMolStr = "";
       try {
-        outMolStr = MolToMrvBlock(*localVars.mol, true, -1, true);
+        outMolStr = MolToMrvBlock(*localVars.mol, true, -1, true, false);
       } catch (const RDKit::KekulizeException &e) {
         outMolStr = "";
       } catch (...) {
         throw;  // re-trhow the error if not a kekule error
       }
       if (outMolStr == "") {
-        outMolStr = MolToMrvBlock(*localVars.mol, true, -1,
-                                  false);  // try without kekule'ing
+        // try without kekule'ing
+        outMolStr = MolToMrvBlock(*localVars.mol, true, -1, false, false);
       }
       // code to create the expected files for new or changed tests
 
@@ -601,7 +601,6 @@ void RunTests() {
       MolTest("DoubleBondChain.mrv", true, LoadAsMolOrRxn, 22, 22),
       MolTest("WigglyAndCrossed.mrv", true, LoadAsMolOrRxn, 8, 7),
       MolTest("BondTypes.mrv", true, LoadAsMolOrRxn, 26, 25),
-      MolTest("EmbeddedSGroupSUP_MUL.mrv", true, LoadAsMolOrRxn, 17, 17),
       MolTest("EmbeddedSGroupSUP_MUL.mrv", true, LoadAsMolOrRxn, 17, 17),
       MolTest("EmbeddedSgroupCOP_SUP.mrv", true, LoadAsMolOrRxn, 10, 10),
       MolTest("EmbeddedSgroupDAT_SUP.mrv", true, LoadAsMolOrRxn, 10, 10),
@@ -721,7 +720,6 @@ void RunTests() {
       RxnTest("EmptyRxn.mrv", true, LoadAsMolOrRxn, 0, 0, 0, 0, 0),
       RxnTest("RxnNoCoords.mrv", true, LoadAsMolOrRxn, 2, 0, 1, 3, 0),
       RxnTest("mrvValenceZero.mrv", true, LoadAsMolOrRxn, 3, 0, 1, 4, 0),
-      RxnTest("RxnNoCoords.mrv", true, LoadAsMolOrRxn, 2, 0, 1, 3, 0),
       RxnTest("condition_coordinates_mpoint.mrv", true, LoadAsMolOrRxn, 1, 0, 1,
               0, 0),
       RxnTest("marvin01.mrv", false, LoadAsMolOrRxn, 2, 1, 1, 3, 0),

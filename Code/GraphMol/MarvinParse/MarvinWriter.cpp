@@ -1208,7 +1208,7 @@ class MarvinCMLWriter {
 };
 
 std::string MolToMrvBlock(const ROMol &mol, bool includeStereo, int confId,
-                          bool kekulize) {
+                          bool kekulize, bool prettyPrint) {
   RDKit::Utils::LocaleSwitcher switcher;
   RWMol trwmol(mol);
   // NOTE: kekulize the molecule before writing it out
@@ -1230,7 +1230,15 @@ std::string MolToMrvBlock(const ROMol &mol, bool includeStereo, int confId,
   MarvinCMLWriter marvinCMLWriter;
 
   auto marvinMol = marvinCMLWriter.MolToMarvinMol(&trwmol, confId);
-  std::string res = marvinMol->generateMolString();
+  ptree pt = marvinMol->toMolPtree();
+  std::ostringstream out;
+  if (prettyPrint)
+    write_xml(out, pt,
+              boost::property_tree::xml_writer_make_settings<std::string>(
+                  '\t', 1, "windows-1252"));
+  else
+    write_xml(out, pt);
+  std::string res = out.str();
   delete marvinMol;
   return res;
 }
@@ -1241,7 +1249,8 @@ std::string MolToMrvBlock(const ROMol &mol, bool includeStereo, int confId,
 //
 //------------------------------------------------
 void MolToMrvFile(const ROMol &mol, const std::string &fName,
-                  bool includeStereo, int confId, bool kekulize) {
+                  bool includeStereo, int confId, bool kekulize,
+                  bool prettyPrint) {
   auto *outStream = new std::ofstream(fName.c_str());
   if (!(*outStream) || outStream->bad()) {
     delete outStream;
@@ -1249,22 +1258,31 @@ void MolToMrvFile(const ROMol &mol, const std::string &fName,
     errout << "Bad output file " << fName;
     throw BadFileException(errout.str());
   }
-  std::string outString = MolToMrvBlock(mol, includeStereo, confId, kekulize);
+  std::string outString =
+      MolToMrvBlock(mol, includeStereo, confId, kekulize, prettyPrint);
   *outStream << outString;
   delete outStream;
 }
 
-std::string ChemicalReactionToMrvBlock(const ChemicalReaction &rxn) {
+std::string ChemicalReactionToMrvBlock(const ChemicalReaction &rxn,
+                                       bool prettyPrint) {
   MarvinCMLWriter marvinCMLWriter;
 
   auto marvinRxn = marvinCMLWriter.ChemicalReactionToMarvinRxn(&rxn);
-  std::string res = marvinRxn->toString();
+  ptree pt = marvinRxn->toPtree();
+  std::ostringstream out;
+  if (prettyPrint)
+    write_xml(out, pt,
+              boost::property_tree::xml_writer_make_settings<std::string>(
+                  '\t', 1, "windows-1252"));
+  else
+    write_xml(out, pt);
   delete marvinRxn;
-  return res;
+  return out.str();
 };
 
 void ChemicalReactionToMrvFile(const ChemicalReaction &rxn,
-                               const std::string &fName) {
+                               const std::string &fName, bool prettyPrint) {
   auto *outStream = new std::ofstream(fName.c_str());
   if (!(*outStream) || outStream->bad()) {
     delete outStream;
@@ -1272,7 +1290,7 @@ void ChemicalReactionToMrvFile(const ChemicalReaction &rxn,
     errout << "Bad output file " << fName;
     throw BadFileException(errout.str());
   }
-  std::string outString = ChemicalReactionToMrvBlock(rxn);
+  std::string outString = ChemicalReactionToMrvBlock(rxn, prettyPrint);
   *outStream << outString;
   delete outStream;
 };

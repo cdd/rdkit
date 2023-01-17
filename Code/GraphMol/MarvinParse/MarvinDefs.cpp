@@ -30,6 +30,49 @@ std::string MarvinArrow::toString() const {
   return out.str();
 }
 
+ptree MarvinMolBase::toPtree() const {
+  ptree out;
+  out.put("<xmlattr>.molID", molID);
+
+  if (parent != nullptr) {
+    out.put("<xmlattr>.id", id);
+    out.put("<xmlattr>.role", role());
+  }
+  if (this->hasAtomBondBlocks()) {
+    for (auto atom : atoms) {
+      out.add_child("atomArray.atom", atom->toPtree());
+    }
+
+    for (auto bond : bonds) {
+      out.add_child("bondArray.bond", bond->toPtree());
+    }
+  }
+
+  return out;
+}
+
+void MarvinMolBase::addSgroupsToPtree(ptree &out) const {
+  for (auto sgroup : sgroups) {
+    out.add_child("molecule", sgroup->toPtree());
+  }
+}
+
+ptree MarvinArrow::toPtree() const {
+  ptree out;
+  out.put("<xmlattr>.type", type);
+  std::ostringstream x1str, y1str, x2str, y2str;
+  x1str << x1;
+  y1str << y1;
+  x2str << x2;
+  y2str << y2;
+  out.put("<xmlattr>.x1", x1str.str());
+  out.put("<xmlattr>.y1", y1str.str());
+  out.put("<xmlattr>.x2", x2str.str());
+  out.put("<xmlattr>.y2", y2str.str());
+
+  return out;
+}
+
 std::string MarvinPlus::toString() const {
   std::ostringstream out;
 
@@ -51,6 +94,47 @@ std::string MarvinPlus::toString() const {
          "</MReactionSign>";
 
   return out.str();
+}
+
+ptree MarvinPlus::toPtree() const {
+  ptree out;
+
+  out.put("<xmlattr>.id", id);
+  out.put("<xmlattr>.toptions", "NOROT");
+  out.put("<xmlattr>.fontScale", "14.0");
+  out.put("<xmlattr>.halign", "CENTER");
+  out.put("<xmlattr>.valign", "CENTER");
+  out.put("<xmlattr>.autoSize", "true");
+  ptree field;
+  field.put("<xmlattr>.name", "text");
+
+  field.put_value("{D font=SansSerif,size=18,bold}+");
+
+  out.put_child("Field", field);
+  std::ostringstream x1str, y1str, x2str, y2str;
+  x1str << x1;
+  y1str << y1;
+  x2str << x2;
+  y2str << y2;
+
+  ptree p1, p2, p3, p4;
+  p1.put("<xmlattr>.x", x1str.str());
+  p1.put("<xmlattr>.y", y1str.str());
+  out.add_child("MPoint", p1);
+
+  p2.put("<xmlattr>.x", x2str.str());
+  p2.put("<xmlattr>.y", y1str.str());
+  out.add_child("MPoint", p2);
+
+  p3.put("<xmlattr>.x", x2str.str());
+  p3.put("<xmlattr>.y", y2str.str());
+  out.add_child("MPoint", p3);
+
+  p4.put("<xmlattr>.x", x1str.str());
+  p4.put("<xmlattr>.y", y2str.str());
+  out.add_child("MPoint", p4);
+
+  return out;
 }
 
 std::string MarvinCondition::toString() const {
@@ -83,6 +167,40 @@ std::string MarvinCondition::toString() const {
   return out.str();
 }
 
+ptree MarvinCondition::toPtree() const {
+  ptree out;
+
+  out.put("<xmlattr>.id", id);
+  if (fontScale > 0) {
+    out.put("<xmlattr>.fontScale", fontScale);
+  }
+  out.put("<xmlattr>.toption", "NOROT");
+  out.put("<xmlattr>.halign", halign);
+  out.put("<xmlattr>.valign", valign);
+  out.put("<xmlattr>.autoSize", "true");
+  ptree field;
+  field.put("<xmlattr>.name", "text");
+
+  field.put_value("![CDATA[ {D font=SansSerif,size=18,bold}+]]");
+
+  out.put_child("Field", field);
+
+  // add four points
+
+  std::ostringstream xstr, ystr;
+  xstr << x;
+  ystr << y;
+
+  for (int i = 0; i < 4; ++i) {
+    ptree p1;
+    p1.put("<xmlattr>.x", xstr.str());
+    p1.put("<xmlattr>.y", ystr.str());
+    out.add_child("MPoint", p1);
+  }
+
+  return out;
+}
+
 std::string MarvinAttachmentPoint::toString() const {
   std::ostringstream out;
 
@@ -90,6 +208,16 @@ std::string MarvinAttachmentPoint::toString() const {
       << "\" bond=\"" << bond << "\"/>";
 
   return out.str();
+}
+
+ptree MarvinAttachmentPoint::toPtree() const {
+  ptree out;
+
+  out.put("<xmlattr>.atom", atom);
+  out.put("<xmlattr>.order", order);
+  out.put("<xmlattr>.bond", bond);
+
+  return out;
 }
 
 MarvinAtom::MarvinAtom()
@@ -195,6 +323,67 @@ std::string MarvinAtom::toString() const {
   return out.str();
 }
 
+ptree MarvinAtom::toPtree() const {
+  ptree out;
+
+  out.put("<xmlattr>.id", id);
+  out.put("<xmlattr>.elementType", elementType);
+
+  if (x2 != DBL_MAX && y2 != DBL_MAX) {
+    std::ostringstream xstr, ystr;
+    xstr << x2;
+    ystr << y2;
+    out.put("<xmlattr>.x2", xstr.str());
+    out.put("<xmlattr>.y2", ystr.str());
+  }
+
+  if (formalCharge != 0) {
+    out.put("<xmlattr>.formalCharge", formalCharge);
+  }
+
+  if (radical != "") {
+    out.put("<xmlattr>.radical", radical);
+  }
+
+  if (isElement() && isotope != 0) {
+    out.put("<xmlattr>.isotope", isotope);
+  }
+
+  if (mrvAlias != "") {
+    out.put("<xmlattr>.mrvAlias", mrvAlias);
+  }
+
+  if (mrvValence >= 0) {
+    out.put("<xmlattr>.mrvValence", mrvValence);
+  }
+
+  if (hydrogenCount > 0) {
+    out.put("<xmlattr>.hydrogenCount", hydrogenCount);
+  }
+
+  if (mrvStereoGroup != "") {
+    out.put("<xmlattr>.mrvStereoGroup", mrvStereoGroup);
+  }
+
+  if (mrvMap != 0) {
+    out.put("<xmlattr>.mrvMap", mrvMap);
+  }
+
+  if (sgroupRef != "") {
+    out.put("<xmlattr>.sgroupRef", sgroupRef);
+  }
+
+  if (rgroupRef >= 0) {
+    out.put("<xmlattr>.rgroupRef", rgroupRef);
+  }
+
+  if (sgroupAttachmentPoint != "") {
+    out.put("<xmlattr>.sgroupAttachmentPoint", sgroupAttachmentPoint);
+  }
+
+  return out;
+}
+
 MarvinBond::MarvinBond(const MarvinBond &bondToCopy, std::string newId,
                        std::string atomRef1, std::string atomRef2)
     : id(newId),
@@ -291,6 +480,42 @@ std::string MarvinBond::toString() const {
     out << "/>";  // just end the bond
   }
   return out.str();
+}
+
+ptree MarvinBond::toPtree() const {
+  ptree out;
+
+  out.put("<xmlattr>.id", id);
+  out.put("<xmlattr>.atomRefs2", atomRefs2[0] + " " + atomRefs2[1]);
+
+  if (order != "") {
+    out.put("<xmlattr>.order", order);
+  }
+
+  if (queryType != "") {
+    out.put("<xmlattr>.queryType", queryType);
+  }
+
+  if (convention != "") {
+    out.put("<xmlattr>.convention", convention);
+  }
+
+  if (bondStereo.value != "" || bondStereo.dictRef != "" ||
+      (bondStereo.convention != "" && bondStereo.conventionValue != "")) {
+    ptree bondStereoPt;
+
+    if (bondStereo.value != "") {
+      bondStereoPt.put_value(bondStereo.value);
+    } else if (bondStereo.dictRef != "") {
+      bondStereoPt.put("<xmlattr>.dictRef", bondStereo.dictRef);
+    } else {
+      bondStereoPt.put("<xmlattr>.convention", bondStereo.convention);
+      bondStereoPt.put("<xmlattr>.conventionValue", bondStereo.conventionValue);
+    }
+
+    out.put_child("bondStereo", bondStereoPt);
+  }
+  return out;
 }
 
 MarvinMolBase::~MarvinMolBase() {
@@ -391,8 +616,8 @@ void MarvinMolBase::removeCoords() {
 }
 
 int MarvinMolBase::getExplicitValence(const MarvinAtom &marvinAtom) const {
-  unsigned int resTimes10 = 0;  // calculated as 10 * the actual value so we can
-                                // use int match, and have 1.5 order bonds
+  unsigned int resTimes10 = 0;  // calculated as 10 * the actual value so we
+                                // can use int match, and have 1.5 order bonds
 
   for (auto bondPtr : bonds) {
     if (bondPtr->atomRefs2[0] != marvinAtom.id &&
@@ -452,6 +677,18 @@ std::string MarvinSruCoModSgroup::toString() const {
       << "\"/>";
 
   return out.str();
+}
+
+ptree MarvinSruCoModSgroup::toPtree() const {
+  ptree out = MarvinMolBase::toPtree();
+
+  out.put("<xmlattr>.atomRefs", boost::algorithm::join(getAtomList(), " "));
+  out.put("<xmlattr>.title", title);
+  out.put("<xmlattr>.connect", connect);
+  out.put("<xmlattr>.correspondence", correspondence);
+  out.put("<xmlattr>.bondList", boost::algorithm::join(getBondList(), " "));
+
+  return out;
 }
 
 MarvinMolBase *MarvinSruCoModSgroup::copyMol(std::string idAppendage) const {
@@ -561,6 +798,33 @@ std::string MarvinDataSgroup::toString() const {
   return out.str();
 }
 
+ptree MarvinDataSgroup::toPtree() const {
+  ptree out = MarvinMolBase::toPtree();
+
+  out.put("<xmlattr>.atomRefs", boost::algorithm::join(getAtomList(), " "));
+  out.put("<xmlattr>.context", context);
+  out.put("<xmlattr>.fieldName", fieldName);
+  out.put("<xmlattr>.placement", placement);
+  out.put("<xmlattr>.unitsDisplayed", unitsDisplayed);
+  out.put("<xmlattr>.fieldData", fieldData);
+
+  if (units != "") {
+    out.put("<xmlattr>.units", units);
+  }
+
+  if (queryType != "" && queryOp != "") {
+    out.put("<xmlattr>.queryType", queryType);
+    out.put("<xmlattr>.queryOp", queryOp);
+  }
+  std::ostringstream xstr, ystr;
+  xstr << x;
+  ystr << y;
+  out.put("<xmlattr>.x", xstr.str());
+  out.put("<xmlattr>.y", ystr.str());
+
+  return out;
+}
+
 std::string MarvinDataSgroup::role() const { return std::string("DataSgroup"); }
 
 bool MarvinDataSgroup::hasAtomBondBlocks() const { return false; }
@@ -639,6 +903,17 @@ std::string MarvinMultipleSgroup::toString() const {
   return out.str();
 }
 
+ptree MarvinMultipleSgroup::toPtree() const {
+  ptree out = MarvinMolBase::toPtree();
+
+  out.put("<xmlattr>.atomRefs", boost::algorithm::join(getAtomList(), " "));
+  out.put("<xmlattr>.title", title);
+
+  MarvinMolBase::addSgroupsToPtree(out);
+
+  return out;
+}
+
 MarvinMulticenterSgroup::MarvinMulticenterSgroup(MarvinMolBase *parentInit) {
   parent = parentInit;
 }
@@ -692,6 +967,15 @@ std::string MarvinMulticenterSgroup::toString() const {
   return out.str();
 }
 
+ptree MarvinMulticenterSgroup::toPtree() const {
+  ptree out = MarvinMolBase::toPtree();
+
+  out.put("<xmlattr>.atomRefs", boost::algorithm::join(getAtomList(), " "));
+  out.put("<xmlattr>.center", center->id);
+
+  return out;
+}
+
 MarvinGenericSgroup::MarvinGenericSgroup(MarvinMolBase *parentInit) {
   parent = parentInit;
 }
@@ -736,6 +1020,14 @@ std::string MarvinGenericSgroup::toString() const {
       << boost::algorithm::join(getAtomList(), " ") << "\"/>";
 
   return out.str();
+}
+
+ptree MarvinGenericSgroup::toPtree() const {
+  ptree out = MarvinMolBase::toPtree();
+
+  out.put("<xmlattr>.atomRefs", boost::algorithm::join(getAtomList(), " "));
+
+  return out;
 }
 
 MarvinMonomerSgroup::MarvinMonomerSgroup(MarvinMolBase *parentInit) {
@@ -788,6 +1080,16 @@ std::string MarvinMonomerSgroup::toString() const {
       << "</molecule>";
 
   return out.str();
+}
+
+ptree MarvinMonomerSgroup::toPtree() const {
+  ptree out = MarvinMolBase::toPtree();
+
+  out.put("<xmlattr>.atomRefs", boost::algorithm::join(getAtomList(), " "));
+  out.put("<xmlattr>.title", title);
+  out.put("<xmlattr>.charge", charge);
+
+  return out;
 }
 
 MarvinSuperatomSgroupExpanded::MarvinSuperatomSgroupExpanded(
@@ -847,6 +1149,14 @@ std::string MarvinSuperatomSgroupExpanded::toString() const {
       << "\"/>";
 
   return out.str();
+}
+
+ptree MarvinSuperatomSgroupExpanded::toPtree() const {
+  ptree out = MarvinMolBase::toPtree();
+
+  out.put("<xmlattr>.atomRefs", boost::algorithm::join(getAtomList(), " "));
+  out.put("<xmlattr>.title", title);
+  return out;
 }
 
 std::string MarvinSuperatomSgroupExpanded::role() const {
@@ -919,6 +1229,24 @@ std::string MarvinSuperatomSgroup::toString() const {
   return out.str();
 }
 
+ptree MarvinSuperatomSgroup::toPtree() const {
+  ptree out = MarvinMolBase::toPtree();
+
+  out.put("<xmlattr>.title", title);
+
+  if (attachmentPoints.size() > 0) {
+    ptree attachmentpointArray;
+    for (auto attachmentPoint : attachmentPoints) {
+      attachmentpointArray.add_child("attachmentPoint",
+                                     attachmentPoint->toPtree());
+    }
+    out.put_child("AttachmentPointArray", attachmentpointArray);
+  }
+  MarvinMolBase::addSgroupsToPtree(out);
+
+  return out;
+}
+
 MarvinMol::MarvinMol() { parent = nullptr; }
 
 MarvinMol::~MarvinMol() {
@@ -959,17 +1287,17 @@ void MarvinMolBase::cleanUpSgNumbering(int &sgCount) {
 }
 
 void MarvinMolBase::cleanUpNumberingMolsAtomsBonds(
-    int &
-        molCount  // this is the starting mol count, and receives the ending mol
-                  // count - THis is used when MarvinMol->convertToSuperAtaoms
-                  // is called multiple times from a RXN
+    int &molCount  // this is the starting mol count, and receives the ending
+                   // mol count - THis is used when
+                   // MarvinMol->convertToSuperAtaoms is called multiple times
+                   // from a RXN
     ,
     int &atomCount  // starting and ending atom count
     ,
     int &bondCount)  // starting and ending bond count)
 {
-  // clean up the mol ids, the atomIds and bondIds.  make  map of the old to new
-  // atom ids and bond ids
+  // clean up the mol ids, the atomIds and bondIds.  make  map of the old to
+  // new atom ids and bond ids
 
   this->molID = "m" + std::to_string(++molCount);
 
@@ -1014,10 +1342,10 @@ void MarvinMolBase::cleanUpNumberingMolsAtomsBonds(
 }
 
 void MarvinMolBase::cleanUpNumbering(
-    int &
-        molCount  // this is the starting mol count, and receives the ending mol
-                  // count - THis is used when MarvinMol->convertToSuperAtaoms
-                  // is called multiple times from a RXN
+    int &molCount  // this is the starting mol count, and receives the ending
+                   // mol count - THis is used when
+                   // MarvinMol->convertToSuperAtaoms is called multiple times
+                   // from a RXN
     ,
     int &atomCount  // starting and ending atom count
     ,
@@ -1090,22 +1418,24 @@ void promoteChild(MarvinMolBase *molToMove) {
 }
 
 void MarvinMultipleSgroup::expandOneMultipleSgroup() {
-  // Mulitplesgroups are handled differently in Marvin and RDKit/mol file format
+  // Mulitplesgroups are handled differently in Marvin and RDKit/mol file
+  // format
   //
   // In Marvin, the atoms of the group are indicated, and the "title" contains
-  // the number of replicates In mol files, the atoms of the group are actually
-  // replicated in the atomBlock, and the MUL contructs indicates the list of
-  // ALL such atoms and the list of the original parent atoms from which the
-  // others were replicated.  It also indicate the two bonds from the group
-  // atoms to atoms NOT in the group (although these could be derived
+  // the number of replicates In mol files, the atoms of the group are
+  // actually replicated in the atomBlock, and the MUL contructs indicates the
+  // list of ALL such atoms and the list of the original parent atoms from
+  // which the others were replicated.  It also indicate the two bonds from
+  // the group atoms to atoms NOT in the group (although these could be
+  // derived
   //
-  //  This routine takes a MarvinMol and  prepares it for generation of an RDKit
-  //  mol.  Each MultipleSgroup is expanded by:
-  //    1) expanding the atom block - the new replicate sets of atoms are places
-  //    just after the last atom in the original (parent) set 2) records the two
-  //    bonds to atoms NOT in the expanded group - one is from a "parent" atom
-  //    and one from a replicated atom. 3) bonds the parent and replicated sets
-  //    to each other in a head to tail fashion.
+  //  This routine takes a MarvinMol and  prepares it for generation of an
+  //  RDKit mol.  Each MultipleSgroup is expanded by:
+  //    1) expanding the atom block - the new replicate sets of atoms are
+  //    places just after the last atom in the original (parent) set 2)
+  //    records the two bonds to atoms NOT in the expanded group - one is from
+  //    a "parent" atom and one from a replicated atom. 3) bonds the parent
+  //    and replicated sets to each other in a head to tail fashion.
 
   // make sure it is not already expanded - this should not happen
 
@@ -1241,7 +1571,7 @@ void MarvinMultipleSgroup::expandOneMultipleSgroup() {
     }
 
     for (int i = this->sgroups.size() - 1; i >= 0; --i) {
-      auto copiedMol = sgroups[i]->copyMol(idAppendage);  // qqq
+      auto copiedMol = sgroups[i]->copyMol(idAppendage);
       moveSgroup(copiedMol, this->parent);
     }
 
@@ -1282,34 +1612,34 @@ void MarvinMultipleSgroup::expandOneMultipleSgroup() {
 }
 
 void MarvinSuperatomSgroup::convertFromOneSuperAtom() {
-  // the mol-style super atoms are significanTly different than the Marvin super
-  // atoms.  The mol style has all atoms and bonds in the main mol, and
+  // the mol-style super atoms are significanTly different than the Marvin
+  // super atoms.  The mol style has all atoms and bonds in the main mol, and
   // parameter lines that indicate the name of the super atom and the atom
   // indices affected.
   //
-  //  The SuperatomSgroup form can appear in contracted or expanded form in MRV
-  //  blocks:
+  //  The SuperatomSgroup form can appear in contracted or expanded form in
+  //  MRV blocks:
   //
-  // In the contracted form, the MRV block can have one or more dummy atoms with
-  // the super atom name in the main molecule, and a separate sub-mol with the
-  // atoms and bonds of the superatom. It also can have one or more separate
-  // records called attachmentPoints that specifiy which atom(s) in the super
-  // atom sub-mol that replaces the dummy atom(s), and also a bond pointer (in
-  // the parent mol).
+  // In the contracted form, the MRV block can have one or more dummy atoms
+  // with the super atom name in the main molecule, and a separate sub-mol
+  // with the atoms and bonds of the superatom. It also can have one or more
+  // separate records called attachmentPoints that specifiy which atom(s) in
+  // the super atom sub-mol that replaces the dummy atom(s), and also a bond
+  // pointer (in the parent mol).
   //
-  // In the expanded form, all of the atoms are in the parent molecule, and the
-  // sub-mol only refers to them.  The attachement points refer to the atoms in
-  // the parent mol. The MultipleSgroup and SruGroup seem very much alike.   In
-  // both, all atoms are in the parent mol, and the sub-mol refers to a group of
-  // atoms in that parent. The SruGroup specifies the name and also the
-  // connection informat (head-to-tail, head-head, and unspecified).  The
-  // Multiple S-group specifies the report count for the group
+  // In the expanded form, all of the atoms are in the parent molecule, and
+  // the sub-mol only refers to them.  The attachement points refer to the
+  // atoms in the parent mol. The MultipleSgroup and SruGroup seem very much
+  // alike.   In both, all atoms are in the parent mol, and the sub-mol refers
+  // to a group of atoms in that parent. The SruGroup specifies the name and
+  // also the connection informat (head-to-tail, head-head, and unspecified).
+  // The Multiple S-group specifies the report count for the group
   //
   // This routine deals with only the contracted form of the SuperatomSgroups,
   // and copies the atoms and bonds from the sub=mol to the parent mol, and
   // deletes the dummy atom form the parent mol.
-  //  It also saves the info creates a replacement MarvinSuperatomSgroupExpanded
-  //  item.
+  //  It also saves the info creates a replacement
+  //  MarvinSuperatomSgroupExpanded item.
   try {
     // save the name of the superatom
 
@@ -1323,8 +1653,8 @@ void MarvinSuperatomSgroup::convertFromOneSuperAtom() {
     superatomSgroupExpanded->molID =
         this->molID;  // the expanded sgroup will replace the contracted one
 
-    // find the actual parent - multiple groups can be nested, so the atoms and
-    // bonds of the lower one are really in the grandparent or higher)
+    // find the actual parent - multiple groups can be nested, so the atoms
+    // and bonds of the lower one are really in the grandparent or higher)
 
     MarvinMolBase *actualParent = this->parent;
     while (actualParent->role() == "MultipleSgroup") {
@@ -1345,8 +1675,8 @@ void MarvinSuperatomSgroup::convertFromOneSuperAtom() {
 
     // before we move or delete any atoms from the superatomSgroup,  Make sure
     // that the  sibling sgroups are handled if a sibling contains the dummy R
-    // atom, then the atoms to be promoted from this sgroup should be member of
-    // the sibing too
+    // atom, then the atoms to be promoted from this sgroup should be member
+    // of the sibing too
 
     for (auto sibling : parent->sgroups) {
       if (sibling == this) {
@@ -1441,8 +1771,8 @@ void MarvinSuperatomSgroup::convertFromOneSuperAtom() {
                   [dummyAtomPtr](const MarvinAtom *arg) {
                     return arg == dummyAtomPtr;
                   });
-      thisParent->atoms.erase(
-          dummyInParent);  // get rid of the atoms pointer to the old dummy atom
+      thisParent->atoms.erase(dummyInParent);  // get rid of the atoms pointer
+                                               // to the old dummy atom
 
       // for multiple groups, also delete it from the parentAtoms array - that
       // multiple sgroup has NOT been done yet
@@ -1647,10 +1977,10 @@ void MarvinMolBase::prepSgroupsForRDKit() {
     return;
   }
 
-  // check to see if we can move this sgroup up a level. We can if the parent is
-  // not the root of the tree, and its parent is passive (it does not change the
-  // atoms of the parent when it is processed or expanded, or if all of its
-  // atoms do not belong to the the non-passive parent
+  // check to see if we can move this sgroup up a level. We can if the parent
+  // is not the root of the tree, and its parent is passive (it does not
+  // change the atoms of the parent when it is processed or expanded, or if
+  // all of its atoms do not belong to the the non-passive parent
 
   std::string parentRole = this->parent->role();
   std::string childRole = this->role();
@@ -1701,16 +2031,16 @@ void MarvinMolBase::prepSgroupsForRDKit() {
 }
 
 MarvinMolBase *MarvinSuperatomSgroupExpanded::convertToOneSuperAtom() {
-  // the mol-style super atoms are significatnly different than the Marvin super
-  // atoms.  The mol style has all atoms and bonds in the main mol, and
+  // the mol-style super atoms are significatnly different than the Marvin
+  // super atoms.  The mol style has all atoms and bonds in the main mol, and
   // parameter lines that indicate the name of the super atom and the atom
   // indices affected.
   //
-  // The Marvin has a dummy atom with the super atom name in the main molecule,
-  // and a separate sub-mol with the atoms and bonds of the superatom.  It also
-  // has a separate record called attachmentPoint that atom in the super atom
-  // sub=mol that is replaces the dummy atom, and also a bond pointer and bond
-  // order in case the bond order changes.
+  // The Marvin has a dummy atom with the super atom name in the main
+  // molecule, and a separate sub-mol with the atoms and bonds of the
+  // superatom.  It also has a separate record called attachmentPoint that
+  // atom in the super atom sub=mol that is replaces the dummy atom, and also
+  // a bond pointer and bond order in case the bond order changes.
   //
   //  Takes information from a MarvinSuperatomSgroupExpanded and converts the
   //  MarvinSuperatomSgroup structure
@@ -1742,8 +2072,8 @@ MarvinMolBase *MarvinSuperatomSgroupExpanded::convertToOneSuperAtom() {
   dummyParentAtom->sGroupRefIsSuperatom = true;
 
   for (auto thisParent = this->parent;;
-       thisParent = thisParent->parent)  // do all parents and grandparents ...
-                                         // to to the actual parent
+       thisParent = thisParent->parent)  // do all parents and grandparents
+                                         // ... to to the actual parent
   {
     thisParent->atoms.push_back(dummyParentAtom);
 
@@ -1781,8 +2111,8 @@ MarvinMolBase *MarvinSuperatomSgroupExpanded::convertToOneSuperAtom() {
       }
     }
 
-    if (coordsExist)  // get the center of all atoms in the group - we might use
-                      // this if there are no attachement points
+    if (coordsExist)  // get the center of all atoms in the group - we might
+                      // use this if there are no attachement points
     {
       centerOfGroup.x += atom->x2;
       centerOfGroup.y += atom->y2;
@@ -1890,9 +2220,9 @@ MarvinMolBase *MarvinSuperatomSgroupExpanded::convertToOneSuperAtom() {
     }
 
     // see if the new superatom group has all of its atoms in the sibling.  If
-    // to add the dummy atom to the sibling and remove the atoms (there must be
-    // at least one atom in the sibling that is not in the new superatom, or it
-    // would be a child of the superatom already
+    // to add the dummy atom to the sibling and remove the atoms (there must
+    // be at least one atom in the sibling that is not in the new superatom,
+    // or it would be a child of the superatom already
 
     auto isSgroupInSetOfAtomsResult =
         marvinSuperatomSgroup->isSgroupInSetOfAtoms(sibling->atoms);
@@ -1960,8 +2290,9 @@ int MarvinMultipleSgroup::getMatchedOrphanBondIndex(
 }
 
 void MarvinMultipleSgroup::contractOneMultipleSgroup() {
-  // this routine takes the expanded MultipleSgroup (which comes from the RDKit
-  // version, or is ready to produce the RDKit version), and contracts it
+  // this routine takes the expanded MultipleSgroup (which comes from the
+  // RDKit version, or is ready to produce the RDKit version), and contracts
+  // it
   //  to the Marvin format version.
   //  the replicates are deleted (atoms and bonds), and the two orphaned bonds
   //  are  repaired
@@ -2008,8 +2339,8 @@ void MarvinMultipleSgroup::contractOneMultipleSgroup() {
       orphanedBonds.push_back(bondPtr);
       swap(bondPtr->atomRefs2[0],
            bondPtr->atomRefs2[1]);  // make sure the first ref atom is the
-                                    // orphaned one (still in the mol), and the
-                                    // second is the atom to be deleted
+                                    // orphaned one (still in the mol), and
+                                    // the second is the atom to be deleted
       bondsToDelete.push_back(
           bondPtr);  // one of each pair of orphaned bonds will be UNdeleted
     } else if (atom2ToBeDeleted) {
@@ -2024,8 +2355,8 @@ void MarvinMultipleSgroup::contractOneMultipleSgroup() {
   // two is most common - the replicates being deleted are connected to each
   // other 4 happens when the parent replicate (not deleted) is in between two
   // replicates that are deleted.
-  //  there are two orphaned bonds on the parent replicate, and two on the rest
-  //  of the molecule
+  //  there are two orphaned bonds on the parent replicate, and two on the
+  //  rest of the molecule
 
   if (orphanedBonds.size() != 0 && orphanedBonds.size() != 2 &&
       orphanedBonds.size() != 4) {
@@ -2033,7 +2364,8 @@ void MarvinMultipleSgroup::contractOneMultipleSgroup() {
         "Error: there should be zero or two orphaned bonds while contracting a MultipleSgroup");
   }
 
-  // delete any of this group's children that were using the atoms to be deleted
+  // delete any of this group's children that were using the atoms to be
+  // deleted
 
   std::vector<MarvinMolBase *> sgroupsToDelete;
   for (auto childSgroup : sgroups) {
@@ -2081,14 +2413,14 @@ void MarvinMultipleSgroup::contractOneMultipleSgroup() {
         orphanedBonds[matchedOrphanBondIndex]
             ->atomRefs2[0];  // [0] is the orpahened atom (still in the mol)
 
-    // undelete the bond which has been fixed (really remove it from the list of
-    // bonds to be delete)
+    // undelete the bond which has been fixed (really remove it from the list
+    // of bonds to be delete)
 
     bondsToDelete.erase(
         find(bondsToDelete.begin(), bondsToDelete.end(), orphanedBondToFix));
 
-    // any siblings or children that reference the matched Orphaned bond must be
-    // fixed to reference the retained (fixed) orphan bond
+    // any siblings or children that reference the matched Orphaned bond must
+    // be fixed to reference the retained (fixed) orphan bond
 
     for (auto siblingSgroup :
          this->parent->sgroups)  // note: includes this sgroups, which is
@@ -2222,8 +2554,8 @@ void MarvinMolBase::processSgroupsFromRDKit() {
   {
     std::vector<std::string> sgroupsMolIdsDone;
     for (bool allDone = false;
-         !allDone;)  // until all at this level are done - but fixing one child
-                     // can add sgroups to this level
+         !allDone;)  // until all at this level are done - but fixing one
+                     // child can add sgroups to this level
     {
       allDone = true;  // unitl it is not true in the loop below
       for (auto sibling : this->parent->sgroups) {
@@ -2241,15 +2573,16 @@ void MarvinMolBase::processSgroupsFromRDKit() {
         }
 
         //  there are 2 possibilities:
-        //  1) all atoms are in this one - make the sibling into a child of this
-        //  one 2) SOME atoms are NOT this one - it remains a sibling
+        //  1) all atoms are in this one - make the sibling into a child of
+        //  this one 2) SOME atoms are NOT this one - it remains a sibling
 
         if (sibling->isSgroupInSetOfAtoms(this->atoms) != SgroupInAtomSet) {
           continue;
         }
 
         moveSgroup(sibling, this);
-        break;  // have to re=start the loop over sgroups - it has just changed
+        break;  // have to re=start the loop over sgroups - it has just
+                // changed
       }
     }
 
@@ -2281,7 +2614,8 @@ void MarvinMolBase::processSgroupsFromRDKit() {
       chilrenSgroupsMolIdsDone.push_back(childSgroup->molID);
       childSgroup->processSgroupsFromRDKit();
       allDone = false;
-      break;  // have to start the loop over - we might have changed the vector
+      break;  // have to start the loop over - we might have changed the
+              // vector
     }
   }
 
@@ -2318,6 +2652,14 @@ std::string MarvinMol::toString() const {
   return out.str();
 }
 
+ptree MarvinMol::toPtree() const {
+  ptree out = MarvinMolBase::toPtree();
+
+  MarvinMolBase::addSgroupsToPtree(out);
+
+  return out;
+}
+
 std::string MarvinMol::generateMolString() {
   std::ostringstream out;
 
@@ -2328,7 +2670,21 @@ std::string MarvinMol::generateMolString() {
   out << toString();
 
   out << "</MChemicalStruct></MDocument></cml>";
+
   return out.str();
+}
+
+ptree MarvinMol::toMolPtree() const {
+  ptree out;
+
+  out.put("cml.<xmlattr>.xmlns", "http://www.chemaxon.com");
+  out.put("cml.<xmlattr>.xmlns:xsi",
+          "http://www.w3.org/2001/XMLSchema-instance");
+  out.put(
+      "cml.<xmlattr>.xsi:schemaLocation",
+      "http://www.chemaxon.com http://www.chemaxon.com/marvin/schema/mrvSchema_20_20_0.xsd");
+  out.put_child("cml.MDocument.MChemicalStruct.molecule", toPtree());
+  return out;
 }
 
 MarvinReaction::~MarvinReaction() {
@@ -2350,8 +2706,8 @@ MarvinReaction::~MarvinReaction() {
 }
 
 void MarvinReaction::prepSgroupsForRDKit() {
-  // This routine converts all the mols in the rxn to be ready for conversion to
-  // RDKIT mols
+  // This routine converts all the mols in the rxn to be ready for conversion
+  // to RDKIT mols
   int molCount = 0, atomCount = 0, bondCount = 0, sgCount = 0;
   sgMap.clear();
   atomMap.clear();
@@ -2372,23 +2728,6 @@ void MarvinReaction::prepSgroupsForRDKit() {
     product->cleanUpNumbering(molCount, atomCount, bondCount, sgCount);
   }
 }
-
-// void MarvinReaction::processSgroupsFromRDKit()
-// {
-//   //This routine converts all the mols in the rxn to be ready for conversion
-//   Marvin block generation int molCount=0, atomCount=0, bondCount=0,
-//   sgCount=0;
-
-//   for (std::vector<MarvinMol *>::iterator molIter = reactants.begin() ;
-//   molIter != reactants.end() ; ++molIter)
-//     (*molIter)->processSgroupsFromRDKit();
-//   for (std::vector<MarvinMol *>::iterator molIter = agents.begin() ; molIter
-//   != agents.end() ; ++molIter)
-//     (*molIter)->processSgroupsFromRDKit();
-//   for (std::vector<MarvinMol *>::iterator molIter = products.begin() ;
-//   molIter != products.end() ; ++molIter)
-//     (*molIter)->processSgroupsFromRDKit();
-// }
 
 std::string MarvinReaction::toString() {
   std::ostringstream out;
@@ -2426,6 +2765,46 @@ std::string MarvinReaction::toString() {
 
   out << "</MDocument></cml>";
   return out.str();
+}
+
+ptree MarvinReaction::toPtree() const {
+  ptree out;
+
+  out.put("cml.<xmlattr>.xmlns", "http://www.chemaxon.com");
+  out.put("cml.<xmlattr>.xmlns:xsi",
+          "http://www.w3.org/2001/XMLSchema-instance");
+  out.put(
+      "cml.<xmlattr>.xsi:schemaLocation",
+      "http://www.chemaxon.com http://www.chemaxon.com/marvin/schema/mrvSchema_20_20_0.xsd");
+
+  for (auto &reactant : reactants) {
+    out.add_child(
+        "cml.MDocument.MChemicalStruct.reaction.reactantList.molecule",
+        reactant->toPtree());
+  }
+
+  for (auto &agent : agents) {
+    out.add_child("cml.MDocument.MChemicalStruct.reaction.agentList.molecule",
+                  agent->toPtree());
+  }
+
+  for (auto &product : products) {
+    out.add_child("cml.MDocument.MChemicalStruct.reaction.productList.molecule",
+                  product->toPtree());
+  }
+
+  out.put_child("cml.MDocument.MChemicalStruct.reaction.arrow",
+                arrow.toPtree());
+
+  for (auto &pluse : pluses) {
+    out.add_child("cml.MDocument.MReactionSign", pluse->toPtree());
+  }
+
+  for (auto &condition : conditions) {
+    out.add_child("cml.MDocument.MTextBox", condition->toPtree());
+  }
+
+  return out;
 }
 
 MarvinRectangle::MarvinRectangle() {

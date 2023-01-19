@@ -582,6 +582,7 @@ void RunTests() {
   // the molecule tests - staromg with molfiles/sdf
 
   std::list<MolTest> sdfTests{
+      MolTest("lostStereoAnd.sdf", true, LoadAsMolOrRxn, 6, 5),
       MolTest("DoubleBondChain.sdf", true, LoadAsMolOrRxn, 22, 22),
       MolTest("UnitsError.sdf", true, LoadAsMolOrRxn, 17, 18),
       MolTest("StarAtom.sdf", true, LoadAsMolOrRxn, 17, 16),
@@ -598,6 +599,7 @@ void RunTests() {
   }
 
   std::list<MolTest> molFileTests{
+      MolTest("lostStereoAnd.mrv", true, LoadAsMolOrRxn, 6, 5),
       MolTest("DoubleBondChain.mrv", true, LoadAsMolOrRxn, 22, 22),
       MolTest("WigglyAndCrossed.mrv", true, LoadAsMolOrRxn, 8, 7),
       MolTest("BondTypes.mrv", true, LoadAsMolOrRxn, 26, 25),

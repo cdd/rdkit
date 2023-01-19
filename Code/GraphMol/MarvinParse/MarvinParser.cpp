@@ -582,9 +582,9 @@ class MarvinCMLReader {
         }
 
         groups.emplace_back(groupPtr->groupType, std::move(atoms));
-        if (!groups.empty()) {
-          mol->setStereoGroups(std::move(groups));
-        }
+      }
+      if (!groups.empty()) {
+        mol->setStereoGroups(std::move(groups));
       }
 
       // // add the sgroup records

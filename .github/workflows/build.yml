@@ -1,4 +1,4 @@
-name: Update selenium failure report
+name: Build and test rdkit (including the cartridge)
 
 on:
   # Allows you to run this workflow manually from the Actions tab
@@ -6,30 +6,32 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: 
+      labels: ubuntu-latest-16-cores
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-      - name: Set up Python 3.8
-        uses: actions/setup-python@v2
+        uses: actions/checkout@v3
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: 3.11
       - name: Setup build environment
         shell: bash
         run: |
-            sudo apt-get install g++ wget make libgl1-mesa-dev mesa-common-dev
+            sudo apt-get update
+            sudo apt-get install -y g++ wget make libgl1-mesa-dev mesa-common-dev
             source ${CONDA}/etc/profile.d/conda.sh
             sudo chown -R ${USER} ${CONDA}
             conda config --set always_yes yes --set changeps1 no
             conda update -q conda
             conda info -a
             conda create --name rdkit_build $(python) cmake \
-                boost-cpp=$(boost_version) \
-                py-boost=$(boost_version) \
+                boost-cpp=1.71.0 \
+                py-boost=1.71.0 \
                 numpy pillow eigen pandas matplotlib-base \
                 qt=5.9.7 cairo
             conda activate rdkit_build
-            conda install -c conda-forge nbval ipykernel>=6.0
+            conda install -c conda-forge nbval ipykernel>=6.0 libstdcxx-ng=12
       - name: Cmake
         shell: bash
         run: |
@@ -72,7 +74,7 @@ jobs:
             source ${CONDA}/etc/profile.d/conda.sh
             conda activate rdkit_build
             cd build
-            make -j $( $(number_of_cores) ) install
+            make -j$(nproc) install
       - name: Python tests
         shell: bash
         run: |
@@ -84,7 +86,12 @@ jobs:
             echo "LD_LIBRARY_PATH: " $LD_LIBRARY_PATH
             export QT_QPA_PLATFORM='offscreen'
             cd build
-            ctest -j $( $(number_of_cores) ) --output-on-failure -T Test
+            ctest -j$(nproc) --output-on-failure -T Test
+      - name: Test results
+        shell: bash
+        if: always()
+        run: |
+          cat /home/runner/work/rdkit-internal/rdkit-internal/build/Testing/Temporary/LastTest.log
       - name: Documentation tests
         shell: bash
         run: |

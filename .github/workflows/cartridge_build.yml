@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    runs-on: 
+    runs-on:
       labels: ubuntu-latest-16-cores
     steps:
       - name: Checkout
@@ -43,7 +43,7 @@ jobs:
             -DPostgreSQL_CONFIG=/usr/bin/pg_config
       - name: Build and install
         shell: bash
-        run: |      
+        run: |
             cd build
             make -j$(nproc) install
             sudo sh ./Code/PgSQL/rdkit/pgsql_install.sh
@@ -67,7 +67,7 @@ jobs:
         run: |
           mkdir /tmp/content
           mkdir -p /tmp/content/usr/share/postgresql/14/extension /tmp/content/usr/lib/postgresql/14/lib
-          cp ./build/Code/PgSQL/rdkit/rdkit--4.2.0.sql               /tmp/content/usr/share/postgresql/14/extension
+          cp ./build/Code/PgSQL/rdkit/rdkit--4.3.0.sql               /tmp/content/usr/share/postgresql/14/extension
           cp ./Code/PgSQL/rdkit/rdkit.control                        /tmp/content/usr/share/postgresql/14/extension
           cp ./build/Code/PgSQL/rdkit/update_sql/rdkit--3.8--4.0.sql /tmp/content/usr/share/postgresql/14/extension
           cp ./build/Code/PgSQL/rdkit/update_sql/rdkit--4.0--4.1.sql /tmp/content/usr/share/postgresql/14/extension

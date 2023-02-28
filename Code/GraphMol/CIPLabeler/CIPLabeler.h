@@ -80,7 +80,7 @@ RDKIT_CIPLABELER_EXPORT void assignCIPLabels(ROMol &mol, unsigned int maxRecursi
  */
 RDKIT_CIPLABELER_EXPORT void assignCIPLabels(
     ROMol &mol, const boost::dynamic_bitset<> &atoms,
-    const boost::dynamic_bitset<> &bonds,
+    const boost::dynamic_bitset<> &bonds, 
     unsigned int maxRecursiveIterations = 0);
 
 }  // namespace CIPLabeler

@@ -18,6 +18,7 @@
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/MolOps.h>
 #include <GraphMol/new_canon.h>
+#include <GraphMol/Canon.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
 #include <GraphMol/SmilesParse/SmartsWrite.h>
@@ -697,6 +698,10 @@ python::dict MetadataFromPNGString(python::object png) {
   return translateMetadata(metadata);
 }
 
+void CanonicalizeEnhancedStereo(ROMol &mol) {
+  Canon::canonicalizeEnhancedStereo(mol);
+}
+
 }  // namespace RDKit
 
 // MolSupplier stuff
@@ -716,6 +721,9 @@ void wrap_smiwriter();
 void wrap_sdwriter();
 void wrap_tdtwriter();
 void wrap_pdbwriter();
+#ifdef RDK_BUILD_MAEPARSER_SUPPORT
+void wrap_maewriter();
+#endif
 
 // MultithreadedMolSupplier stuff
 void wrap_multiSmiSupplier();
@@ -2011,9 +2019,9 @@ docString =
 \n\
    >>> mol = MolFromSmiles('C1NCN1.C1NCN1')\n\
    >>> list(CanonicalRankAtomsInFragment(mol, atomsToUse=range(0,4), breakTies=False))\n\
-   [0,1,0,1,-1,-1,-1,-1]\n\
+   [4,6,4,6,-1,-1,-1,-1]\n\
    >>> list(CanonicalRankAtomsInFragment(mol, atomsToUse=range(4,8), breakTies=False))\n\
-   [-1,-1,-1,-1,0,1,0,1]\n\
+   [-1,-1,-1,-1,4,6,4,6]\n\
 \n\
   ARGUMENTS:\n\
 \n\
@@ -2039,6 +2047,9 @@ docString =
        python::arg("breakTies") = true, python::arg("includeChirality") = true,
        python::arg("includeIsotopes") = true),
       docString.c_str());
+
+  python::def("CanonicalizeEnhancedStereo", CanonicalizeEnhancedStereo,
+              (python::arg("mol")));
 
   python::def(
       "CreateAtomIntPropertyList", FileParserUtils::createAtomIntPropertyList,
@@ -2277,6 +2288,9 @@ docString =
   wrap_sdwriter();
   wrap_tdtwriter();
   wrap_pdbwriter();
+#ifdef RDK_BUILD_MAEPARSER_SUPPORT
+  wrap_maewriter();
+#endif
 
 #ifdef RDK_BUILD_THREADSAFE_SSS
   /********************************************************

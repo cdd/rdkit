@@ -462,22 +462,22 @@ TEST_CASE("substructure parameters and RGD: enhanced stereo") {
       CHECK(flatten_whitespace(toJSON(rows)) == flatten_whitespace(R"JSON(
 [
   {
-    "Core":"C1C[C@@]([*:1])([*:2])N1",
+    "Core":"C1C[C@]([*:1])([*:2])N1",
     "R1":"F[*:1]",
     "R2":"[H][*:2]"
   },
   {
-    "Core":"C1C[C@@]([*:1])([*:2])N1",
+    "Core":"C1C[C@]([*:1])([*:2])N1",
     "R1":"O[*:1]",
     "R2":"F[*:2]"
   },
   {
-    "Core":"C1C[C@@]([*:1])([*:2])N1",
+    "Core":"C1C[C@]([*:1])([*:2])N1",
     "R1":"[H][*:1]",
     "R2":"F[*:2]"
   },
   {
-    "Core":"C1C[C@@]([*:1])([*:2])N1",
+    "Core":"C1C[C@]([*:1])([*:2])N1",
     "R1":"Cl[*:1]",
     "R2":"[H][*:2]"
   }
@@ -496,22 +496,22 @@ TEST_CASE("substructure parameters and RGD: enhanced stereo") {
       CHECK(flatten_whitespace(toJSON(rows)) == flatten_whitespace(R"JSON(
 [
   {
-    "Core":"C1C[C@@]([*:1])([*:2])N1",
+    "Core":"C1C[C@]([*:1])([*:2])N1",
     "R1":"F[*:1]",
     "R2":"[H][*:2]"
   },
   {
-    "Core":"C1C[C@@]([*:1])([*:2])N1",
+    "Core":"C1C[C@]([*:1])([*:2])N1",
     "R1":"O[*:1]",
     "R2":"F[*:2]"
   },
   {
-    "Core":"C1C[C@@]([*:1])([*:2])N1",
+    "Core":"C1C[C@]([*:1])([*:2])N1",
     "R1":"[H][*:1]",
     "R2":"F[*:2]"
   },
   {
-    "Core":"C1C[C@@]([*:1])([*:2])N1",
+    "Core":"C1C[C@]([*:1])([*:2])N1",
     "R1":"Cl[*:1]",
     "R2":"[H][*:2]"
   }
@@ -537,7 +537,7 @@ TEST_CASE("substructure parameters and RGD: enhanced stereo") {
       CHECK(flatten_whitespace(toJSON(rows)) == flatten_whitespace(R"JSON(
 [
   {
-    "Core":"C1C[C@@]([*:1])([*:2])N1",
+    "Core":"C1C[C@]([*:1])([*:2])N1",
     "R1":"F[*:1]",
     "R2":"[H][*:2]"
   },
@@ -565,7 +565,7 @@ TEST_CASE("substructure parameters and RGD: enhanced stereo") {
       CHECK(flatten_whitespace(toJSON(rows)) == flatten_whitespace(R"JSON(
 [
   {
-    "Core":"C1C[C@@]([*:1])([*:2])N1",
+    "Core":"C1C[C@]([*:1])([*:2])N1",
     "R1":"F[*:1]",
     "R2":"[H][*:2]"
   },
@@ -580,7 +580,7 @@ TEST_CASE("substructure parameters and RGD: enhanced stereo") {
     "R2":"[H][*:2]"
   },
   {
-    "Core":"C1C[C@@]([*:1])([*:2])N1",
+    "Core":"C1C[C@]([*:1])([*:2])N1",
     "R1":"Cl[*:1]",
     "R2":"[H][*:2]"
   }
@@ -729,6 +729,53 @@ TEST_CASE("rgroupLabelling") {
   }
 ]
     )JSON"));
+    }
+  }
+}
+
+TEST_CASE("MDL R labels from original core") {
+  std::vector<std::string> smis = {"C1CN[C@H]1F", "C1CN[C@]1(O)F",
+                                   "C1CN[C@@H]1F", "C1CN[CH]1F"};
+  auto mols = smisToMols(smis);
+  std::vector<std::string> csmis = {"[*]C1CCN1 |$_R1;;;;$|"};
+  auto cores = smisToMols(csmis);
+  SECTION("Map") {
+    RGroupRows rows;
+    std::vector<unsigned> unmatched;
+    RGroupDecompositionParameters params;
+    params.allowMultipleRGroupsOnUnlabelled = true;
+    params.rgroupLabelling = RGroupLabelling::AtomMap;
+    {
+      auto n = RGroupDecompose(cores, mols, rows, &unmatched, params);
+      CHECK(n == mols.size());
+      CHECK(rows.size() == n);
+      CHECK(unmatched.empty());
+      CHECK(rows[0]["Core"]->getAtomWithIdx(4)->getAtomicNum() == 0);
+      CHECK(!rows[0]["Core"]->getAtomWithIdx(4)->hasProp(
+          common_properties::dummyLabel));
+      CHECK(rows[0]["Core"]->getAtomWithIdx(5)->getAtomicNum() == 0);
+      CHECK(!rows[0]["Core"]->getAtomWithIdx(5)->hasProp(
+          common_properties::dummyLabel));
+    }
+  }
+  SECTION("Map | MDL") {
+    RGroupRows rows;
+    std::vector<unsigned> unmatched;
+    RGroupDecompositionParameters params;
+    params.allowMultipleRGroupsOnUnlabelled = true;
+    params.rgroupLabelling =
+        RGroupLabelling::AtomMap | RGroupLabelling::MDLRGroup;
+    {
+      auto n = RGroupDecompose(cores, mols, rows, &unmatched, params);
+      CHECK(n == mols.size());
+      CHECK(rows.size() == n);
+      CHECK(unmatched.empty());
+      CHECK(rows[0]["Core"]->getAtomWithIdx(4)->getAtomicNum() == 0);
+      CHECK(rows[0]["Core"]->getAtomWithIdx(4)->hasProp(
+          common_properties::dummyLabel));
+      CHECK(rows[0]["Core"]->getAtomWithIdx(5)->getAtomicNum() == 0);
+      CHECK(rows[0]["Core"]->getAtomWithIdx(5)->hasProp(
+          common_properties::dummyLabel));
     }
   }
 }

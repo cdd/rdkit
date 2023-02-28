@@ -559,7 +559,7 @@ TEST_CASE("GitHub Issue #5142", "[bug][accurateCIP]") {
 
 TEST_CASE("CIP timeout test", "[accurateCIP]") {
 std::string molBlock = R"(
-  Mrv2117 11112217353D
+  Mrv2117 11112217353D          
 
  40 50  0  0  0  0            999 V2000
     7.5483   -7.7451   -3.3419 H   0  0  0  0  0  0  0  0  0  0  0  0
@@ -655,7 +655,7 @@ std::string molBlock = R"(
 M  END
 
   )";
-
+  
   auto mol = std::unique_ptr<RDKit::RWMol>(MolBlockToMol(molBlock,true, false));
   REQUIRE(mol);
   CHECK_THROWS_AS(CIPLabeler::assignCIPLabels(*mol, 100000), CIPLabeler::MaxIterationsExceeded);

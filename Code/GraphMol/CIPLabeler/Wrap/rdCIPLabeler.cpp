@@ -55,7 +55,7 @@ BOOST_PYTHON_MODULE(rdCIPLabeler) {
       "Implementation.\nJ. Chem. Inf. Model. 2018, 58, 1755-1765.\n";
 
    python::register_exception_translator<RDKit::CIPLabeler::MaxIterationsExceeded>(
-       &rdMaxIterationsExceededTranslator);
+       &rdMaxIterationsExceededTranslator);      
 
   std::string docString =
       "New implementation of Stereo assignment using a true CIP ranking.\n"
@@ -73,7 +73,7 @@ BOOST_PYTHON_MODULE(rdCIPLabeler) {
 
   python::def(
       "AssignCIPLabels", assignCIPLabelsWrapHelper,
-      (python::arg("mol"),
+      (python::arg("mol"), 
        python::arg("atomsToLabel") = python::object(),
        python::arg("bondsToLabel") = python::object(),
        python::arg("maxRecursiveIterations") = 0),

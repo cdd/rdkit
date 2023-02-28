@@ -322,9 +322,7 @@ int Atom::calcExplicitValence(bool strict) {
   // FIX: contributions of bonds to valence are being done at best
   // approximately
   double accum = 0;
-  for (const auto &nbri :
-       boost::make_iterator_range(getOwningMol().getAtomBonds(this))) {
-    const auto bnd = getOwningMol()[nbri];
+  for (const auto bnd : getOwningMol().atomBonds(this)) {
     accum += bnd->getValenceContrib(this);
   }
   accum += getNumExplicitHs();
@@ -353,8 +351,11 @@ int Atom::calcExplicitValence(bool strict) {
     int pval = dv + chr;
     const INT_VECT &valens =
         PeriodicTable::getTable()->getValenceList(d_atomicNum);
-    for (auto vi = valens.begin(); vi != valens.end() && *vi != -1; ++vi) {
-      int val = (*vi) + chr;
+    for (auto val : valens) {
+      if (val == -1) {
+        break;
+      }
+      val += chr;
       if (val > accum) {
         break;
       } else {
@@ -638,13 +639,7 @@ bool Atom::Match(Atom const *what) const {
   //   [*] matches [*],[1*],[2*],etc.
   //   [1*] only matches [*] and [1*]
   if (res) {
-    if (this->dp_mol && what->dp_mol &&
-        this->getOwningMol().getRingInfo()->isInitialized() &&
-        what->getOwningMol().getRingInfo()->isInitialized() &&
-        this->getOwningMol().getRingInfo()->numAtomRings(d_index) >
-            what->getOwningMol().getRingInfo()->numAtomRings(what->d_index)) {
-      res = false;
-    } else if (!this->getAtomicNum()) {
+    if (!this->getAtomicNum()) {
       // this is the new behavior, based on the isotopes:
       int tgt = this->getIsotope();
       int test = what->getIsotope();

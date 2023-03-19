@@ -1,0 +1,13 @@
+#!/bin/bash
+
+set -e
+set -x
+
+docker buildx build \
+    --build-arg BUILD_PG=$1 \
+    --build-arg BUILD_PY=$2 \
+    --build-arg PACKAGE_NAME=$3 \
+    --target=artifact \
+    --output type=local,dest=$(pwd)/build \
+    -f Dockerfile.builder \
+    .

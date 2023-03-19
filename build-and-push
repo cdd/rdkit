@@ -1,0 +1,28 @@
+#!/bin/bash
+
+set -e
+
+if [[ `uname -p` == "aarch64" ]]; then
+    ARCH=arm64
+else
+    ARCH=amd64
+fi
+
+EXTANT_VERSIONS=`aws codeartifact list-package-versions --domain cdd --repository vault --format generic --namespace $ARCH \
+    --package $3 --query "versions[*].version" --output text`
+
+DEB_VERSION=$(<UPSTREAM_VERSION)-$(<CDD_VERSION)
+
+if [[ $EXTANT_VERSIONS == *$DEB_VERSION* ]]; then
+    echo "VERSION ALREADY EXISTS"
+    exit
+fi
+
+source ./build-deb $1 $2 $3
+
+DEB_FILE=$(ls | grep *.deb)
+DEB_SHA=$(sha256sum $DEB_FILE | awk '{print $1;}')
+
+aws codeartifact publish-package-version --domain cdd --repository vault --format generic --namespace $ARCH \
+    --package $3 --package-version $DEB_VERSION --asset-content $DEB_FILE --asset-name $DEB_FILE \
+    --asset-sha256 $DEB_SHA

@@ -1,0 +1,56 @@
+#!/bin/bash
+
+set -e
+set -x
+
+export POSTGRES_VERSION=14
+export DEBIAN_FRONTEND=noninteractive
+export TZ=Etc/UTC
+
+if [[ `which sudo` ]]; then
+    echo "sudo present"
+else
+    apt-get update
+    apt-get install sudo
+fi
+
+sudo apt-get update
+sudo apt-get install -y \
+    build-essential cmake checkinstall \
+    libboost-thread-dev libboost-iostreams-dev libboost-filesystem-dev libboost-program-options-dev \
+    libcairo2-dev libeigen3-dev
+
+if [[ $1 == "ON" ]]; then
+    sudo apt-get install -y libpq-dev postgresql-server-dev-14
+    EXTRA_FLAGS="-DPostgreSQL_ROOT=/usr -DPostgreSQL_TYPE_INCLUDE_DIR=/usr/include/postgresql/${POSTGRES_VERSION}/server/"
+fi
+
+if [[ $2 == "ON" ]]; then
+    sudo apt-get install -y libboost-python-dev python3-numpy libpython3-dev
+fi
+
+mkdir -p build
+cd build
+
+cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DINCHI_URL=https://raw.githubusercontent.com/cdd/inchi-downloads/main/INCHI-1-SRC.zip \
+    -DRDK_BUILD_CAIRO_SUPPORT=ON \
+    -DRDK_BUILD_INCHI_SUPPORT=ON \
+    -DRDK_BUILD_PGSQL=$1 \
+    -DRDK_BUILD_PYTHON_WRAPPERS=$2 \
+    -DRDK_INSTALL_INTREE=OFF \
+    -DCMAKE_POLICY_DEFAULT_CMP0074=NEW ${EXTRA_FLAGS}
+
+UPSTREAM_VERSION=$(<../UPSTREAM_VERSION)
+CDD_VERSION=$(<../CDD_VERSION)
+
+sudo checkinstall \
+    --backup=no \
+    --install=no \
+    --nodoc \
+    --pkgname $3 \
+    --pkgversion $UPSTREAM_VERSION \
+    --pkgrelease $CDD_VERSION \
+    -y \
+    make -j$(nproc) install

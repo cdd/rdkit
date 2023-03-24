@@ -3049,6 +3049,16 @@ void clearSingleBondDirFlags(ROMol &mol) {
   }
 }
 
+void clearAllBondDirFlags(ROMol &mol) {
+  for (auto bond : mol.bonds()) {
+    if (bond->getBondDir() == Bond::UNKNOWN ||
+        bond->getBondDir() == Bond::BondDir::EITHERDOUBLE) {
+      bond->setProp(common_properties::_UnknownStereo, 1);
+    }
+    bond->setBondDir(Bond::NONE);
+  }
+}
+
 void setBondStereoFromDirections(ROMol &mol) {
   for (Bond *bond : mol.bonds()) {
     if (bond->getBondType() == Bond::DOUBLE) {

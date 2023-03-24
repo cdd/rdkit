@@ -955,6 +955,10 @@ RDKIT_GRAPHMOL_EXPORT void setDoubleBondNeighborDirections(
 //! _UnknownStereo set on them
 RDKIT_GRAPHMOL_EXPORT void clearSingleBondDirFlags(ROMol &mol);
 
+//! removes directions from all bonds. Wiggly bonds and cross bonds will have
+//! the property _UnknownStereo set on them
+RDKIT_GRAPHMOL_EXPORT void clearAllBondDirFlags(ROMol &mol);
+
 //! Assign CIS/TRANS bond stereochemistry tags based on neighboring
 //! directions
 RDKIT_GRAPHMOL_EXPORT void setBondStereoFromDirections(ROMol &mol);
@@ -1046,6 +1050,13 @@ RDKIT_GRAPHMOL_EXPORT void KekulizeFragment(
     boost::dynamic_bitset<> bondsToUse, bool markAtomsBonds = true,
     unsigned int maxBackTracks = 100);
 }  // namespace details
+
+//! \brief determines if a bond needs to be marked as crossed
+/*!
+   This function determines if a double bonds needs to be marked as crossed for
+   stereochemistry
+*/
+RDKIT_GRAPHMOL_EXPORT int GetDoubleBondDirFlag(const Bond *bond);
 
 }  // namespace MolOps
 }  // namespace RDKit

@@ -794,46 +794,7 @@ void GetMolFileBondStereoInfo(const Bond *bond, const INT_MAP_INT &wedgeBonds,
       }
     }
   } else if (bond->getBondType() == Bond::DOUBLE) {
-    // double bond stereochemistry -
-    // if the bond isn't specified, then it should go in the mol block
-    // as "any", this was sf.net issue 2963522.
-    // two caveats to this:
-    // 1) if it's a ring bond, we'll only put the "any"
-    //    in the mol block if the user specifically asked for it.
-    //    Constantly seeing crossed bonds in rings, though maybe
-    //    technically correct, is irritating.
-    // 2) if it's a terminal bond (where there's no chance of
-    //    stereochemistry anyway), we also skip the any.
-    //    this was sf.net issue 3009756
-    if (bond->getStereo() <= Bond::STEREOANY) {
-      if (bond->getStereo() == Bond::STEREOANY) {
-        dirCode = 3;
-      } else if (!(bond->getOwningMol().getRingInfo()->numBondRings(
-                     bond->getIdx())) &&
-                 bond->getBeginAtom()->getDegree() > 1 &&
-                 bond->getEndAtom()->getDegree() > 1) {
-        // we don't know that it's explicitly unspecified (covered above with
-        // the ==STEREOANY check)
-        // look to see if one of the atoms has a bond with direction set
-        if (bond->getBondDir() == Bond::EITHERDOUBLE) {
-          dirCode = 3;
-        } else {
-          if ((bond->getBeginAtom()->getTotalValence() -
-               bond->getBeginAtom()->getTotalDegree()) == 1 &&
-              (bond->getEndAtom()->getTotalValence() -
-               bond->getEndAtom()->getTotalDegree()) == 1) {
-            // we only do this if each atom only has one unsaturation
-            // FIX: this is the fix for github #2649, but we will need to change
-            // it once we start handling allenes properly
-
-            if (checkNeighbors(bond, bond->getBeginAtom()) &&
-                checkNeighbors(bond, bond->getEndAtom())) {
-              dirCode = 3;
-            }
-          }
-        }
-      }
-    }
+    dirCode = MolOps::GetDoubleBondDirFlag(bond);
   }
 }
 

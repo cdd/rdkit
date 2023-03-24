@@ -80,6 +80,8 @@ rdkit_test(fileParsersTest1 test1.cpp
            LINK_LIBRARIES FileParsers SubstructMatch)
 
 
+rdkit_catch_test(testSquiggleDoubleBonds testSquiggleDoubleBonds.cpp
+           LINK_LIBRARIES FileParsers SubstructMatch )
 
 rdkit_test(testMolSupplier testMolSupplier.cpp
            LINK_LIBRARIES  FileParsers RDStreams)

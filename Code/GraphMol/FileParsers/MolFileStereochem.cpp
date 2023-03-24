@@ -69,8 +69,7 @@ std::tuple<unsigned int, unsigned int, unsigned int> getDoubleBondPresence(
   unsigned int hasDouble = 0;
   unsigned int hasKnownDouble = 0;
   unsigned int hasAnyDouble = 0;
-  for (const auto &nbri : boost::make_iterator_range(mol.getAtomBonds(&atom))) {
-    const auto bond = mol[nbri];
+  for (const auto bond : mol.atomBonds(&atom)) {
     if (bond->getBondType() == Bond::BondType::DOUBLE) {
       ++hasDouble;
       if (bond->getStereo() == Bond::BondStereo::STEREOANY) {
@@ -269,17 +268,13 @@ INT_MAP_INT pickBondsToWedge(const ROMol &mol) {
 
 std::vector<Bond *> getBondNeighbors(ROMol &mol, const Bond &bond) {
   std::vector<Bond *> res;
-  for (auto nbri :
-       boost::make_iterator_range(mol.getAtomBonds(bond.getBeginAtom()))) {
-    auto nbrBond = mol[nbri];
+  for (auto nbrBond : mol.atomBonds(bond.getBeginAtom())) {
     if (nbrBond == &bond) {
       continue;
     }
     res.push_back(nbrBond);
   }
-  for (auto nbri :
-       boost::make_iterator_range(mol.getAtomBonds(bond.getEndAtom()))) {
-    auto nbrBond = mol[nbri];
+  for (auto nbrBond : mol.atomBonds(bond.getEndAtom())) {
     if (nbrBond == &bond) {
       continue;
     }
@@ -576,13 +571,24 @@ void DetectBondStereoChemistry(ROMol &mol, const Conformer *conf) {
 }
 
 void reapplyMolBlockWedging(ROMol &mol) {
-  MolOps::clearSingleBondDirFlags(mol);
+  // MolOps::clearSingleBondDirFlags(mol);
+  MolOps::clearAllBondDirFlags(mol);
   for (auto b : mol.bonds()) {
-    int explicit_unknown_stereo = -1;
-    if (b->getPropIfPresent<int>(common_properties::_UnknownStereo,
+    int explicit_unknown_stereo = -1, molFileBondStereo = (-1);
+    if (b->getBondType() == Bond::SINGLE &&
+        b->getPropIfPresent<int>(common_properties::_UnknownStereo,
                                  explicit_unknown_stereo) &&
         explicit_unknown_stereo) {
       b->setBondDir(Bond::UNKNOWN);
+      continue;
+    }
+    if (b->getBondType() == Bond::DOUBLE &&
+        b->getPropIfPresent<int>(common_properties::_MolFileBondStereo,
+                                 molFileBondStereo) &&
+        molFileBondStereo == 3) {
+      b->setBondDir(Bond::BondDir::EITHERDOUBLE);
+      // clearDoubleBondStereoNeighborsOfWiggle(b, mol);
+      continue;
     }
     int bond_dir = -1;
     if (b->getPropIfPresent<int>(common_properties::_MolFileBondStereo,
@@ -592,6 +598,7 @@ void reapplyMolBlockWedging(ROMol &mol) {
       } else if (bond_dir == 6) {
         b->setBondDir(Bond::BEGINDASH);
       }
+      continue;
     }
     int cfg = -1;
     if (b->getPropIfPresent<int>(common_properties::_MolFileBondCfg, cfg)) {

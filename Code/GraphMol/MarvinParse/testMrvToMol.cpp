@@ -582,6 +582,11 @@ void RunTests() {
   // the molecule tests - staromg with molfiles/sdf
 
   std::list<MolTest> sdfTests{
+      MolTest("CrossedDoubleBondWithChiralNbr2.sdf", true, LoadAsMolOrRxn, 10,
+              9),
+      MolTest("CrossedDoubleBondWithChiralNbr.sdf", true, LoadAsMolOrRxn, 10,
+              9),
+      MolTest("SimpleWiggleDoubleBond.sdf", true, LoadAsMolOrRxn, 6, 5),
       MolTest("lostStereoAnd.sdf", true, LoadAsMolOrRxn, 6, 5),
       MolTest("DoubleBondChain.sdf", true, LoadAsMolOrRxn, 22, 22),
       MolTest("UnitsError.sdf", true, LoadAsMolOrRxn, 17, 18),
@@ -736,14 +741,15 @@ void RunTests() {
   // now smiles tests
 
   std::list<SmilesTest> smiTests{
-      // these first two do NOT work - still working on a solution for then
 
       SmilesTest("DoubleBondChain",
                  R"(CC1=C(\C=C\C(C)=C\C=C\C(C)=C/C(O)=O)C(C)(C)CCC1)", true, 22,
                  22),
+      // this does NOT work - still working on a solution for then
+
       // SmilesTest(
       //     "Macrocycle2",
-      //     R"(CC1OC(=O)CC(O)CC(O)CC(O)CCC(O)C(O)CC2(O)CC(O)C(C(CC(O[C@@H]3O[C@H](C)[C@@H](O)[C@H](N)[C@@H]3O)\C=C\C=C\C=C\C=C\CC\C=C\C=C\C(C)C(O)C1C)O2)C(O)=O
+      // R"(CC1OC(=O)CC(O)CC(O)CC(O)CCC(O)C(O)CC2(O)CC(O)C(C(CC(O[C@@H]3O[C@H](C)[C@@H](O)[C@H](N)[C@@H]3O)\C=C\C=C\C=C\C=C\CC\C=C\C=C\C(C)C(O)C1C)O2)C(O)=O
       //     |t:42,44,46,48,52,54|)",
       //     true, 65, 67),
       SmilesTest("Na_Mg_Al_OH",

@@ -359,7 +359,7 @@ class MarvinCMLWriter {
  private:
   bool checkNeighborsForNoBondDir(const Bond *bond, const Atom *atom) {
     // this checks the neighbors of a double bond to see if they have a wedge
-    // that is NOT accociated with a chiral center
+    // that is NOT associated with a chiral center
 
     PRECONDITION(bond, "no bond");
     PRECONDITION(atom, "no atom");
@@ -415,45 +415,8 @@ class MarvinCMLWriter {
         dir = Bond::NONE;  // other types are ignored
       }
     } else if (bond->getBondType() == Bond::DOUBLE) {
-      // double bond stereochemistry -
-      // if the bond isn't specified, then it should go in the mrv block
-      // as "any", this was sf.net issue 2963522. for mol files
-      // two caveats to this:
-      // 1) if it's a ring bond, we'll only put the "any"
-      //    in the mol block if the user specifically asked for it.
-      //    Constantly seeing crossed bonds in rings, though maybe
-      //    technically correct, is irritating.
-      // 2) if it's a terminal bond (where there's no chance of
-      //    stereochemistry anyway), we also skip the any.
-      //    this was sf.net issue 3009756
-      if (bond->getStereo() <= Bond::STEREOANY) {
-        if (bond->getStereo() == Bond::STEREOANY) {
-          dir = Bond::UNKNOWN;
-        } else if (!(bond->getOwningMol().getRingInfo()->numBondRings(
-                       bond->getIdx())) &&
-                   bond->getBeginAtom()->getDegree() > 1 &&
-                   bond->getEndAtom()->getDegree() > 1) {
-          // we don't know that it's explicitly unspecified (covered above with
-          // the ==STEREOANY check)
-          // look to see if one of the atoms has a bond with direction set
-          if (bond->getBondDir() == Bond::EITHERDOUBLE) {
-            dir = Bond::UNKNOWN;
-          } else {
-            if ((bond->getBeginAtom()->getTotalValence() -
-                 bond->getBeginAtom()->getTotalDegree()) == 1 &&
-                (bond->getEndAtom()->getTotalValence() -
-                 bond->getEndAtom()->getTotalDegree()) == 1) {
-              // we only do this if each atom only has one unsaturation
-              // FIX: this is the fix for github #2649, but we will need to
-              // change it once we start handling allenes properly
-
-              if (checkNeighborsForNoBondDir(bond, bond->getBeginAtom()) &&
-                  checkNeighborsForNoBondDir(bond, bond->getEndAtom())) {
-                dir = Bond::UNKNOWN;
-              }
-            }
-          }
-        }
+      if (MolOps::GetDoubleBondDirFlag(bond) == 3) {
+        dir = Bond::BondDir::EITHERDOUBLE;
       }
     }
   }
@@ -614,11 +577,12 @@ class MarvinCMLWriter {
           case Bond::UNKNOWN:
             marvinBond->bondStereo.value = "";
             marvinBond->bondStereo.convention = "MDL";
-            if (marvinBond->order == "2") {
-              marvinBond->bondStereo.conventionValue = "3";
-            } else {
-              marvinBond->bondStereo.conventionValue = "4";
-            }
+            marvinBond->bondStereo.conventionValue = "4";
+            break;
+          case Bond::EITHERDOUBLE:
+            marvinBond->bondStereo.value = "";
+            marvinBond->bondStereo.convention = "MDL";
+            marvinBond->bondStereo.conventionValue = "3";
             break;
 
           default:
@@ -1232,12 +1196,13 @@ std::string MolToMrvBlock(const ROMol &mol, bool includeStereo, int confId,
   auto marvinMol = marvinCMLWriter.MolToMarvinMol(&trwmol, confId);
   ptree pt = marvinMol->toMolPtree();
   std::ostringstream out;
-  if (prettyPrint)
+  if (prettyPrint) {
     write_xml(out, pt,
               boost::property_tree::xml_writer_make_settings<std::string>(
                   '\t', 1, "windows-1252"));
-  else
+  } else {
     write_xml(out, pt);
+  }
   std::string res = out.str();
   delete marvinMol;
   return res;
@@ -1271,12 +1236,13 @@ std::string ChemicalReactionToMrvBlock(const ChemicalReaction &rxn,
   auto marvinRxn = marvinCMLWriter.ChemicalReactionToMarvinRxn(&rxn);
   ptree pt = marvinRxn->toPtree();
   std::ostringstream out;
-  if (prettyPrint)
+  if (prettyPrint) {
     write_xml(out, pt,
               boost::property_tree::xml_writer_make_settings<std::string>(
                   '\t', 1, "windows-1252"));
-  else
+  } else {
     write_xml(out, pt);
+  }
   delete marvinRxn;
   return out.str();
 };

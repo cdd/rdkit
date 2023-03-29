@@ -97,10 +97,12 @@ class RDKIT_GRAPHMOL_EXPORT Bond : public RDProps {
     STEREOANY,       // intentionally unspecified
     // -- Put any true specifications about this point so
     // that we can do comparisons like if(bond->getStereo()>Bond::STEREOANY)
-    STEREOZ,     // Z double bond
-    STEREOE,     // E double bond
-    STEREOCIS,   // cis double bond
-    STEREOTRANS  // trans double bond
+    STEREOZ,         // Z double bond
+    STEREOE,         // E double bond
+    STEREOCIS,       // cis double bond
+    STEREOTRANS,     // trans double bond
+    STEREOATROPCW,   //  atropisomer clockwise rotation
+    STEREOATROPCCW,  //  atropisomer counter clockwise rotation
   } BondStereo;
 
   Bond();
@@ -318,7 +320,8 @@ class RDKIT_GRAPHMOL_EXPORT Bond : public RDProps {
           getStereoAtoms before setting CIS/TRANS
   */
   void setStereo(BondStereo what) {
-    PRECONDITION(what <= STEREOE || getStereoAtoms().size() == 2,
+    PRECONDITION(((what != STEREOCIS && what != STEREOTRANS) ||
+                  getStereoAtoms().size() == 2),
                  "Stereo atoms should be specified before specifying CIS/TRANS "
                  "bond stereochemistry")
     d_stereo = what;

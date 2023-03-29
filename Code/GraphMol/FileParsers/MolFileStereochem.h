@@ -14,15 +14,50 @@
 #include <GraphMol/RDKitBase.h>
 
 namespace RDKit {
-//! deprecated, please use MolOps::assignChiralTypesFromBondDirs instead
+
+//! The following routine detects atropisomer bonds and marks the
+//! stereochemistry. An atropisomer bond is detected as a single bond between
+//! two sp2 hybridized
+//! atoms that has on one end a neighbor bond that is hashed or wedged with
+//! the hash/wedge starting on candidate atropiosmer bond's atom.
+//!
+//! An error condition is detected if a wedge or hash is found on both ends of
+//! the candidate atropisomer bond, or if the two neighbor bonds on one end of
+//! the candidate atropisomer bond both are both wedges or both are hashes.
+//!
+//! Enhanced Stereochmistry(not yet implmented):
+//! The atropisomer bond can be marked as part of an enhanced stereochemistry
+//! group by so marking the atom that has the neighbor bond that is hashed or
+//! wedged.
+//!
+//! Internally, RDKit stores the atropisomer information as the direction of
+//! rotation (clockwise or counterclockwise)  from the lowest numbered neighbor
+//! atom on one end to that of the lowest numbered neighbor atom on the other
+//! end.
+//!
+//! NOTE: representing the atropisomer stereochemistry in this manner in MOL
+//! block or other structure format is a CONVENTION adopted for RDKit, and may
+//! not be recognized by other software systems.
+/*!
+ \param mol molecule to be modified
+ \param conf pointer to the 2D or 3D conformer to be used to specify the
+ chirality of the atropisomer bond.
+*/
+
+RDKIT_FILEPARSERS_EXPORT void DetectAtropisomerChirality(ROMol &mol,
+                                                         const Conformer *conf);
+RDKIT_FILEPARSERS_EXPORT void WedgeBondsFromAtropisomers(
+    const ROMol &mol, const Conformer *conf, const INT_MAP_INT &wedgeBonds);
 RDKIT_FILEPARSERS_EXPORT void DetectAtomStereoChemistry(RWMol &mol,
                                                         const Conformer *conf);
 //! deprecated, please use MolOps::detectBondStereoChemistry instead
 RDKIT_FILEPARSERS_EXPORT void DetectBondStereoChemistry(ROMol &mol,
                                                         const Conformer *conf);
+
 RDKIT_FILEPARSERS_EXPORT void WedgeMolBonds(ROMol &mol, const Conformer *conf);
 RDKIT_FILEPARSERS_EXPORT void WedgeBond(Bond *bond, unsigned int fromAtomIdx,
                                         const Conformer *conf);
+
 struct RDKIT_FILEPARSERS_EXPORT StereoBondThresholds {
   const static unsigned DBL_BOND_NO_STEREO =
       1000;  //!< neighboring double bond without stereo info
@@ -38,11 +73,11 @@ struct RDKIT_FILEPARSERS_EXPORT StereoBondThresholds {
  \param mol molecule to be modified
  \param clearDoubleBondFlags when this is true flags for unknown double bond
    stereo will also be removed.
- \param addWhenImpossible if nonzero a neighboring single bond will be made wavy
-   even if it connects to a chiral center or double bond with specified stereo.
-   one example of this would be the middle double bond in C/C=C/C=C/C=C/C (if
-   that's set to STEREOANY after constructing the molecule) Otherwise, no wavy
-   bond will be set
+ \param addWhenImpossible if nonzero a neighboring single bond will be made
+ wavy even if it connects to a chiral center or double bond with specified
+ stereo. one example of this would be the middle double bond in
+ C/C=C/C=C/C=C/C (if that's set to STEREOANY after constructing the molecule)
+ Otherwise, no wavy bond will be set
 */
 RDKIT_FILEPARSERS_EXPORT void addWavyBondsForStereoAny(
     ROMol &mol, bool clearDoubleBondFlags = true,
@@ -61,7 +96,7 @@ RDKIT_FILEPARSERS_EXPORT Bond::BondDir DetermineBondWedgeState(
 /*!
  \param mol: molecule to have its wedges altered
  */
-RDKIT_FILEPARSERS_EXPORT void reapplyMolBlockWedging(ROMol &mol);
+RDKIT_FILEPARSERS_EXPORT void reapplyMolBlockWedging(RWMol &mol);
 //! Remove MolBlock bond wedging information from molecule.
 /*!
  \param mol: molecule to modify
@@ -73,7 +108,8 @@ RDKIT_FILEPARSERS_EXPORT void clearMolBlockWedgingInfo(ROMol &mol);
  */
 RDKIT_FILEPARSERS_EXPORT void invertMolBlockWedgingInfo(ROMol &mol);
 
-//! Set double bonds with unspecified stereo to STEREOANY and add wavy bonds to
+//! Set double bonds with unspecified stereo to STEREOANY and add wavy bonds
+//! to
 ///  potential stereocenters with unspecified chirality
 RDKIT_FILEPARSERS_EXPORT void markUnspecifiedStereoAsUnknown(ROMol &mol,
                                                              int confId = -1);

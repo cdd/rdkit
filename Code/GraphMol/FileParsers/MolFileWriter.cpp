@@ -1172,7 +1172,12 @@ std::string getV3000CTAB(const ROMol &tmol, int confId) {
 
   if (tmol.getNumBonds()) {
     res += "M  V30 BEGIN BOND\n";
+
     INT_MAP_INT wedgeBonds = pickBondsToWedge(tmol);
+    if (conf) {
+      WedgeBondsFromAtropisomers(tmol, conf, wedgeBonds);
+    }
+
     for (ROMol::ConstBondIterator bondIt = tmol.beginBonds();
          bondIt != tmol.endBonds(); ++bondIt) {
       res += GetV3000MolFileBondLine(*bondIt, wedgeBonds, conf);
@@ -1311,6 +1316,11 @@ std::string outputMolToMolBlock(const RWMol &tmol, int confId,
     }
 
     INT_MAP_INT wedgeBonds = pickBondsToWedge(tmol);
+
+    if (conf) {
+      WedgeBondsFromAtropisomers(tmol, conf, wedgeBonds);
+    }
+
     for (ROMol::ConstBondIterator bondIt = tmol.beginBonds();
          bondIt != tmol.endBonds(); ++bondIt) {
       res += GetMolFileBondLine(*bondIt, wedgeBonds, conf);

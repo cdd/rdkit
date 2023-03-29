@@ -1379,7 +1379,8 @@ void setRGPProps(const std::string_view symb, Atom *res) {
   res->setProp(common_properties::dummyLabel, symbc);
 }
 
-void lookupAtomicNumber(Atom *res, const std::string &symb, bool strictParsing) {
+void lookupAtomicNumber(Atom *res, const std::string &symb,
+                        bool strictParsing) {
   try {
     res->setAtomicNum(PeriodicTable::getTable()->getAtomicNumber(symb));
   } catch (const Invar::Invariant &e) {
@@ -3214,7 +3215,7 @@ bool ParseV2000CTAB(std::istream *inStream, unsigned int &line, RWMol *mol,
 }
 
 void finishMolProcessing(RWMol *res, bool chiralityPossible, bool sanitize,
-                         bool removeHs) {
+                         bool removeHs, bool explicit3dChiralityOnly) {
   if (!res) {
     return;
   }
@@ -3244,9 +3245,12 @@ void finishMolProcessing(RWMol *res, bool chiralityPossible, bool sanitize,
       DetectAtomStereoChemistry(*res, &conf);
     } else {
       res->updatePropertyCache(false);
-      MolOps::assignChiralTypesFrom3D(*res, conf.getId(), true);
+      MolOps::assignChiralTypesFrom3D(*res, conf.getId(), true,
+                                      explicit3dChiralityOnly);
     }
   }
+
+  DetectAtropisomerChirality(*res, &conf);
 
   if (sanitize) {
     try {
@@ -3292,7 +3296,8 @@ void finishMolProcessing(RWMol *res, bool chiralityPossible, bool sanitize,
 //
 //------------------------------------------------
 RWMol *MolDataStreamToMol(std::istream *inStream, unsigned int &line,
-                          bool sanitize, bool removeHs, bool strictParsing) {
+                          bool sanitize, bool removeHs, bool strictParsing,
+                          bool explicit3dChiralityOnly) {
   PRECONDITION(inStream, "no stream");
   std::string tempStr;
   bool fileComplete = false;
@@ -3505,15 +3510,26 @@ RWMol *MolDataStreamToMol(std::istream *inStream, unsigned int &line,
   }
 
   if (res) {
-    FileParserUtils::finishMolProcessing(res, chiralityPossible, sanitize,
-                                         removeHs);
+    try {
+      FileParserUtils::finishMolProcessing(res, chiralityPossible, sanitize,
+                                           removeHs, explicit3dChiralityOnly);
+    } catch (FileParseException &e) {
+      // catch our exceptions and throw them back after cleanup
+      delete res;
+      delete conf;
+      res = nullptr;
+      conf = nullptr;
+      throw e;
+    }
   }
   return res;
 }
 
 RWMol *MolDataStreamToMol(std::istream &inStream, unsigned int &line,
-                          bool sanitize, bool removeHs, bool strictParsing) {
-  return MolDataStreamToMol(&inStream, line, sanitize, removeHs, strictParsing);
+                          bool sanitize, bool removeHs, bool strictParsing,
+                          bool explicit3dChiralityOnly) {
+  return MolDataStreamToMol(&inStream, line, sanitize, removeHs, strictParsing,
+                            explicit3dChiralityOnly);
 }
 //------------------------------------------------
 //
@@ -3521,10 +3537,11 @@ RWMol *MolDataStreamToMol(std::istream &inStream, unsigned int &line,
 //
 //------------------------------------------------
 RWMol *MolBlockToMol(const std::string &molBlock, bool sanitize, bool removeHs,
-                     bool strictParsing) {
+                     bool strictParsing, bool explicit3dChiralityOnly) {
   std::istringstream inStream(molBlock);
   unsigned int line = 0;
-  return MolDataStreamToMol(inStream, line, sanitize, removeHs, strictParsing);
+  return MolDataStreamToMol(inStream, line, sanitize, removeHs, strictParsing,
+                            explicit3dChiralityOnly);
 }
 
 //------------------------------------------------
@@ -3533,7 +3550,7 @@ RWMol *MolBlockToMol(const std::string &molBlock, bool sanitize, bool removeHs,
 //
 //------------------------------------------------
 RWMol *MolFileToMol(const std::string &fName, bool sanitize, bool removeHs,
-                    bool strictParsing) {
+                    bool strictParsing, bool explicit3dChiralityOnly) {
   std::ifstream inStream(fName.c_str());
   if (!inStream || (inStream.bad())) {
     std::ostringstream errout;
@@ -3543,7 +3560,8 @@ RWMol *MolFileToMol(const std::string &fName, bool sanitize, bool removeHs,
   RWMol *res = nullptr;
   if (!inStream.eof()) {
     unsigned int line = 0;
-    res = MolDataStreamToMol(inStream, line, sanitize, removeHs, strictParsing);
+    res = MolDataStreamToMol(inStream, line, sanitize, removeHs, strictParsing,
+                             explicit3dChiralityOnly);
   }
   return res;
 }

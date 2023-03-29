@@ -57,19 +57,21 @@ typedef std::vector<RWMOL_SPTR> RWMOL_SPTR_VECT;
  *   \param line     - current line number (used for error reporting)
  *   \param strictParsing - if set to false, the parser is more lax about
  * correctness of the contents.
+ * \param explicit3dChiralityOnly - if set to true,
+ * only chiral centers with wedge /hash bonds are set from a 3D conformer
  *
  */
-RDKIT_FILEPARSERS_EXPORT RWMol *MolDataStreamToMol(std::istream *inStream,
-                                                   unsigned int &line,
-                                                   bool sanitize = true,
-                                                   bool removeHs = true,
-                                                   bool strictParsing = true);
+RDKIT_FILEPARSERS_EXPORT RWMol *MolDataStreamToMol(
+    std::istream *inStream, unsigned int &line, bool sanitize = true,
+    bool removeHs = true, bool strictParsing = true,
+    bool explicit3dChiralityOnly = true);
+
 // \overload
-RDKIT_FILEPARSERS_EXPORT RWMol *MolDataStreamToMol(std::istream &inStream,
-                                                   unsigned int &line,
-                                                   bool sanitize = true,
-                                                   bool removeHs = true,
-                                                   bool strictParsing = true);
+RDKIT_FILEPARSERS_EXPORT RWMol *MolDataStreamToMol(
+    std::istream &inStream, unsigned int &line, bool sanitize = true,
+    bool removeHs = true, bool strictParsing = true,
+    bool explicit3dChiralityOnly = true);
+
 // \brief construct a molecule from an MDL mol block
 /*!
  *   \param molBlock - string containing the mol block
@@ -78,12 +80,14 @@ RDKIT_FILEPARSERS_EXPORT RWMol *MolDataStreamToMol(std::istream &inStream,
  *   \param removeHs - toggles removal of Hs from the molecule. H removal
  *                     is only done if the molecule is sanitized
  *   \param strictParsing - if set to false, the parser is more lax about
+ *   \param explicit3dChiralityOnly - if set to true, only chiral centers with
+ wedge /hash bonds are set from a 3D conformer
+
  * correctness of the contents.
  */
-RDKIT_FILEPARSERS_EXPORT RWMol *MolBlockToMol(const std::string &molBlock,
-                                              bool sanitize = true,
-                                              bool removeHs = true,
-                                              bool strictParsing = true);
+RDKIT_FILEPARSERS_EXPORT RWMol *MolBlockToMol(
+    const std::string &molBlock, bool sanitize = true, bool removeHs = true,
+    bool strictParsing = true, bool explicit3dChiralityOnly = true);
 
 // \brief construct a molecule from an MDL mol file
 /*!
@@ -93,12 +97,14 @@ RDKIT_FILEPARSERS_EXPORT RWMol *MolBlockToMol(const std::string &molBlock,
  *   \param removeHs - toggles removal of Hs from the molecule. H removal
  *                     is only done if the molecule is sanitized
  *   \param strictParsing - if set to false, the parser is more lax about
+ *   \param explicit3dChiralityOnly - if set to true, only chiral centers with
+ wedge /hash bonds are set from a 3D conformer
+
  * correctness of the contents.
  */
-RDKIT_FILEPARSERS_EXPORT RWMol *MolFileToMol(const std::string &fName,
-                                             bool sanitize = true,
-                                             bool removeHs = true,
-                                             bool strictParsing = true);
+RDKIT_FILEPARSERS_EXPORT RWMol *MolFileToMol(
+    const std::string &fName, bool sanitize = true, bool removeHs = true,
+    bool strictParsing = true, bool explicit3dChiralityOnly = false);
 
 // \brief generates an MDL mol block for a molecule
 /*!
@@ -371,7 +377,6 @@ RDKIT_FILEPARSERS_EXPORT RWMol *RDKitSVGToMol(const std::string &svg,
 RDKIT_FILEPARSERS_EXPORT RWMol *RDKitSVGToMol(std::istream *instream,
                                               bool sanitize = true,
                                               bool removeHs = true);
-
 
 RDKIT_FILEPARSERS_EXPORT void *MrvFileParser(const std::string &fname);
 

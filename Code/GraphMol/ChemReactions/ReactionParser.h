@@ -135,7 +135,8 @@ RDKIT_CHEMREACTIONS_EXPORT ChemicalReaction *RxnFileToChemicalReaction(
 //! Parse a text stream in MDL rxn format into a ChemicalReaction
 RDKIT_CHEMREACTIONS_EXPORT ChemicalReaction *RxnDataStreamToChemicalReaction(
     std::istream &rxnStream, unsigned int &line, bool sanitize = false,
-    bool removeHs = false, bool strictParsing = true);
+    bool removeHs = false, bool strictParsing = true,
+    bool explicit3dChiralityOnly = false);
 //! returns an rxn block for a reaction
 /*!
    \param rxn            chemical reaction
@@ -275,13 +276,17 @@ inline std::unique_ptr<ChemicalReaction> operator"" _rxnsmiles(const char *text,
 
 //! Parse text in CDXML rxn format into a vector of ChemicalReactions
 RDKIT_CHEMREACTIONS_EXPORT std::vector<std::unique_ptr<ChemicalReaction>>
-CDXMLToChemicalReactions(const std::string &rxnBlock, bool sanitize = false, bool removeHs = false);
+CDXMLToChemicalReactions(const std::string &rxnBlock, bool sanitize = false,
+                         bool removeHs = false);
 //! Parse a file in CDXML rxn format into a vector of ChemicalReactions
 RDKIT_CHEMREACTIONS_EXPORT std::vector<std::unique_ptr<ChemicalReaction>>
-CDXMLFileToChemicalReactions(const std::string &fileName, bool sanitize = false, bool removeHs = false);
+CDXMLFileToChemicalReactions(const std::string &fileName, bool sanitize = false,
+                             bool removeHs = false);
 //! Parse a text stream in CDXML rxn format into a vector of ChemicalReactions
 RDKIT_CHEMREACTIONS_EXPORT std::vector<std::unique_ptr<ChemicalReaction>>
-CDXMLDataStreamToChemicalReactions(std::istream &rxnStream, bool sanitize = false, bool removeHs = false);
+CDXMLDataStreamToChemicalReactions(std::istream &rxnStream,
+                                   bool sanitize = false,
+                                   bool removeHs = false);
 
 }  // namespace RDKit
 #endif

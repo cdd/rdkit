@@ -1,7 +1,9 @@
 #!/bin/bash
 
-set -e
-set -x
+# You may need to add/remove some calls to `sudo` in `build-deb` to get this to work. In CI `build-deb` does not run
+# in a container so the user environment is slightly different.
+
+set -ex
 
 docker buildx build \
     --build-arg BUILD_PG=$1 \

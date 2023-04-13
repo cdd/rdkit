@@ -11,10 +11,14 @@
 #include <RDGeneral/test.h>
 #include <string>
 #include <GraphMol/RDKitBase.h>
+#include <GraphMol/FileParsers/FileParsers.h>
 #include "SmilesParse.h"
 #include "SmilesWrite.h"
 #include "SmartsWrite.h"
 #include <RDGeneral/RDLog.h>
+#include <fstream>
+#include <iostream>
+
 using namespace RDKit;
 
 TEST_CASE("base functionality") {
@@ -640,5 +644,107 @@ TEST_CASE("github #6050: stereogroups not combined") {
     CHECK(m->getStereoGroups().size() == 3);
     CHECK(m->getStereoGroups()[0].getGroupType() == StereoGroupType::STEREO_OR);
     CHECK(m->getStereoGroups()[0].getAtoms().size() == 4);
+  }
+}
+
+void testOneSmilesCanonicalization(std::string smiles,
+                                   std::string &expectedStr) {
+  SmilesParserParams smilesParserParams;
+  smilesParserParams.sanitize = true;
+  std::unique_ptr<RWMol> randMol(SmilesToMol(smiles, smilesParserParams));
+
+  // test round trip back to smiles
+
+  SmilesWriteParams ps;
+  ps.canonical = true;
+  ps.doIsomericSmiles = true;
+
+  std::string smilesOut = MolToSmiles(*randMol, ps);
+
+  if (expectedStr == "") {
+    expectedStr = smilesOut;  // if not supplied, use the first one
+  }
+  CHECK(expectedStr == smilesOut);
+}
+
+void testSmilesCanonicalization(std::string smiles,
+                                std::string expectedStr = "") {
+  BOOST_LOG(rdInfoLog) << "testing smiles canonicalization " << std::endl;
+
+  try {
+    testOneSmilesCanonicalization(smiles, expectedStr);
+
+    SmilesParserParams smilesParserParams;
+    smilesParserParams.sanitize = true;
+
+    std::unique_ptr<RWMol> smilesMol(SmilesToMol(smiles, smilesParserParams));
+    REQUIRE(smilesMol);
+
+    unsigned int randomSeed = 0xf00d;
+    auto smiV = MolToRandomSmilesVect(*smilesMol, 100, randomSeed);
+
+    for (auto smi : smiV) {
+      testOneSmilesCanonicalization(smi, expectedStr);
+    }
+
+    BOOST_LOG(rdInfoLog) << "done" << std::endl;
+  } catch (const std::exception &e) {
+    CHECK(false);
+    return;
+  }
+}
+
+TEST_CASE("SMILES CANONICALIZATION") {
+  SECTION("adamantaneError") {
+    std::string expectedSmiles =
+        R"(C[C@@H](PC(C)(O)O)[C@]12C[C@@]3(F)C[C@@](F)(C[C@](F)(C3)C1)C2)";
+    std::string AdamantaneError1 =
+        R"(C[C@@H](PC(C)(O)O)[C@]12C[C@@]3(F)C[C@@](F)(C[C@](F)(C3)C1)C2)";
+    std::string AdamantaneError2 =
+        R"(C[C@@H](PC(C)(O)O)[C@]12C[C@]3(F)C[C@](F)(C[C@](F)(C3)C1)C2)";
+
+    testSmilesCanonicalization(AdamantaneError1, expectedSmiles);
+    testSmilesCanonicalization(AdamantaneError2, expectedSmiles);
+  }
+
+  SECTION("Other Compounds") {
+    testSmilesCanonicalization(
+        R"(CC1=C(\C=C\C(C)=C\C=C\C(C)=C/C(O)=O)C(C)(C)CCC1)");
+    testSmilesCanonicalization("CN1N=C(SC1=NC(C)=O)S(N)(=O)=O |c:2|");
+    testSmilesCanonicalization(
+        "C[C@@H]1CCCCCCCCC(=O)OCCN[C@H](C)CCCCCCCCC(=O)OCCN[C@H](C)CCCCCCCCC(=O)OCCN1");
+    testSmilesCanonicalization("N[C@@H]([O-])c1cc[13c]cc1");
+
+    // this one is expected to fail
+    // testSmilesCanonicalizationOldVsNew(
+    //     R"(C[C@@H](PC(C)(O)O)[C@]12C[C@@]3(F)C[C@@](F)(C[C@](F)(C3)C1)C2)");
+
+    std::string rdbase = getenv("RDBASE");
+    std::string fName =
+        rdbase + "/Code/GraphMol/SmilesParse/test_data/TestSmilesUniq.sdf";
+
+    std::ifstream in;
+    int molCount = 0;
+    in.open(fName);
+    while (!in.eof()) {
+      std::string molBlock = "";
+      std::string line;
+      while (!in.eof() && line.find("$$$$") == std::string::npos) {
+        std::getline(in, line);
+        molBlock += line + "\n";
+      }
+      molCount++;
+
+      try {
+        if (molBlock.length() > 25) {
+          std::unique_ptr<RWMol> mol(MolBlockToMol(molBlock));
+          std::string smiles = MolToCXSmiles(*mol);
+
+          testSmilesCanonicalization(smiles);
+        }
+      } catch (...) {
+        std::cout << "failed on mol " << molCount << std::endl;
+      }
+    }
   }
 }

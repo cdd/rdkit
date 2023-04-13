@@ -24,7 +24,7 @@
 #include <map>
 #include <list>
 
-//#define VERBOSE_CANON 1
+// #define VERBOSE_CANON 1
 
 namespace RDKit {
 

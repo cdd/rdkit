@@ -4,7 +4,7 @@
 rdkit_library(DistGeometry
               DistGeomUtils.cpp TriangleSmooth.cpp DistViolationContrib.cpp 
               ChiralViolationContrib.cpp
-              LINK_LIBRARIES EigenSolvers ForceField ForceFieldHelpers)
+              LINK_LIBRARIES EigenSolvers ForceField ForceFieldHelpers GraphMol)
 target_compile_definitions(DistGeometry PRIVATE RDKIT_DISTGEOMETRY_BUILD)
 
 rdkit_headers(BoundsMatrix.h

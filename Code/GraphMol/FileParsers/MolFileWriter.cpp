@@ -13,10 +13,12 @@
 #include "FileParsers.h"
 #include "FileParserUtils.h"
 #include "MolSGroupWriting.h"
-#include "MolFileStereochem.h"
 #include <RDGeneral/Invariant.h>
+#include <GraphMol/MolFileStereochem.h>
 #include <GraphMol/RDKitQueries.h>
 #include <GraphMol/SubstanceGroup.h>
+#include <GraphMol/Chirality.h>
+#include <GraphMol/Atropisomers.h>
 #include <RDGeneral/Ranking.h>
 #include <RDGeneral/LocaleSwitcher.h>
 
@@ -718,94 +720,15 @@ int BondGetMolFileSymbol(const Bond *bond) {
   // return res.c_str();
 }
 
-// only valid for single bonds
-int BondGetDirCode(const Bond::BondDir dir) {
-  int res = 0;
-  switch (dir) {
-    case Bond::NONE:
-      res = 0;
-      break;
-    case Bond::BEGINWEDGE:
-      res = 1;
-      break;
-    case Bond::BEGINDASH:
-      res = 6;
-      break;
-    case Bond::UNKNOWN:
-      res = 4;
-      break;
-    default:
-      break;
-  }
-  return res;
-}
-
-namespace {
-bool checkNeighbors(const Bond *bond, const Atom *atom) {
-  PRECONDITION(bond, "no bond");
-  PRECONDITION(atom, "no atom");
-  std::vector<int> nbrRanks;
-  for (auto bondIt :
-       boost::make_iterator_range(bond->getOwningMol().getAtomBonds(atom))) {
-    const auto nbrBond = bond->getOwningMol()[bondIt];
-    if (nbrBond->getBondType() == Bond::SINGLE) {
-      if (nbrBond->getBondDir() == Bond::ENDUPRIGHT ||
-          nbrBond->getBondDir() == Bond::ENDDOWNRIGHT) {
-        return false;
-      } else {
-        const auto otherAtom = nbrBond->getOtherAtom(atom);
-        int rank;
-        if (otherAtom->getPropIfPresent(common_properties::_CIPRank, rank)) {
-          if (std::find(nbrRanks.begin(), nbrRanks.end(), rank) !=
-              nbrRanks.end()) {
-            return false;
-          } else {
-            nbrRanks.push_back(rank);
-          }
-        }
-      }
-    }
-  }
-  return true;
-}
-}  // namespace
-
-void GetMolFileBondStereoInfo(const Bond *bond, const INT_MAP_INT &wedgeBonds,
-                              const Conformer *conf, int &dirCode,
-                              bool &reverse) {
-  PRECONDITION(bond, "");
-  dirCode = 0;
-  reverse = false;
-  Bond::BondDir dir = Bond::NONE;
-  if (bond->getBondType() == Bond::SINGLE) {
-    // single bond stereo chemistry
-    dir = DetermineBondWedgeState(bond, wedgeBonds, conf);
-    dirCode = BondGetDirCode(dir);
-    // if this bond needs to be wedged it is possible that this
-    // wedging was determined by a chiral atom at the end of the
-    // bond (instead of at the beginning). In this case we need to
-    // reverse the begin and end atoms for the bond when we write
-    // the mol file
-    if ((dirCode == 1) || (dirCode == 6)) {
-      auto wbi = wedgeBonds.find(bond->getIdx());
-      if (wbi != wedgeBonds.end() &&
-          static_cast<unsigned int>(wbi->second) != bond->getBeginAtomIdx()) {
-        reverse = true;
-      }
-    }
-  } else if (bond->getBondType() == Bond::DOUBLE) {
-    dirCode = MolOps::GetDoubleBondDirFlag(bond);
-  }
-}
-
-const std::string GetMolFileBondLine(const Bond *bond,
-                                     const INT_MAP_INT &wedgeBonds,
-                                     const Conformer *conf) {
+const std::string GetMolFileBondLine(
+    const Bond *bond, const INT_MAP_INT &wedgeBonds, const Conformer *conf,
+    bool explicitUnknownDoubleBondOnly = false) {
   PRECONDITION(bond, "");
 
   int dirCode;
   bool reverse;
-  GetMolFileBondStereoInfo(bond, wedgeBonds, conf, dirCode, reverse);
+  GetMolFileBondStereoInfo(bond, wedgeBonds, conf, dirCode, reverse,
+                           explicitUnknownDoubleBondOnly);
   int symbol = BondGetMolFileSymbol(bond);
 
   std::stringstream ss;
@@ -1048,12 +971,14 @@ void moveAdditionalPropertiesToSGroups(RWMol &mol) {
 
 const std::string GetV3000MolFileBondLine(const Bond *bond,
                                           const INT_MAP_INT &wedgeBonds,
-                                          const Conformer *conf) {
+                                          const Conformer *conf,
+                                          bool explicitUnknownDoubleBondOnly) {
   PRECONDITION(bond, "");
 
   int dirCode;
   bool reverse;
-  GetMolFileBondStereoInfo(bond, wedgeBonds, conf, dirCode, reverse);
+  GetMolFileBondStereoInfo(bond, wedgeBonds, conf, dirCode, reverse,
+                           explicitUnknownDoubleBondOnly);
 
   std::stringstream ss;
   ss << "M  V30 " << bond->getIdx() + 1;
@@ -1139,7 +1064,8 @@ void appendEnhancedStereoGroups(std::string &res, const RWMol &tmol) {
   }
 }
 namespace FileParserUtils {
-std::string getV3000CTAB(const ROMol &tmol, int confId) {
+std::string getV3000CTAB(const ROMol &tmol, int confId,
+                         bool explicitUnknownDoubleBondOnly) {
   auto nAtoms = tmol.getNumAtoms();
   auto nBonds = tmol.getNumBonds();
   const auto &sgroups = getSubstanceGroups(tmol);
@@ -1180,7 +1106,8 @@ std::string getV3000CTAB(const ROMol &tmol, int confId) {
 
     for (ROMol::ConstBondIterator bondIt = tmol.beginBonds();
          bondIt != tmol.endBonds(); ++bondIt) {
-      res += GetV3000MolFileBondLine(*bondIt, wedgeBonds, conf);
+      res += GetV3000MolFileBondLine(*bondIt, wedgeBonds, conf,
+                                     explicitUnknownDoubleBondOnly);
       res += "\n";
     }
     res += "M  V30 END BOND\n";
@@ -1215,8 +1142,8 @@ std::string getV3000CTAB(const ROMol &tmol, int confId) {
 //  gets a mol block as a string
 //
 //------------------------------------------------
-std::string outputMolToMolBlock(const RWMol &tmol, int confId,
-                                bool forceV3000) {
+std::string outputMolToMolBlock(const RWMol &tmol, int confId, bool forceV3000,
+                                bool explicitUnknownDoubleBondOnly = false) {
   std::string res;
   bool isV3000;
   unsigned int nAtoms, nBonds, nLists, chiralFlag, nsText, nRxnComponents;
@@ -1323,7 +1250,8 @@ std::string outputMolToMolBlock(const RWMol &tmol, int confId,
 
     for (ROMol::ConstBondIterator bondIt = tmol.beginBonds();
          bondIt != tmol.endBonds(); ++bondIt) {
-      res += GetMolFileBondLine(*bondIt, wedgeBonds, conf);
+      res += GetMolFileBondLine(*bondIt, wedgeBonds, conf,
+                                explicitUnknownDoubleBondOnly);
       res += "\n";
     }
 
@@ -1339,14 +1267,16 @@ std::string outputMolToMolBlock(const RWMol &tmol, int confId,
     // FIX: R-group logic, SGroups and 3D features etc.
   } else {
     // V3000 output.
-    res += FileParserUtils::getV3000CTAB(tmol, confId);
+    res += FileParserUtils::getV3000CTAB(tmol, confId,
+                                         explicitUnknownDoubleBondOnly);
   }
   res += "M  END\n";
   return res;
 }
 
 std::string MolToMolBlock(const ROMol &mol, bool includeStereo, int confId,
-                          bool kekulize, bool forceV3000) {
+                          bool kekulize, bool forceV3000,
+                          bool explicitUnknownDoubleBondOnly) {
   RDKit::Utils::LocaleSwitcher switcher;
   RWMol trwmol(mol);
   // NOTE: kekulize the molecule before writing it out
@@ -1376,9 +1306,11 @@ std::string MolToMolBlock(const ROMol &mol, bool includeStereo, int confId,
   moveAdditionalPropertiesToSGroups(trwmol);
 
   try {
-    return outputMolToMolBlock(trwmol, confId, forceV3000);
+    return outputMolToMolBlock(trwmol, confId, forceV3000,
+                               explicitUnknownDoubleBondOnly);
   } catch (RequiresV3000Exception &) {
-    return outputMolToMolBlock(trwmol, confId, true);
+    return outputMolToMolBlock(trwmol, confId, true,
+                               explicitUnknownDoubleBondOnly);
   }
 }
 

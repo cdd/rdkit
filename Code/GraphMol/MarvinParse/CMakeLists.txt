@@ -41,7 +41,7 @@ rdkit_library(MarvinParser
               MarvinWriter.cpp
               MarvinDefs.cpp
               ${maesupplier}
-              LINK_LIBRARIES GenericGroups Depictor GraphMol ChemReactions ${RDK_MAEPARSER_LIBS} ${regex_lib} ${link_iostreams} ${zlib_lib})
+              LINK_LIBRARIES CIPLabeler GenericGroups Depictor GraphMol ChemReactions ${RDK_MAEPARSER_LIBS} ${regex_lib} ${link_iostreams} ${zlib_lib})
 target_compile_definitions(MarvinParser PRIVATE RDKIT_MARVINPARSER_BUILD)
 
 rdkit_headers(MarvinParser.h

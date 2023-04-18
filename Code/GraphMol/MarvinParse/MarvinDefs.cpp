@@ -223,6 +223,9 @@ ptree MarvinAttachmentPoint::toPtree() const {
 MarvinAtom::MarvinAtom()
     : x2(DBL_MAX),
       y2(DBL_MAX),
+      x3(DBL_MAX),
+      y3(DBL_MAX),
+      z3(DBL_MAX),
       formalCharge(0),
       mrvValence(-1),
       hydrogenCount(-1),
@@ -237,6 +240,9 @@ MarvinAtom::MarvinAtom(const MarvinAtom &atomToCopy, std::string newId)
       elementType(atomToCopy.elementType),
       x2(atomToCopy.x2),
       y2(atomToCopy.y2),
+      x3(atomToCopy.x3),
+      y3(atomToCopy.y3),
+      z3(atomToCopy.z3),
       formalCharge(atomToCopy.formalCharge),
       radical(atomToCopy.radical),
       isotope(atomToCopy.isotope),
@@ -272,6 +278,10 @@ std::string MarvinAtom::toString() const {
 
   if (x2 != DBL_MAX && y2 != DBL_MAX) {
     out << " x2=\"" << x2 << "\" y2=\"" << y2 << "\"";
+  }
+
+  if (x3 != DBL_MAX && y3 != DBL_MAX && z3 != DBL_MAX) {
+    out << " x3=\"" << x3 << "\" y3=\"" << y3 << "\" z3=\"" << z3 << "\"";
   }
 
   if (formalCharge != 0) {
@@ -335,6 +345,16 @@ ptree MarvinAtom::toPtree() const {
     ystr << y2;
     out.put("<xmlattr>.x2", xstr.str());
     out.put("<xmlattr>.y2", ystr.str());
+  }
+
+  if (x3 != DBL_MAX && y3 != DBL_MAX && z3 != DBL_MAX) {
+    std::ostringstream xstr, ystr, zstr;
+    xstr << x3;
+    ystr << y3;
+    zstr << z3;
+    out.put("<xmlattr>.x3", xstr.str());
+    out.put("<xmlattr>.y3", ystr.str());
+    out.put("<xmlattr>.z3", zstr.str());
   }
 
   if (formalCharge != 0) {
@@ -598,7 +618,7 @@ const std::vector<std::string> MarvinMolBase::getAtomList() const {
   return atomList;
 }
 
-bool MarvinMolBase::hasCoords() const {
+bool MarvinMolBase::has2dCoords() const {
   for (auto atom : atoms) {
     if (atom->x2 == DBL_MAX || atom->y2 == DBL_MAX) {
       return false;
@@ -607,6 +627,18 @@ bool MarvinMolBase::hasCoords() const {
 
   return true;
 }
+
+bool MarvinMolBase::has3dCoords() const {
+  for (auto atom : atoms) {
+    if (atom->x3 == DBL_MAX || atom->y3 == DBL_MAX || atom->z3 == DBL_MAX) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool MarvinMolBase::hasCoords() const { return has3dCoords() || has3dCoords(); }
 
 void MarvinMolBase::removeCoords() {
   for (auto atom : atoms) {
@@ -1663,7 +1695,7 @@ void MarvinSuperatomSgroup::convertFromOneSuperAtom() {
 
     //  remove and delete the dummy atom from the parent.
 
-    bool coordExist = this->hasCoords() && hasCoords();
+    bool coordExist = this->has2dCoords();
     auto dummyAtomIter = find_if(
         actualParent->atoms.begin(), actualParent->atoms.end(),
         [this](const MarvinAtom *arg) { return arg->sgroupRef == this->id; });
@@ -2060,8 +2092,8 @@ MarvinMolBase *MarvinSuperatomSgroupExpanded::convertToOneSuperAtom() {
   marvinSuperatomSgroup->title = this->title;
   marvinSuperatomSgroup->id = this->id;
 
-  bool coordsExist = hasCoords();  // we have to check before we add the dummy
-                                   // atom  - it will not have coords (yet)
+  bool coordsExist = has2dCoords();  // we have to check before we add the dummy
+                                     // atom  - it will not have coords (yet)
 
   // add the dummy atom into the parent
 

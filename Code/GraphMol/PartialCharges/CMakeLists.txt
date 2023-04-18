@@ -7,7 +7,7 @@ target_compile_definitions(PartialCharges PRIVATE RDKIT_PARTIALCHARGES_BUILD)
 rdkit_headers(GasteigerCharges.h
               GasteigerParams.h DEST GraphMol/PartialCharges)
 
-rdkit_test(testPartialCharges test1.cpp LINK_LIBRARIES  PartialCharges
+rdkit_test(testPartialCharges test1.cpp LINK_LIBRARIES  PartialCharges GraphMol
 SmilesParse )
 
 if(RDK_BUILD_PYTHON_WRAPPERS)

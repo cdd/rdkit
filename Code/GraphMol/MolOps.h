@@ -442,6 +442,7 @@ typedef enum {
   SANITIZE_CLEANUPCHIRALITY = 0x100,
   SANITIZE_ADJUSTHS = 0x200,
   SANITIZE_CLEANUP_ORGANOMETALLICS = 0x400,
+  SANITIZE_CLEANUPATROPISOMERS = 0x800,
   SANITIZE_ALL = 0xFFFFFFF
 } SanitizeFlags;
 
@@ -900,6 +901,9 @@ RDKIT_GRAPHMOL_EXPORT std::list<int> getShortestPath(const ROMol &mol, int aid1,
 //! removes bogus chirality markers (those on non-sp3 centers):
 RDKIT_GRAPHMOL_EXPORT void cleanupChirality(RWMol &mol);
 
+//! removes bogus chirality markers (those on non-sp3 centers):
+RDKIT_GRAPHMOL_EXPORT void cleanupAtropisomers(RWMol &mol);
+
 //! \brief Uses a conformer to assign ChiralTypes to a molecule's atoms
 /*!
   \param mol                  the molecule of interest
@@ -956,7 +960,8 @@ RDKIT_GRAPHMOL_EXPORT void setDoubleBondNeighborDirections(
     ROMol &mol, const Conformer *conf = nullptr);
 //! removes directions from single bonds. Wiggly bonds will have the property
 //! _UnknownStereo set on them
-RDKIT_GRAPHMOL_EXPORT void clearSingleBondDirFlags(ROMol &mol);
+RDKIT_GRAPHMOL_EXPORT void clearSingleBondDirFlags(ROMol &mol,
+                                                   bool onlyWedgeFlags = false);
 
 //! removes directions from all bonds. Wiggly bonds and cross bonds will have
 //! the property _UnknownStereo set on them
@@ -1059,8 +1064,8 @@ RDKIT_GRAPHMOL_EXPORT void KekulizeFragment(
    This function determines if a double bonds needs to be marked as crossed for
    stereochemistry
 */
-RDKIT_GRAPHMOL_EXPORT int GetDoubleBondDirFlag(const Bond *bond);
-
+RDKIT_GRAPHMOL_EXPORT int GetDoubleBondDirFlag(
+    const Bond *bond, bool explicitUnknownDoubleBondOnly);
 }  // namespace MolOps
 }  // namespace RDKit
 

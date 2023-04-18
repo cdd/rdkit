@@ -21,7 +21,6 @@
 
 #include <GraphMol/SubstanceGroup.h>
 #include <RDGeneral/Ranking.h>
-#include <RDGeneral/LocaleSwitcher.h>
 #include <RDGeneral/Invariant.h>
 
 #include <boost/format.hpp>
@@ -31,6 +30,8 @@
 #include <GraphMol/SmilesParse/SmartsWrite.h>
 #include <GraphMol/Depictor/RDDepictor.h>
 #include <GraphMol/GenericGroups/GenericGroups.h>
+#include <GraphMol/Chirality.h>
+#include <GraphMol/Atropisomers.h>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -43,7 +44,7 @@
 
 #include <GraphMol/FileParsers/FileParsers.h>
 #include <GraphMol/FileParsers/MolSGroupWriting.h>
-#include <GraphMol/FileParsers/MolFileStereochem.h>
+#include <GraphMol/MolFileStereochem.h>
 #include "MarvinParser.h"
 #include "MarvinDefs.h"
 
@@ -364,23 +365,19 @@ class MarvinCMLWriter {
     PRECONDITION(bond, "no bond");
     PRECONDITION(atom, "no atom");
     std::vector<int> nbrRanks;
-    for (auto bondIt :
-         boost::make_iterator_range(bond->getOwningMol().getAtomBonds(atom))) {
-      const auto nbrBond = bond->getOwningMol()[bondIt];
-      if (nbrBond->getBondType() == Bond::SINGLE) {
-        if (nbrBond->getBondDir() == Bond::ENDUPRIGHT ||
-            nbrBond->getBondDir() == Bond::ENDDOWNRIGHT) {
-          return false;
-        } else {
-          const auto otherAtom = nbrBond->getOtherAtom(atom);
-          int rank;
-          if (otherAtom->getPropIfPresent(common_properties::_CIPRank, rank)) {
-            if (std::find(nbrRanks.begin(), nbrRanks.end(), rank) !=
-                nbrRanks.end()) {
-              return false;
-            } else {
-              nbrRanks.push_back(rank);
-            }
+    for (auto nbrBond : bond->getOwningMol().atomBonds(atom)) {
+      if (nbrBond->getBondDir() == Bond::ENDUPRIGHT ||
+          nbrBond->getBondDir() == Bond::ENDDOWNRIGHT) {
+        return false;
+      } else {
+        const auto otherAtom = nbrBond->getOtherAtom(atom);
+        int rank;
+        if (otherAtom->getPropIfPresent(common_properties::_CIPRank, rank)) {
+          if (std::find(nbrRanks.begin(), nbrRanks.end(), rank) !=
+              nbrRanks.end()) {
+            return false;
+          } else {
+            nbrRanks.push_back(rank);
           }
         }
       }
@@ -388,9 +385,26 @@ class MarvinCMLWriter {
     return true;
   }
 
+ private:
+  bool checkNeighborsForWiggleBond(const Bond *bond, Atom *atom) {
+    // this checks the neighbors of a double bond to see if they have a wiggle
+    // bond or not
+
+    PRECONDITION(bond, "no bond");
+    for (auto nbrBond : bond->getOwningMol().atomBonds(atom)) {
+      if (nbrBond->getBondDir() == Bond::BondDir::UNKNOWN &&
+          nbrBond->getBeginAtomIdx() == atom->getIdx()) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   void GetMarvinBondStereoInfo(const Bond *bond, const INT_MAP_INT &wedgeBonds,
                                const Conformer *conf, Bond::BondDir &dir,
-                               bool &reverse) {
+                               bool &reverse,
+                               bool explicitUnknownDoubleBondOnly) {
     PRECONDITION(bond, "");
     reverse = false;
     dir = Bond::NONE;
@@ -415,7 +429,8 @@ class MarvinCMLWriter {
         dir = Bond::NONE;  // other types are ignored
       }
     } else if (bond->getBondType() == Bond::DOUBLE) {
-      if (MolOps::GetDoubleBondDirFlag(bond) == 3) {
+      if (MolOps::GetDoubleBondDirFlag(bond, explicitUnknownDoubleBondOnly) ==
+          3) {
         dir = Bond::BondDir::EITHERDOUBLE;
       }
     }
@@ -440,19 +455,21 @@ class MarvinCMLWriter {
   }
 
   MarvinMol *MolToMarvinMol(RWMol *mol, int &molCount, int &atomCount,
-                            int &bondCount, int &sgCount, int confId = (-1)) {
+                            int &bondCount, int &sgCount, int confId = (-1),
+                            bool explicitUnknownDoubleBondOnly = false) {
     // molCount is the starting and ending molCount - used when called from a
     // rxn
 
     MarvinMol *marvinMol = nullptr;
     const Conformer *conf = nullptr;
+    const Conformer *conf3d = nullptr;
     int tempMolCount = 0, tempAtomCount = 0, tempBondCount = 0, tempSgCount = 0;
     try {
       marvinMol = new MarvinMol();
 
       marvinMol->molID = 'm' + std::to_string(++tempMolCount);
 
-      // get a 2D conformer
+      // get a conformer
 
       int confCount = mol->getNumConformers();
       if (confCount > 0) {
@@ -460,15 +477,25 @@ class MarvinCMLWriter {
           Conformer *testConf = &mol->getConformer(confId);
           if (!testConf->is3D()) {
             conf = testConf;
+          } else {
+            conf3d = testConf;
           }
         }
 
-        if (conf == nullptr) {
+        if (conf == nullptr && conf3d == nullptr) {
           for (unsigned int confId = 0; confId < mol->getNumConformers();
                ++confId) {
             Conformer *testConf = &mol->getConformer(confId);
             if (!testConf->is3D()) {
-              conf = testConf;
+              if (conf == nullptr) {  // only take the first 2d conf
+                conf = testConf;
+              }
+            } else {
+              if (conf3d == nullptr) {  // only take the first 3d conf
+                conf3d = testConf;
+              }
+            }
+            if (conf != nullptr && conf3d != nullptr) {
               break;
             }
           }
@@ -528,6 +555,17 @@ class MarvinCMLWriter {
           marvinAtom->y2 = DBL_MAX;
         }
 
+        if (conf3d != nullptr) {
+          const RDGeom::Point3D pos = conf3d->getAtomPos(atom->getIdx());
+          marvinAtom->x3 = pos.x;
+          marvinAtom->y3 = pos.y;
+          marvinAtom->z3 = pos.z;
+        } else {
+          marvinAtom->x3 = DBL_MAX;
+          marvinAtom->y3 = DBL_MAX;
+          marvinAtom->z3 = DBL_MAX;
+        }
+
         // atom maps for rxns
 
         if (!atom->getPropIfPresent(common_properties::molAtomMapNumber,
@@ -538,8 +576,10 @@ class MarvinCMLWriter {
 
       INT_MAP_INT wedgeBonds = pickBondsToWedge(*mol);
 
-      if (conf != nullptr) {
+      if (conf) {
         WedgeBondsFromAtropisomers(*mol, conf, wedgeBonds);
+      } else if (conf3d) {
+        WedgeBondsFromAtropisomers(*mol, conf3d, wedgeBonds);
       }
 
       for (auto bond : mol->bonds()) {
@@ -551,9 +591,16 @@ class MarvinCMLWriter {
         GetMarvinBondSymbol(bond, marvinBond->order, marvinBond->queryType,
                             marvinBond->convention);
 
-        Bond::BondDir bondDirection;
-        bool reverse;
-        GetMarvinBondStereoInfo(bond, wedgeBonds, conf, bondDirection, reverse);
+        Bond::BondDir bondDirection = Bond::BondDir::NONE;
+        bool reverse = false;
+
+        if (conf) {
+          GetMarvinBondStereoInfo(bond, wedgeBonds, conf, bondDirection,
+                                  reverse, explicitUnknownDoubleBondOnly);
+        } else if (conf3d) {
+          GetMarvinBondStereoInfo(bond, wedgeBonds, conf3d, bondDirection,
+                                  reverse, explicitUnknownDoubleBondOnly);
+        }
 
         if (reverse) {
           // switch the begin and end atoms on the bond line
@@ -826,10 +873,12 @@ class MarvinCMLWriter {
   }
 
  public:
-  MarvinMol *MolToMarvinMol(RWMol *mol, int confId = -1) {
+  MarvinMol *MolToMarvinMol(RWMol *mol, int confId = -1,
+                            bool explicitUnknownDoubleBondOnly = false) {
     int molCount = 0, atomCount = 0, bondCount = 0, sgCount = 0;
 
-    return MolToMarvinMol(mol, molCount, atomCount, bondCount, sgCount, confId);
+    return MolToMarvinMol(mol, molCount, atomCount, bondCount, sgCount, confId,
+                          explicitUnknownDoubleBondOnly);
   }
 
   static bool compareRowsOfRectanglesReverse(std::vector<MarvinRectangle> &v1,
@@ -920,7 +969,7 @@ class MarvinCMLWriter {
 
     std::vector<std::vector<MarvinRectangle>> rowsOfRectangles;
     for (auto mol : molList) {
-      if (!mol->hasCoords()) {
+      if (!mol->has2dCoords()) {
         return;  // no good way to make arrows
       }
 
@@ -1051,12 +1100,12 @@ class MarvinCMLWriter {
     // make sure all atoms have coords
 
     for (auto reactantPtr : marvinReaction->reactants) {
-      if (!reactantPtr->hasCoords()) {
+      if (!reactantPtr->has2dCoords()) {
         return;
       }
     }
     for (auto prodPtr : marvinReaction->products) {
-      if (!prodPtr->hasCoords()) {
+      if (!prodPtr->has2dCoords()) {
         return;
       }
     }
@@ -1176,8 +1225,8 @@ class MarvinCMLWriter {
 };
 
 std::string MolToMrvBlock(const ROMol &mol, bool includeStereo, int confId,
-                          bool kekulize, bool prettyPrint) {
-  RDKit::Utils::LocaleSwitcher switcher;
+                          bool kekulize, bool prettyPrint,
+                          bool explicitUnknownDoubleBondOnly) {
   RWMol trwmol(mol);
   // NOTE: kekulize the molecule before writing it out
   // because of the way mol files handle aromaticity
@@ -1197,7 +1246,8 @@ std::string MolToMrvBlock(const ROMol &mol, bool includeStereo, int confId,
 
   MarvinCMLWriter marvinCMLWriter;
 
-  auto marvinMol = marvinCMLWriter.MolToMarvinMol(&trwmol, confId);
+  auto marvinMol = marvinCMLWriter.MolToMarvinMol(
+      &trwmol, confId, explicitUnknownDoubleBondOnly);
   ptree pt = marvinMol->toMolPtree();
   std::ostringstream out;
   if (prettyPrint) {
@@ -1219,7 +1269,7 @@ std::string MolToMrvBlock(const ROMol &mol, bool includeStereo, int confId,
 //------------------------------------------------
 void MolToMrvFile(const ROMol &mol, const std::string &fName,
                   bool includeStereo, int confId, bool kekulize,
-                  bool prettyPrint) {
+                  bool prettyPrint, bool explicitUnknownDoubleBondOnly) {
   auto *outStream = new std::ofstream(fName.c_str());
   if (!(*outStream) || outStream->bad()) {
     delete outStream;
@@ -1228,7 +1278,8 @@ void MolToMrvFile(const ROMol &mol, const std::string &fName,
     throw BadFileException(errout.str());
   }
   std::string outString =
-      MolToMrvBlock(mol, includeStereo, confId, kekulize, prettyPrint);
+      MolToMrvBlock(mol, includeStereo, confId, kekulize, prettyPrint,
+                    explicitUnknownDoubleBondOnly);
   *outStream << outString;
   delete outStream;
 }

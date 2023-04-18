@@ -11,6 +11,7 @@
 #include <RDGeneral/Ranking.h>
 #include <GraphMol/new_canon.h>
 #include <GraphMol/QueryOps.h>
+#include <GraphMol/Atropisomers.h>
 #include <RDGeneral/types.h>
 #include <sstream>
 #include <set>
@@ -2493,6 +2494,24 @@ void cleanupChirality(RWMol &mol) {
   }
 }
 
+void cleanupAtropisomers(RWMol &mol) {
+  for (auto bond : mol.bonds()) {
+    switch (bond->getStereo()) {
+      case Bond::BondStereo::STEREOATROPCW:
+      case Bond::BondStereo::STEREOATROPCCW:
+        if (bond->getBeginAtom()->getHybridization() != Atom::SP2 ||
+            bond->getEndAtom()->getHybridization() != Atom::SP2) {
+          bond->setStereo(Bond::BondStereo::STEREONONE);
+        }
+
+        break;
+
+      default:
+        break;
+    }
+  }
+}
+
 #define VOLTEST(X, Y, Z) (v[X].dotProduct(v[Y].crossProduct(v[Z])) >= 0.0)
 
 static unsigned int OctahedralPermFrom3D(unsigned char *pair,
@@ -2783,7 +2802,7 @@ void assignChiralTypesFrom3D(ROMol &mol, int confId, bool replaceExistingTags,
   auto allowNontetrahedralStereo = Chirality::getAllowNontetrahedralChirality();
 
   boost::dynamic_bitset<> atomsToUse;
-  if (explicitOnly) {
+  if (explicitOnly && mol.getNumAtoms() > 0) {
     atomsToUse.resize(mol.getNumAtoms(), 0);
     for (auto bond : mol.bonds()) {
       auto bondDir = bond->getBondDir();
@@ -3064,13 +3083,18 @@ void detectBondStereochemistry(ROMol &mol, int confId) {
   setDoubleBondNeighborDirections(mol, &conf);
 }
 
-void clearSingleBondDirFlags(ROMol &mol) {
+void clearSingleBondDirFlags(ROMol &mol, bool onlyWedgeFlags) {
   for (auto bond : mol.bonds()) {
     if (bond->getBondType() == Bond::SINGLE) {
       if (bond->getBondDir() == Bond::UNKNOWN) {
         bond->setProp(common_properties::_UnknownStereo, 1);
       }
-      bond->setBondDir(Bond::NONE);
+
+      if (!onlyWedgeFlags ||
+          (bond->getBondDir() != Bond::BondDir::ENDDOWNRIGHT &&
+           bond->getBondDir() != Bond::BondDir::ENDUPRIGHT)) {
+        bond->setBondDir(Bond::NONE);
+      }
     }
   }
 }
@@ -3213,6 +3237,5 @@ void removeStereochemistry(ROMol &mol) {
   std::vector<StereoGroup> sgs;
   static_cast<RWMol &>(mol).setStereoGroups(std::move(sgs));
 }
-
 }  // end of namespace MolOps
 }  // namespace RDKit

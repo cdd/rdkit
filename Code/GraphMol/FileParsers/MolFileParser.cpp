@@ -18,12 +18,12 @@
 #include "FileParsers.h"
 #include "FileParserUtils.h"
 #include "MolSGroupParsing.h"
-#include "MolFileStereochem.h"
-
+#include <GraphMol/MolFileStereochem.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/RDKitQueries.h>
 #include <GraphMol/StereoGroup.h>
 #include <GraphMol/SubstanceGroup.h>
+#include <GraphMol/Atropisomers.h>
 #include <RDGeneral/StreamOps.h>
 #include <RDGeneral/RDLog.h>
 #include <GraphMol/GenericGroups/GenericGroups.h>
@@ -3257,6 +3257,14 @@ void finishMolProcessing(RWMol *res, bool chiralityPossible, bool sanitize,
     }
     MolOps::assignStereochemistry(*res, true, true, true);
   } else {
+    // determine hybridization and remobe chiral atoms that are not sp3
+    unsigned int operationThatFailed;
+    unsigned int santitizeOps = MolOps::SANITIZE_SETCONJUGATION |
+                                MolOps::SANITIZE_SETHYBRIDIZATION |
+                                MolOps::SANITIZE_CLEANUPCHIRALITY |
+                                MolOps::SANITIZE_CLEANUPATROPISOMERS;
+    MolOps::sanitizeMol(*res, operationThatFailed, santitizeOps);
+
     // we still need to do something about double bond stereochemistry
     // (was github issue 337)
     // now that atom stereochem has been perceived, the wedging

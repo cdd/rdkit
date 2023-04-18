@@ -14,6 +14,9 @@
 #include <RDGeneral/BoostEndInclude.h>
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/RDKitQueries.h>
+#include <GraphMol/MolFileStereochem.h>
+#include <GraphMol/Atropisomers.h>
+
 #include <iostream>
 #include <algorithm>
 #include "SmilesWrite.h"
@@ -21,6 +24,7 @@
 #include "SmilesParseOps.h"
 #include <GraphMol/MolEnumerator/LinkNode.h>
 #include <GraphMol/Chirality.h>
+#include <map>
 
 namespace SmilesParseOps {
 using namespace RDKit;
@@ -412,13 +416,14 @@ bool parse_atom_labels(Iterator &first, Iterator last, RDKit::RWMol &mol,
 
 template <typename Iterator>
 bool parse_coords(Iterator &first, Iterator last, RDKit::RWMol &mol,
-                  unsigned int startAtomIdx) {
+                  unsigned int startAtomIdx, unsigned int confIdx) {
   if (first >= last || *first != '(') {
     return false;
   }
 
   auto *conf = new Conformer(mol.getNumAtoms());
   mol.addConformer(conf);
+  conf->setId(confIdx);
   ++first;
   unsigned int atIdx = 0;
   bool is3D = false;
@@ -1390,10 +1395,11 @@ bool parse_it(Iterator &first, Iterator last, RDKit::RWMol &mol,
   }
   ++first;
   unsigned int nSGroups = 0;
+  unsigned int confIndex = 0;
   while (first < last && *first != '|') {
     typename Iterator::difference_type length = std::distance(first, last);
     if (*first == '(') {
-      if (!parse_coords(first, last, mol, startAtomIdx)) {
+      if (!parse_coords(first, last, mol, startAtomIdx, confIndex++)) {
         return false;
       }
     } else if (*first == '$') {
@@ -1990,11 +1996,16 @@ std::string get_atom_props_block(const ROMol &mol,
 std::string get_bond_config_block(const ROMol &mol,
                                   const std::vector<unsigned int> &atomOrder,
                                   const std::vector<unsigned int> &bondOrder,
-                                  bool coordsIncluded) {
-  std::string w = "", wU = "", wD = "";
+                                  bool coordsIncluded, INT_MAP_INT wedgeBonds) {
+  std::map<std::string, std ::vector<std::string>> wParts;
   for (unsigned int i = 0; i < bondOrder.size(); ++i) {
     auto idx = bondOrder[i];
     const auto bond = mol.getBondWithIdx(idx);
+    unsigned int wedgeStartAtomIdx = bond->getBeginAtomIdx();
+
+    if (bond->getBondType() != Bond::BondType::SINGLE) {
+      continue;
+    }
     // when figuring out what to output for the bond, favor the wedge state:
     Bond::BondDir bd = bond->getBondDir();
     switch (bd) {
@@ -2006,45 +2017,82 @@ std::string get_bond_config_block(const ROMol &mol,
         bd = Bond::BondDir::NONE;
     }
     unsigned int cfg = 0;
-    if (bd == Bond::BondDir::NONE) {
-      bond->getPropIfPresent(common_properties::_MolFileBondCfg, cfg);
-    }
-    if (cfg == 2 || bd == Bond::BondDir::UNKNOWN) {
-      auto begAtomOrder = std::find(atomOrder.begin(), atomOrder.end(),
-                                    bond->getBeginAtomIdx()) -
-                          atomOrder.begin();
-      if (w.empty()) {
-        w += "w:";
-      } else {
-        w += ",";
+    if (bd == Bond::BondDir::NONE &&
+        bond->getPropIfPresent(common_properties::_MolFileBondCfg, cfg)) {
+      switch (cfg) {
+        case 1:
+          bd = Bond::BondDir::BEGINWEDGE;
+          break;
+        case 2:
+          bd = Bond::BondDir::UNKNOWN;
+          break;
+        case 3:
+          bd = Bond::BondDir::BEGINDASH;
+          break;
+
+        default:
+          bd = Bond::BondDir::NONE;
       }
-      w += boost::str(boost::format("%d.%d") % begAtomOrder % i);
+    }
+
+    if (bd == Bond::BondDir::NONE && coordsIncluded) {
+      int dirCode;
+      bool reverse;
+      GetMolFileBondStereoInfo(bond, wedgeBonds, &mol.getConformer(0), dirCode,
+                               reverse);
+      switch (dirCode) {
+        case 1:
+          bd = Bond::BondDir::BEGINWEDGE;
+          break;
+        case 3:
+          bd = Bond::BondDir::UNKNOWN;
+          break;
+        case 6:
+          bd = Bond::BondDir::BEGINDASH;
+          break;
+        default:
+          bd = Bond::BondDir::NONE;
+      }
+      if (reverse) {
+        wedgeStartAtomIdx = bond->getEndAtomIdx();
+      }
+    }
+
+    auto begAtomOrder =
+        std::find(atomOrder.begin(), atomOrder.end(), wedgeStartAtomIdx) -
+        atomOrder.begin();
+
+    std::string wType = "";
+    if (bd == Bond::BondDir::UNKNOWN) {
+      wType = "w";
     } else if (coordsIncluded) {
       // we only do wedgeUp and wedgeDown if coordinates are being output
-      if (cfg == 1 || bd == Bond::BondDir::BEGINWEDGE) {
-        auto begAtomOrder = std::find(atomOrder.begin(), atomOrder.end(),
-                                      bond->getBeginAtomIdx()) -
-                            atomOrder.begin();
-        if (wU.empty()) {
-          wU += "wU:";
-        } else {
-          wU += ",";
-        }
-        wU += boost::str(boost::format("%d.%d") % begAtomOrder % i);
-      } else if (cfg == 3 || bd == Bond::BondDir::BEGINDASH) {
-        auto begAtomOrder = std::find(atomOrder.begin(), atomOrder.end(),
-                                      bond->getBeginAtomIdx()) -
-                            atomOrder.begin();
-        if (wD.empty()) {
-          wD += "wD:";
-        } else {
-          wD += ",";
-        }
-        wD += boost::str(boost::format("%d.%d") % begAtomOrder % i);
+      if (bd == Bond::BondDir::BEGINWEDGE) {
+        wType = "wU";
+      } else if (bd == Bond::BondDir::BEGINDASH) {
+        wType = "wD";
       }
     }
+
+    if (wType != "") {
+      if (wParts.find(wType) == wParts.end()) {
+        wParts[wType] = std::vector<std::string>();
+      }
+      wParts[wType].push_back(
+          boost::str(boost::format("%d.%d") % begAtomOrder % i));
+    }
   }
-  return w + wU + wD;
+
+  std::string res = "";
+
+  for (auto wPart : wParts) {
+    if (res != "") {
+      res += ",";
+    }
+    res += wPart.first + ":" + boost::algorithm::join(wPart.second, ",");
+  }
+
+  return res;
 }
 
 std::string get_ringbond_cistrans_block(
@@ -2241,10 +2289,16 @@ std::string getCXExtensions(const ROMol &mol, std::uint32_t flags) {
   }
 
   if (flags & SmilesWrite::CXSmilesFields::CX_BOND_CFG) {
+    INT_MAP_INT wedgeBonds = pickBondsToWedge(mol);
+
+    if (mol.getNumConformers()) {
+      WedgeBondsFromAtropisomers(mol, &mol.getConformer(), wedgeBonds, true);
+    }
+
     bool includeCoords = flags & SmilesWrite::CXSmilesFields::CX_COORDS &&
                          mol.getNumConformers();
-    const auto cfgblock =
-        get_bond_config_block(mol, atomOrder, bondOrder, includeCoords);
+    const auto cfgblock = get_bond_config_block(mol, atomOrder, bondOrder,
+                                                includeCoords, wedgeBonds);
     appendToCXExtension(cfgblock, res);
     const auto cistransblock =
         get_ringbond_cistrans_block(mol, atomOrder, bondOrder);

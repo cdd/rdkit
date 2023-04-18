@@ -28,10 +28,12 @@
 
 #include <GraphMol/FileParsers/FileParsers.h>
 #include <GraphMol/FileParsers/MolSGroupParsing.h>
-#include <GraphMol/FileParsers/MolFileStereochem.h>
+#include <GraphMol/MolFileStereochem.h>
 #include "MarvinParser.h"
 #include "MarvinDefs.h"
 #include <GraphMol/Conformer.h>
+#include <GraphMol/MolOps.h>
+#include <GraphMol/Atropisomers.h>
 
 #include <GraphMol/RDKitQueries.h>
 #include <GraphMol/StereoGroup.h>
@@ -471,9 +473,13 @@ class MarvinCMLReader {
   }
 
   RWMol *parseMolecule(MarvinMol *marvinMol, bool sanitize = false,
-                       bool removeHs = false) {
+                       bool removeHs = false,
+                       bool explicit3dChiralityOnly = true) {
     std::vector<MarvinStereoGroup *> stereoGroups;
+    std::unique_ptr<Conformer> confPtr;
     Conformer *conf = nullptr;
+    std::unique_ptr<Conformer> conf3dPtr;
+    Conformer *conf3d = nullptr;
     RWMol *mol = nullptr;
 
     try {
@@ -484,9 +490,15 @@ class MarvinCMLReader {
 
       // set the atoms
 
-      if (hasCoords(marvinMol)) {
+      if (marvinMol->has2dCoords()) {
         conf = new Conformer(marvinMol->atoms.size());
+        confPtr = std::unique_ptr<Conformer>(conf);
         conf->set3D(false);
+      }
+      if (marvinMol->has3dCoords()) {
+        conf3d = new Conformer(marvinMol->atoms.size());
+        conf3dPtr = std::unique_ptr<Conformer>(conf3d);
+        conf3d->set3D(true);
       }
 
       for (auto atomPtr : marvinMol->atoms) {
@@ -505,6 +517,22 @@ class MarvinCMLReader {
           pos.z = 0.0;
 
           conf->setAtomPos(aid, pos);
+        }
+
+        if (conf3d != nullptr) {
+          RDGeom::Point3D pos;
+          if (atomPtr->x3 != DBL_MAX && atomPtr->y3 != DBL_MAX &&
+              atomPtr->z3 != DBL_MAX) {
+            pos.x = atomPtr->x3;
+            pos.y = atomPtr->y3;
+            pos.z = atomPtr->z3;
+          } else {
+            pos.x = 0.0;
+            pos.y = 0.0;
+            pos.z = 0.0;
+          }
+
+          conf3d->setAtomPos(aid, pos);
         }
 
         // also collect the stereo groups here
@@ -560,7 +588,12 @@ class MarvinCMLReader {
 
       if (conf != nullptr) {
         mol->addConformer(conf, true);
-        conf = nullptr;  // conf now owned by mol
+        confPtr.release();
+      }
+
+      if (conf3d != nullptr) {
+        mol->addConformer(conf3d, true);
+        conf3dPtr.release();
       }
 
       // set the bonds
@@ -809,11 +842,17 @@ class MarvinCMLReader {
       // perceive chirality, then remove the Hs and sanitize.
       //
 
-      if (mol->getNumConformers() > 0) {
-        const Conformer &conf2 = mol->getConformer();
-        if (chiralityPossible) {
-          DetectAtomStereoChemistry(*mol, &conf2);
-        }
+      if (chiralityPossible && conf != nullptr) {
+        DetectAtomStereoChemistry(*mol, conf);
+      } else if (conf3d != nullptr) {
+        mol->updatePropertyCache(false);
+        MolOps::assignChiralTypesFrom3D(*mol, conf3d->getId(), true,
+                                        explicit3dChiralityOnly);
+      }
+
+      if (conf || conf3d) {
+        RDKit::DetectAtropisomerChirality(*mol,
+                                          conf != nullptr ? conf : conf3d);
       }
 
       if (sanitize) {
@@ -834,6 +873,15 @@ class MarvinCMLReader {
 
         MolOps::assignStereochemistry(*mol, true, true, true);
       } else {
+        // determine hybridization and remobe chiral atoms that are not sp3
+        uint operationThatFailed;
+        uint santitizeOps = MolOps::SANITIZE_SETCONJUGATION |
+                            MolOps::SANITIZE_SETHYBRIDIZATION |
+                            MolOps::SANITIZE_CLEANUPCHIRALITY |
+                            MolOps::SANITIZE_CLEANUPATROPISOMERS;
+
+        MolOps::sanitizeMol(*mol, operationThatFailed, santitizeOps);
+
         // we still need to do something about double bond stereochemistry
         // (was github issue 337)
         // now that atom stereochem has been perceived, the wedging
@@ -859,8 +907,6 @@ class MarvinCMLReader {
 
     catch (const std::exception &e) {
       delete mol;
-
-      delete conf;
 
       for (auto &stereoGroup : stereoGroups) {
         delete stereoGroup;
@@ -1363,6 +1409,20 @@ class MarvinCMLReader {
                  !getCleanDouble(y2, mrvAtom->y2))) {
               throw FileParseException(
                   "The values x2 and y2 must be large floats in MRV file");
+            }
+
+            std::string x3 = v.second.get<std::string>("<xmlattr>.x3", "");
+            std::string y3 = v.second.get<std::string>("<xmlattr>.y3", "");
+            std::string z3 = v.second.get<std::string>("<xmlattr>.z3", "");
+
+            // x3, y3, and z3 are doubles
+
+            if (x3 != "" && y3 != "" && z3 != "" &&
+                (!getCleanDouble(x3, mrvAtom->x3) ||
+                 !getCleanDouble(y3, mrvAtom->y3) ||
+                 !getCleanDouble(z3, mrvAtom->z3))) {
+              throw FileParseException(
+                  "The values x3, y3,  and z2 must be large floats in MRV file");
             }
 
             std::string formalCharge =
@@ -2034,8 +2094,9 @@ class MarvinCMLReader {
       }
 
       if (foundChild) {
-        BOOST_FOREACH (boost::property_tree::ptree::value_type &v, childTree)
+        BOOST_FOREACH (boost::property_tree::ptree::value_type &v, childTree) {
           res->reactants.push_back((MarvinMol *)parseMarvinMolecule(v.second));
+        }
       }
 
       try {
@@ -2045,8 +2106,9 @@ class MarvinCMLReader {
         foundChild = false;
       }
       if (foundChild) {
-        BOOST_FOREACH (boost::property_tree::ptree::value_type &v, childTree)
+        BOOST_FOREACH (boost::property_tree::ptree::value_type &v, childTree) {
           res->agents.push_back((MarvinMol *)parseMarvinMolecule(v.second));
+        }
       }
 
       try {
@@ -2056,8 +2118,9 @@ class MarvinCMLReader {
         foundChild = false;
       }
       if (foundChild) {
-        BOOST_FOREACH (boost::property_tree::ptree::value_type &v, childTree)
+        BOOST_FOREACH (boost::property_tree::ptree::value_type &v, childTree) {
           res->products.push_back((MarvinMol *)parseMarvinMolecule(v.second));
+        }
       }
 
       // <arrow type="DEFAULT" x1="-11.816189911577812" y1="-10.001443743444021"

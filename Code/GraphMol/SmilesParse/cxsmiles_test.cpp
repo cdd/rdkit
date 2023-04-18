@@ -12,6 +12,8 @@
 #include <string>
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/FileParsers/FileParsers.h>
+#include <GraphMol/MolFileStereochem.h>
+#include <GraphMol/MarvinParse/MarvinParser.h>
 #include "SmilesParse.h"
 #include "SmilesWrite.h"
 #include "SmartsWrite.h"
@@ -645,6 +647,261 @@ TEST_CASE("github #6050: stereogroups not combined") {
     CHECK(m->getStereoGroups()[0].getGroupType() == StereoGroupType::STEREO_OR);
     CHECK(m->getStereoGroups()[0].getAtoms().size() == 4);
   }
+}
+class SmilesTest {
+ public:
+  std::string fileName;
+  bool expectedResult;
+  unsigned int atomCount;
+  unsigned int bondCount;
+
+  SmilesTest(std::string fileNameInit, bool expectedResultInit,
+             int atomCountInit, int bondCountInit)
+      : fileName(fileNameInit),
+        expectedResult(expectedResultInit),
+        atomCount(atomCountInit),
+        bondCount(bondCountInit){};
+
+  bool isRxnTest() const { return false; }
+};
+
+void testOneAtropisomers(const SmilesTest *smilesTest) {
+  std::string rdbase = getenv("RDBASE");
+  std::string fName =
+      rdbase + "/Code/GraphMol/SmilesParse/test_data/" + smilesTest->fileName;
+  std::string inputSmiles;
+
+  std::stringstream inputSmilesStr;
+  std::ifstream inStr;
+  inStr.open(fName);
+  inputSmilesStr << inStr.rdbuf();
+  inputSmiles = inputSmilesStr.str();
+
+  try {
+    SmilesParserParams smilesParserParams;
+    smilesParserParams.sanitize = true;
+    smilesParserParams.removeHs = false;
+
+    std::unique_ptr<RWMol> smilesMol(
+        SmilesToMol(inputSmiles, smilesParserParams));
+
+    REQUIRE(smilesMol);
+    CHECK(smilesMol->getNumAtoms() == smilesTest->atomCount);
+    CHECK(smilesMol->getNumBonds() == smilesTest->bondCount);
+
+    // test round trip back to smiles
+    {
+      std::string expectedMrvName = fName + ".expected.cxsmi";
+      SmilesWriteParams ps;
+      ps.canonical = false;
+      ps.doIsomericSmiles = true;
+
+      unsigned int flags = SmilesWrite::CXSmilesFields::CX_COORDS |
+                           SmilesWrite::CXSmilesFields::CX_MOLFILE_VALUES |
+                           SmilesWrite::CXSmilesFields::CX_ATOM_PROPS |
+                           SmilesWrite::CXSmilesFields::CX_BOND_CFG
+          //| SmilesWrite::CXSmilesFields::CX_ALL
+          ;
+
+      std::string smilesOut =
+          MolToCXSmiles(*smilesMol, ps, flags, RestoreBondDirOptionTrue);
+
+      // code to generate the expected files
+
+      // {
+      //   std::ofstream out;
+      //   out.open(fName + ".NEW.cxsmi");
+      //   out << smilesOut;
+      // }
+      std::stringstream expectedMolStr;
+      std::ifstream in;
+      in.open(expectedMrvName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      CHECK(expectedStr == smilesOut);
+    }
+
+    // second pass without using original wedges
+
+    smilesMol =
+        std::unique_ptr<RWMol>(SmilesToMol(inputSmiles, smilesParserParams));
+
+    // test round trip back to smiles
+    {
+      std::string expectedMrvName = fName + ".expected2.cxsmi";
+
+      SmilesWriteParams ps;
+      ps.canonical = false;
+      ps.doIsomericSmiles = true;
+
+      unsigned int flags = SmilesWrite::CXSmilesFields::CX_COORDS |
+                           SmilesWrite::CXSmilesFields::CX_MOLFILE_VALUES |
+                           SmilesWrite::CXSmilesFields::CX_ATOM_PROPS |
+                           SmilesWrite::CXSmilesFields::CX_BOND_CFG;
+
+      std::string smilesOut =
+          MolToCXSmiles(*smilesMol, ps, flags, RestoreBondDirOptionClear);
+
+      // code to generate the expected files
+
+      // {
+      //   std::ofstream out;
+      //   out.open(fName + ".NEW2.cxsmi");
+      //   out << smilesOut;
+      // }
+      std::stringstream expectedMolStr;
+      std::ifstream in;
+      in.open(expectedMrvName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      CHECK(expectedStr == smilesOut);
+    }
+
+    smilesMol =
+        std::unique_ptr<RWMol>(SmilesToMol(inputSmiles, smilesParserParams));
+    {
+      std::string expectedMrvName = fName + ".expected.sdf";
+      std::string outMolStr = "";
+      try {
+        outMolStr = MolToMolBlock(*smilesMol, true, 0, true, true, true);
+      } catch (const RDKit::KekulizeException &e) {
+        outMolStr = "";
+      } catch (...) {
+        throw;  // re-throw the error if not a kekule error
+      }
+      if (outMolStr == "") {
+        outMolStr = MolToMolBlock(*smilesMol, true, 0, false,
+                                  true);  // try without kekule'ing
+      }
+
+      // code to create the expected files for new or changed tests
+
+      // {
+      //   std::ofstream out;
+      //   out.open(fName + ".NEW.sdf");
+      //   out << outMolStr;
+      // }
+
+      std::stringstream expectedMolStr;
+      std::ifstream in;
+      in.open(expectedMrvName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      CHECK(expectedStr == outMolStr);
+    }
+    smilesMol =
+        std::unique_ptr<RWMol>(SmilesToMol(inputSmiles, smilesParserParams));
+    {
+      std::string mrvBlock;
+      std::string expectedMrvName = fName + ".expected.mrv";
+      std::string outMolStr = "";
+      try {
+        MolOps::Kekulize(*smilesMol);
+        reapplyMolBlockWedging(*smilesMol);
+        outMolStr = MolToMrvBlock(*smilesMol, true, -1, true, false, true);
+      } catch (const RDKit::KekulizeException &e) {
+        outMolStr = "";
+      } catch (...) {
+        throw;  // re-trhow the error if not a kekule error
+      }
+      if (outMolStr == "") {
+        reapplyMolBlockWedging(*smilesMol);
+        outMolStr = MolToMrvBlock(*smilesMol, true, -1, false,
+                                  false);  // try without kekule'ing
+      }
+
+      // code to generate the expected files
+      // {
+      //   std::ofstream out;
+      //   out.open(fName + ".NEW.mrv");
+      //   out << outMolStr;
+      // }
+      std::stringstream expectedMolStr;
+      std::ifstream in;
+      in.open(expectedMrvName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      CHECK(expectedStr == outMolStr);
+    }
+    BOOST_LOG(rdInfoLog) << "done" << std::endl;
+  } catch (const std::exception &e) {
+    if (smilesTest->expectedResult != false) {
+      throw;
+    }
+    return;
+  }
+
+  CHECK(smilesTest->expectedResult == true);
+}
+
+TEST_CASE("base testAtropisomersInCXSmiles") {
+  {
+    std::list<SmilesTest> smiTests{
+        SmilesTest("ShortAtropisomer.cxsmi", true, 14, 15),
+        SmilesTest("ShortAtropisomerArom.cxsmi", true, 14, 15),
+        SmilesTest("AtropManyChirals.cxsmi", true, 20, 20),
+        SmilesTest("BMS-986142_3d_chiral.cxsmi", true, 72, 77),
+        SmilesTest("BMS-986142_3d.cxsmi", true, 72, 77),
+        SmilesTest("BMS-986142_atrop1.cxsmi", true, 42, 47),
+        SmilesTest("BMS-986142_atrop2.cxsmi", true, 42, 47),
+        SmilesTest("BMS-986142_atrop3.cxsmi", true, 42, 47),
+        SmilesTest("BMS-986142_atrop4.cxsmi", true, 42, 47),
+        SmilesTest("BMS-986142_atrop5.cxsmi", true, 42, 47),
+        SmilesTest("BMS-986142_atropBad1.cxsmi", true, 42, 47),
+        SmilesTest("BMS-986142_atropBad2.cxsmi", true, 42, 47),
+        SmilesTest("JDQ443_3d.cxsmi", true, 66, 72),
+        SmilesTest("JDQ443_atrop1.cxsmi", true, 38, 44),
+        SmilesTest("JDQ443_atrop2.cxsmi", true, 38, 44),
+        SmilesTest("JDQ443_atrop3.cxsmi", true, 38, 44),
+        SmilesTest("JDQ443_atropBad1.cxsmi", true, 38, 44),
+        SmilesTest("RP-6306_atrop1.cxsmi", true, 24, 26),
+        SmilesTest("RP-6306_atrop2.cxsmi", true, 24, 26),
+        SmilesTest("RP-6306_atrop3.cxsmi", true, 24, 26),
+        SmilesTest("RP-6306_atrop4.cxsmi", true, 24, 26),
+        SmilesTest("RP-6306_atrop5.cxsmi", true, 24, 26),
+        SmilesTest("RP-6306_atropBad1.cxsmi", true, 24, 26),
+        SmilesTest("RP-6306_atropBad2.cxsmi", true, 24, 26),
+        // note the rp-6306_3d.cxsmi is backwards from the 2D versions
+        // the 2D version were based on images from drug hunter
+        // the 3D version came from PUBCHEM
+        SmilesTest("RP-6306_3d.cxsmi", true, 44, 46),
+        SmilesTest("Sotorasib_atrop1.cxsmi", true, 41, 45),
+        SmilesTest("Sotorasib_atrop2.cxsmi", true, 41, 45),
+        SmilesTest("Sotorasib_atrop3.cxsmi", true, 41, 45),
+        SmilesTest("Sotorasib_atrop4.cxsmi", true, 41, 45),
+        SmilesTest("Sotorasib_atrop5.cxsmi", true, 41, 45),
+        SmilesTest("Sotorasib_atropBad1.cxsmi", true, 41, 45),
+        SmilesTest("Sotorasib_atropBad2.cxsmi", true, 41, 45),
+        // note the sotorasib_3d.cxsmi is backwards from
+        //     the 2D versions the 2D version were based on images from drug
+        //     hunter the 3D version came from PUBCHEM
+        SmilesTest("Sotorasib_3d.cxsmi", true, 71, 75),
+        SmilesTest("ZM374979_atrop1.cxsmi", true, 45, 49),
+        SmilesTest("ZM374979_atrop2.cxsmi", true, 45, 49),
+        SmilesTest("ZM374979_atrop3.cxsmi", true, 45, 49),
+        SmilesTest("ZM374979_atropBad1.cxsmi", true, 45, 49),
+        // note the mrtx1719_3d.cxsmi is backwards from the 2D versions
+        // the 2D version were based on images from drug hunter
+        // the 3D version came from PUBCHEM
+        SmilesTest("Mrtx1719_3d.cxsmi", true, 51, 55),
+        SmilesTest("Mrtx1719_atrop1.cxsmi", true, 33, 37),
+        SmilesTest("Mrtx1719_atrop2.cxsmi", true, 33, 37),
+        SmilesTest("Mrtx1719_atrop3.cxsmi", true, 33, 37),
+        SmilesTest("Mrtx1719_atropBad1.cxsmi", true, 33, 37),
+    };
+
+    for (auto smiTest : smiTests) {
+      printf("Test\n\n %s\n\n", smiTest.fileName.c_str());
+      // RDDepict::preferCoordGen = true;
+      testOneAtropisomers(&smiTest);
+    }
+  }
+
+  BOOST_LOG(rdInfoLog) << "done" << std::endl;
 }
 
 void testOneSmilesCanonicalization(std::string smiles,

@@ -45,7 +45,7 @@ rdkit_library(FileParsers
               CDXMLParser.cpp
               Mol2FileParser.cpp MolFileParser.cpp
               MolSGroupParsing.cpp MolSGroupWriting.cpp
-              MolFileStereochem.cpp MolFileWriter.cpp
+               MolFileWriter.cpp
               ForwardSDMolSupplier.cpp SDMolSupplier.cpp SDWriter.cpp
               SmilesMolSupplier.cpp SmilesWriter.cpp
               TDTMolSupplier.cpp TDTWriter.cpp
@@ -65,7 +65,7 @@ target_compile_definitions(FileParsers PRIVATE RDKIT_FILEPARSERS_BUILD)
 rdkit_headers(CDXMLParser.h
               FileParsers.h
               FileParserUtils.h
-              MolFileStereochem.h
+            
               MolSupplier.h
               MolWriters.h
               SequenceParsers.h SequenceWriters.h
@@ -98,7 +98,7 @@ endif(RDK_TEST_MULTITHREADED)
 
 rdkit_test(testMolWriter testMolWriter.cpp LINK_LIBRARIES FileParsers)
 
-rdkit_test(testTplParser testTpls.cpp LINK_LIBRARIES FileParsers)
+rdkit_test(testTplParser testTpls.cpp LINK_LIBRARIES FileParsers GraphMol )
 
 rdkit_test(testMol2ToMol testMol2ToMol.cpp LINK_LIBRARIES FileParsers)
 

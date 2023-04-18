@@ -10,10 +10,11 @@
 
 #include <RDGeneral/RDLog.h>
 #include <GraphMol/RDKitBase.h>
+#include <GraphMol/Chirality.h>
 #include <GraphMol/FileParsers/FileParsers.h>
 #include <GraphMol/FileParsers/SequenceParsers.h>
 #include <GraphMol/FileParsers/SequenceWriters.h>
-#include <GraphMol/FileParsers/MolFileStereochem.h>
+#include <GraphMol/MolFileStereochem.h>
 #include <GraphMol/Depictor/RDDepictor.h>
 #include "MarvinParser.h"
 
@@ -135,7 +136,7 @@ void *GetMolOrReaction(const MolOrRxnTest *molOrRxnTest, bool &isReaction) {
 }
 
 void testSmilesToMarvin(const SmilesTest *smilesTest) {
-  BOOST_LOG(rdInfoLog) << "testing smiles to marin " << std::endl;
+  BOOST_LOG(rdInfoLog) << "testing smiles to marvin " << std::endl;
   std::string rdbase = getenv("RDBASE");
   std::string fName =
       rdbase + "/Code/GraphMol/MarvinParse/test_data/" + smilesTest->name;
@@ -255,38 +256,28 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest) {
   std::string fName =
       rdbase + "/Code/GraphMol/MarvinParse/test_data/" + molOrRxnTest->fileName;
 
-  class LocalVars  // protext against mem leak on error
-  {
-   public:
-    void *molOrRxn = nullptr;
-    bool isReaction = false;
-
-    LocalVars(){};
-
-    ~LocalVars() {
-      // printf ("deleting molOrRxn\n");
-      if (isReaction) {
-        delete (ChemicalReaction *)molOrRxn;
-      } else {
-        delete (RWMol *)molOrRxn;
-      }
-    }
-  } localVars;
+  bool isReaction = false;
 
   try {
-    localVars.molOrRxn = GetMolOrReaction(molOrRxnTest, localVars.isReaction);
+    void *molOrRxn = GetMolOrReaction(molOrRxnTest, isReaction);
 
-    if (localVars.isReaction != molOrRxnTest->isRxnTest()) {
+    if (isReaction != molOrRxnTest->isRxnTest()) {
+      if (isReaction) {
+        delete ((ChemicalReaction *)molOrRxn);
+      } else {
+        delete ((RWMol *)molOrRxn);
+      }
+
       // printf("Wrong type of MRV file\n");
       TEST_ASSERT(molOrRxnTest->expectedResult == false);
       // printf("Expected failure!\n");
       return;
     }
 
-    if (localVars.isReaction) {
+    if (isReaction) {
       // reaction test
 
-      auto rxn = (ChemicalReaction *)localVars.molOrRxn;
+      std::unique_ptr<ChemicalReaction> rxn((ChemicalReaction *)molOrRxn);
       auto rxnTest = (RxnTest *)molOrRxnTest;
 
       // check for errors
@@ -338,13 +329,13 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest) {
       {
         std::string outMolStr = ChemicalReactionToRxnBlock(*rxn, false, true);
 
-        //  code to create the expected files for new or changed tests
+        // code to create the expected files for new or changed tests
 
         // {
-        //   std::ofstream out;
-        //   out.open(fName + ".NEW.rxn");
-        //   out << outMolStr;
-        // }
+        //    std::ofstream out;
+        //    out.open(fName + ".NEW.rxn");
+        //    out << outMolStr;
+        //  }
 
         std::string expectedRxnName = fName + ".expected.rxn";
 
@@ -360,7 +351,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest) {
       {
         std::string outMolStr = ChemicalReactionToMrvBlock(*rxn, false);
 
-        //  code to create the expected files for new or changed tests
+        // code to create the expected files for new or changed tests
 
         // {
         //   std::ofstream out;
@@ -381,7 +372,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest) {
     } else {
       // mol  test
 
-      auto mol = (RWMol *)localVars.molOrRxn;
+      std::unique_ptr<RWMol> mol((RWMol *)molOrRxn);
       reapplyMolBlockWedging(*mol);
 
       auto molTest = (MolTest *)molOrRxnTest;
@@ -468,6 +459,132 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest) {
   return;
 }
 
+void testMarvinAtrop(const MolTest *molTest) {
+  BOOST_LOG(rdInfoLog) << "testing marvin atropisomers" << std::endl;
+
+  std::string rdbase = getenv("RDBASE");
+  std::string fName =
+      rdbase + "/Code/GraphMol/MarvinParse/test_data/" + molTest->fileName;
+  try {
+    std::unique_ptr<RWMol> mol(MrvMolFileParser(fName, false, false));
+    // mol  test
+
+    TEST_ASSERT(mol != nullptr);
+
+    TEST_ASSERT(mol->getNumAtoms() == molTest->atomCount)
+    TEST_ASSERT(mol->getNumBonds() == molTest->bondCount)
+
+    {
+      std::string expectedMrvName = fName + ".expected.sdf";
+      std::string outMolStr = "";
+      MolOps::Kekulize(*mol);
+      reapplyMolBlockWedging(*mol);
+      outMolStr = MolToMolBlock(*mol, true, 0, true, true, true);
+
+      // code to create the expected files for new or changed tests
+
+      // {
+      //   std::ofstream out;
+      //   out.open(fName + ".NEW.sdf");
+      //   out << outMolStr;
+      // }
+
+      std::stringstream expectedMolStr;
+      std::ifstream in;
+      in.open(expectedMrvName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      TEST_ASSERT(expectedStr == outMolStr);
+    }
+
+    {
+      std::string expectedMrvName = fName + ".expected.mrv";
+
+      std::string outMolStr = "";
+      MolOps::Kekulize(*mol);
+      reapplyMolBlockWedging(*mol);
+      outMolStr = MolToMrvBlock(*mol, true, -1, true, false, true);
+
+      // code to create the expected files for new or changed tests
+
+      // {
+      //   std::ofstream out;
+      //   out.open(fName + ".NEW.mrv");
+      //   out << outMolStr;
+      // }
+
+      std::stringstream expectedMolStr;
+      std::ifstream in;
+      in.open(expectedMrvName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      TEST_ASSERT(expectedStr == outMolStr);
+    }
+
+    // now try without restoring the original bond orders
+
+    mol = std::unique_ptr<RWMol>(MrvMolFileParser(fName, false, false));
+
+    {
+      std::string expectedMrvName = fName + ".expected2.sdf";
+      std::string outMolStr = "";
+      outMolStr = MolToMolBlock(*mol, true, 0, true, true);
+
+      // code to create the expected files for new or changed tests
+
+      // {
+      //   std::ofstream out;
+      //   out.open(fName + ".NEW2.sdf");
+      //   out << outMolStr;
+      // }
+
+      std::stringstream expectedMolStr;
+      std::ifstream in;
+      in.open(expectedMrvName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      TEST_ASSERT(expectedStr == outMolStr);
+    }
+
+    {
+      std::string expectedMrvName = fName + ".expected2.mrv";
+
+      std::string outMolStr = "";
+      outMolStr = MolToMrvBlock(*mol, true, -1, true, false, true);
+
+      // code to create the expected files for new or changed tests
+
+      // {
+      //   std::ofstream out;
+      //   out.open(fName + ".NEW2.mrv");
+      //   out << outMolStr;
+      // }
+
+      std::stringstream expectedMolStr;
+      std::ifstream in;
+      in.open(expectedMrvName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      TEST_ASSERT(expectedStr == outMolStr);
+    }
+
+    BOOST_LOG(rdInfoLog) << "done" << std::endl;
+  } catch (const std::exception &e) {
+    if (molTest->expectedResult != false) {
+      throw;
+    }
+    return;
+
+    TEST_ASSERT(molTest->expectedResult == true);
+
+    return;
+  }
+}
+
 void testMolFiles(const MolTest *molFileTest) {
   BOOST_LOG(rdInfoLog) << "testing marvin writing" << std::endl;
 
@@ -475,36 +592,29 @@ void testMolFiles(const MolTest *molFileTest) {
   std::string fName =
       rdbase + "/Code/GraphMol/MarvinParse/test_data/" + molFileTest->fileName;
 
-  class LocalVars  // protext against mem leak on error
-  {
-   public:
-    RWMol *mol = nullptr;
-
-    LocalVars(){};
-
-    ~LocalVars() { delete mol; }
-  } localVars;
+  std::unique_ptr<RWMol> mol;
 
   try {
-    localVars.mol = MolFileToMol(fName, true, false, false);
-    reapplyMolBlockWedging(*localVars.mol);
+    std::unique_ptr<RWMol> mol(MolFileToMol(fName, true, false, false));
 
-    TEST_ASSERT(localVars.mol != nullptr);
-    TEST_ASSERT(localVars.mol->getNumAtoms() == molFileTest->atomCount)
-    TEST_ASSERT(localVars.mol->getNumBonds() == molFileTest->bondCount)
+    reapplyMolBlockWedging(*mol);
+
+    TEST_ASSERT(mol != nullptr);
+    TEST_ASSERT(mol->getNumAtoms() == molFileTest->atomCount)
+    TEST_ASSERT(mol->getNumBonds() == molFileTest->bondCount)
 
     {
       std::string expectedMrvName = fName + ".expected.sdf";
       std::string outMolStr = "";
       try {
-        outMolStr = MolToMolBlock(*localVars.mol, true, 0, true, true);
+        outMolStr = MolToMolBlock(*mol, true, 0, true, true);
       } catch (const RDKit::KekulizeException &e) {
         outMolStr = "";
       } catch (...) {
         throw;  // re-trhow the error if not a kekule error
       }
       if (outMolStr == "") {
-        outMolStr = MolToMolBlock(*localVars.mol, true, 0, false,
+        outMolStr = MolToMolBlock(*mol, true, 0, false,
                                   true);  // try without kekule'ing
       }
 
@@ -530,7 +640,7 @@ void testMolFiles(const MolTest *molFileTest) {
 
       std::string outMolStr = "";
       try {
-        outMolStr = MolToMrvBlock(*localVars.mol, true, -1, true, false);
+        outMolStr = MolToMrvBlock(*mol, true, -1, true, false);
       } catch (const RDKit::KekulizeException &e) {
         outMolStr = "";
       } catch (...) {
@@ -538,7 +648,7 @@ void testMolFiles(const MolTest *molFileTest) {
       }
       if (outMolStr == "") {
         // try without kekule'ing
-        outMolStr = MolToMrvBlock(*localVars.mol, true, -1, false, false);
+        outMolStr = MolToMrvBlock(*mol, true, -1, false, false);
       }
       // code to create the expected files for new or changed tests
 
@@ -571,7 +681,7 @@ void testMolFiles(const MolTest *molFileTest) {
 }
 
 void RunTests() {
-  // the molecule tests - staromg with molfiles/sdf
+  // the molecule tests - starting with molfiles/sdf
 
   std::list<MolTest> sdfTests{
       MolTest("CrossedDoubleBondWithChiralNbr2.sdf", true, LoadAsMolOrRxn, 10,
@@ -698,6 +808,67 @@ void RunTests() {
 
     printf("Test\n\n %s\n\n", molFileTest.fileName.c_str());
     testMarvin(&molFileTest);
+  }
+
+  // atropisomer tests
+
+  std::list<MolTest> atropisomerTests{
+      MolTest("AtropManyChirals.mrv", true, LoadAsMolOrRxn, 20, 20),
+      MolTest("BMS-986142_3d_chiral.mrv", true, LoadAsMolOrRxn, 72, 77),
+      MolTest("BMS-986142_3d.mrv", true, LoadAsMolOrRxn, 72, 77),
+      MolTest("BMS-986142_atrop1.mrv", true, LoadAsMolOrRxn, 42, 47),
+      MolTest("BMS-986142_atrop2.mrv", true, LoadAsMolOrRxn, 42, 47),
+      MolTest("BMS-986142_atrop3.mrv", true, LoadAsMolOrRxn, 42, 47),
+      MolTest("BMS-986142_atrop4.mrv", true, LoadAsMolOrRxn, 42, 47),
+      MolTest("BMS-986142_atrop5.mrv", true, LoadAsMolOrRxn, 42, 47),
+      MolTest("BMS-986142_atropBad1.mrv", false, LoadAsMolOrRxn, 42, 47),
+      MolTest("BMS-986142_atropBad2.mrv", false, LoadAsMolOrRxn, 42, 47),
+      MolTest("JDQ443_3d.mrv", true, LoadAsMolOrRxn, 66, 72),
+      MolTest("JDQ443_atrop1.mrv", true, LoadAsMolOrRxn, 38, 44),
+      MolTest("JDQ443_atrop2.mrv", true, LoadAsMolOrRxn, 38, 44),
+      MolTest("JDQ443_atrop3.mrv", true, LoadAsMolOrRxn, 38, 44),
+      MolTest("JDQ443_atropBad1.mrv", false, LoadAsMolOrRxn, 38, 44),
+      MolTest("RP-6306_atrop1.mrv", true, LoadAsMolOrRxn, 24, 26),
+      MolTest("RP-6306_atrop2.mrv", true, LoadAsMolOrRxn, 24, 26),
+      MolTest("RP-6306_atrop3.mrv", true, LoadAsMolOrRxn, 24, 26),
+      MolTest("RP-6306_atrop4.mrv", true, LoadAsMolOrRxn, 24, 26),
+      MolTest("RP-6306_atrop5.mrv", true, LoadAsMolOrRxn, 24, 26),
+      MolTest("RP-6306_atropBad1.mrv", false, LoadAsMolOrRxn, 24, 26),
+      MolTest("RP-6306_atropBad2.mrv", false, LoadAsMolOrRxn, 24, 26),
+      // note the rp-6306_3d.mrv is backwards from the 2D versions
+      // the 2D version were based on images from drug hunter
+      // the 3D version came from PUBCHEM
+      MolTest("RP-6306_3d.mrv", true, LoadAsMolOrRxn, 44, 46),
+      MolTest("Sotorasib_atrop1.mrv", true, LoadAsMolOrRxn, 41, 45),
+      MolTest("Sotorasib_atrop2.mrv", true, LoadAsMolOrRxn, 41, 45),
+      MolTest("Sotorasib_atrop3.mrv", true, LoadAsMolOrRxn, 41, 45),
+      MolTest("Sotorasib_atrop4.mrv", true, LoadAsMolOrRxn, 41, 45),
+      MolTest("Sotorasib_atrop5.mrv", true, LoadAsMolOrRxn, 41, 45),
+      MolTest("Sotorasib_atropBad1.mrv", false, LoadAsMolOrRxn, 41, 45),
+      MolTest("Sotorasib_atropBad2.mrv", false, LoadAsMolOrRxn, 41, 45),
+      // note the sotorasib_3d.mrv is backwards from the 2D versions
+      // the 2D version were based on images from drug hunter
+      // the 3D version came from PUBCHEM
+      MolTest("Sotorasib_3d.mrv", true, LoadAsMolOrRxn, 71, 75),
+      MolTest("ZM374979_atrop1.mrv", true, LoadAsMolOrRxn, 45, 49),
+      MolTest("ZM374979_atrop2.mrv", true, LoadAsMolOrRxn, 45, 49),
+      MolTest("ZM374979_atrop3.mrv", true, LoadAsMolOrRxn, 45, 49),
+      MolTest("ZM374979_atropBad1.mrv", false, LoadAsMolOrRxn, 45, 49),
+      // note the mrtx1719_3d.mrv is backwards from the 2D versions
+      // the 2D version were based on images from drug hunter
+      // the 3D version came from PUBCHEM
+      MolTest("mrtx1719_3d.mrv", true, LoadAsMolOrRxn, 51, 55),
+      MolTest("mrtx1719_atrop1.mrv", true, LoadAsMolOrRxn, 33, 37),
+      MolTest("mrtx1719_atrop2.mrv", true, LoadAsMolOrRxn, 33, 37),
+      MolTest("mrtx1719_atrop3.mrv", true, LoadAsMolOrRxn, 33, 37),
+      MolTest("mrtx1719_atropBad1.mrv", false, LoadAsMolOrRxn, 33, 37),
+  };
+
+  for (auto atropisomerTest : atropisomerTests) {
+    BOOST_LOG(rdInfoLog) << "Test: " << atropisomerTest.fileName << std::endl;
+
+    printf("Test\n\n %s\n\n", atropisomerTest.fileName.c_str());
+    testMarvinAtrop(&atropisomerTest);
   }
 
   // now the reactions

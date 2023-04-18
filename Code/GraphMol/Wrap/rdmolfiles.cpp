@@ -155,41 +155,28 @@ ROMol *MolFromMolBlock(python::object imolBlock, bool sanitize, bool removeHs,
   return static_cast<ROMol *>(newM);
 }
 
-ROMol *MolFromMrvFile(const char *molFilename, bool sanitize, bool removeHs)
-{
+ROMol *MolFromMrvFile(const char *molFilename, bool sanitize, bool removeHs) {
   RWMol *newM = nullptr;
-  try
-  {
+  try {
     newM = MrvMolFileParser(molFilename, sanitize, removeHs);
-  }
-  catch (RDKit::BadFileException &e)
-  {
+  } catch (RDKit::BadFileException &e) {
     PyErr_SetString(PyExc_IOError, e.what());
     throw python::error_already_set();
-  }
-  catch (RDKit::FileParseException &e)
-  {
+  } catch (RDKit::FileParseException &e) {
     BOOST_LOG(rdWarningLog) << e.what() << std::endl;
-  }
-  catch (...)
-  {
+  } catch (...) {
   }
   return static_cast<ROMol *>(newM);
 }
 
-ROMol *MolFromMrvBlock(python::object imolBlock, bool sanitize, bool removeHs)
-{
+ROMol *MolFromMrvBlock(python::object imolBlock, bool sanitize, bool removeHs) {
   std::istringstream inStream(pyObjectToString(imolBlock));
   RWMol *newM = nullptr;
-  try
-  {
+  try {
     newM = MrvMolDataStreamParser(inStream, sanitize, removeHs);
-  }
-  catch (RDKit::FileParseException &e)
-  {
+  } catch (RDKit::FileParseException &e) {
     BOOST_LOG(rdWarningLog) << e.what() << std::endl;
-  } catch (...)
-  {
+  } catch (...) {
   }
   return static_cast<ROMol *>(newM);
 }
@@ -845,7 +832,7 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
       docString.c_str(),
       python::return_value_policy<python::manage_new_object>());
 
-docString =
+  docString =
       "Construct a molecule from a Marvin (Mrv) file.\n\n\
   ARGUMENTS:\n\
 \n\
@@ -862,12 +849,11 @@ docString =
 \n\
     a Mol object, None on failure.\n\
 \n";
-  python::def(
-      "MolFromMrvFile", RDKit::MolFromMrvFile,
-      (python::arg("molFileName"), python::arg("sanitize") = true,
-       python::arg("removeHs") = true),
-      docString.c_str(),
-      python::return_value_policy<python::manage_new_object>());
+  python::def("MolFromMrvFile", RDKit::MolFromMrvFile,
+              (python::arg("molFileName"), python::arg("sanitize") = true,
+               python::arg("removeHs") = true),
+              docString.c_str(),
+              python::return_value_policy<python::manage_new_object>());
 
   docString =
       "Construct a molecule from a Marvin (mrv) block.\n\n\
@@ -886,12 +872,11 @@ docString =
 \n\
     a Mol object, None on failure.\n\
 \n";
-  python::def(
-      "MolFromMrvBlock", RDKit::MolFromMrvBlock,
-      (python::arg("mrvBlock"), python::arg("sanitize") = true,
-       python::arg("removeHs") = true),
-      docString.c_str(),
-      python::return_value_policy<python::manage_new_object>());
+  python::def("MolFromMrvBlock", RDKit::MolFromMrvBlock,
+              (python::arg("mrvBlock"), python::arg("sanitize") = true,
+               python::arg("removeHs") = true),
+              docString.c_str(),
+              python::return_value_policy<python::manage_new_object>());
 
   docString =
       "Construct a molecule from an XYZ file.\n\n\
@@ -1079,6 +1064,8 @@ docString =
       as suggested by the MDL spec.\n\
     - forceV3000 (optional) force generation a V3000 mol block (happens automatically with \n\
       more than 999 atoms or bonds)\n\
+    - explicitUnknownDoubleBondOnly (optional) bonds are marked as unknown stereochemistry \n\
+      only if specified as such in the imput\n\
 \n\
   RETURNS:\n\
 \n\
@@ -1087,7 +1074,8 @@ docString =
   python::def("MolToMolBlock", RDKit::MolToMolBlock,
               (python::arg("mol"), python::arg("includeStereo") = true,
                python::arg("confId") = -1, python::arg("kekulize") = true,
-               python::arg("forceV3000") = false),
+               python::arg("forceV3000") = false,
+               python::arg("explicitUnknownDoubleBondOnly") = false),
               docString.c_str());
   docString =
       "Returns a V3000 Mol block for a molecule\n\
@@ -1166,14 +1154,16 @@ docString =
       information in the output\n\
     - confId: (optional) selects which conformation to output (-1 = default)\n\
     - kekulize: (optional) triggers kekulization of the molecule before it's written.\n\
-\n\
-  RETURNS:\n\
-\n\
-    a string\n\
-\n";
+    - prettyPrint: (optional) output is written in human friendly form (spacing)(false = default).\n\
+    - explicitUnknownDoubleBondOnly: (optional) double bonds are only marked unknow if they were specificallly mark so on import (false = default)\n\
+\n RETURNS :\n\
+\n a string\n\
+\n ";
   python::def("MolToMrvBlock", RDKit::MolToMrvBlock,
               (python::arg("mol"), python::arg("includeStereo") = true,
-               python::arg("confId") = -1, python::arg("kekulize") = true),
+               python::arg("confId") = -1, python::arg("kekulize") = true,
+               python::arg("prettyPrint") = false,
+               python::arg("explicitUnknownDoubleBondOnly") = false),
               docString.c_str());
 
   docString =
@@ -1185,7 +1175,9 @@ docString =
     - includeStereo: (optional) toggles inclusion of stereochemical\n\
       information in the output\n\
     - confId: (optional) selects which conformation to output (-1 = default)\n\
-    - kekulize: (optional) triggers kekulization of the molecule before it's written.\n\
+    - kekulize: (optional) triggers kekulization of the molecule before it's written (true = default)\n\
+    - prettyPrint: (optional) output is written in human friendly form (spacing)(false = default).\n\
+    - explicitUnknownDoubleBondOnly: (optional) only mark unknown stereo bonds if they were explicitly marked as unkown (false = default)\n\
 \n\
   RETURNS:\n\
 \n\
@@ -1195,11 +1187,9 @@ docString =
       "MolToMrvFile", RDKit::MolToMrvFile,
       (python::arg("mol"), python::arg("filename"),
        python::arg("includeStereo") = true, python::arg("confId") = -1,
-       python::arg("kekulize") = true),
+       python::arg("kekulize") = true, python::arg("prettyPrint") = false,
+       python::arg("explicitUnknownDoubleBondOnly") = false),
       docString.c_str());
-
-
-
 
   docString =
       "Writes a CML block for a molecule\n\
@@ -1542,12 +1532,22 @@ docString =
       .value("CX_POLYMER", RDKit::SmilesWrite::CXSmilesFields::CX_POLYMER)
       .value("CX_ALL", RDKit::SmilesWrite::CXSmilesFields::CX_ALL);
 
+  python::enum_<RDKit::RestoreBondDirOption>("RestoreBondDirOption")
+      .value("RestoreBondDirOptionClear",
+             RDKit::RestoreBondDirOption::RestoreBondDirOptionClear)
+      .value("RestoreBondDirOptionFalse",
+             RDKit::RestoreBondDirOption::RestoreBondDirOptionFalse)
+      .value("RestoreBondDirOptionTrue",
+             RDKit::RestoreBondDirOption::RestoreBondDirOptionTrue);
+
   python::def(
       "MolToCXSmiles",
-      (std::string(*)(const ROMol &, const SmilesWriteParams &,
-                      std::uint32_t))RDKit::MolToCXSmiles,
+      (std::string(*)(const ROMol &, const SmilesWriteParams &, std::uint32_t,
+                      RestoreBondDirOption))RDKit::MolToCXSmiles,
       (python::arg("mol"), python::arg("params"),
-       python::arg("flags") = RDKit::SmilesWrite::CXSmilesFields::CX_ALL),
+       python::arg("flags") = RDKit::SmilesWrite::CXSmilesFields::CX_ALL,
+       python::arg("restoreBondDirs") =
+           RDKit::RestoreBondDirOption::RestoreBondDirOptionFalse),
       "Returns the CXSMILES string for a molecule");
 
   docString =
@@ -1567,6 +1567,9 @@ docString =
       in the output SMILES. Defaults to false.\n\
     - allHsExplicit: (optional) if true, all H counts will be explicitly indicated\n\
       in the output SMILES. Defaults to false.\n\
+    - allHsExplicit: (optional) if true, all H counts will be explicitly indicated\n\
+      in the output SMILES. Defaults to false.\n\
+    - doRandom: (optional) if true, smiles is output is a random order.\n\
 \n\
   RETURNS:\n\
 \n\

@@ -16,7 +16,7 @@
 #include "FileParsers.h"
 #include "SequenceParsers.h"
 #include "SequenceWriters.h"
-#include "MolFileStereochem.h"
+#include <GraphMol/MolFileStereochem.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
 #include <GraphMol/SmilesParse/SmartsWrite.h>
@@ -1718,8 +1718,6 @@ void testBadBondOrders() {
   m = MolFileToMol(fName);
   TEST_ASSERT(m);
   TEST_ASSERT(m->getBondBetweenAtoms(0, 1)->hasQuery() == false);
-  //TEST_ASSERT(m->getBondBetweenAtoms(0, 1)->getQuery()->getDescription() ==
-  //            "BondNull");
   TEST_ASSERT(m->getBondBetweenAtoms(0, 1)->getBondType() == Bond::DATIVE);
 
   delete m;
@@ -4915,7 +4913,7 @@ void testMolFileDativeBonds() {
 
   {
     std::string fName = rdbase + "DativeBond2000.mol";
-    RWMol *m = MolFileToMol(fName,false);
+    RWMol *m = MolFileToMol(fName, false);
     TEST_ASSERT(m);
     TEST_ASSERT(m->getNumBonds() == 5);
     TEST_ASSERT(m->getBondWithIdx(4)->getBondType() == Bond::DATIVE);

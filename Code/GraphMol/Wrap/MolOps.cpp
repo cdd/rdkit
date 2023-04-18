@@ -28,7 +28,7 @@
 #include <GraphMol/Subgraphs/Subgraphs.h>
 #include <GraphMol/Subgraphs/SubgraphUtils.h>
 #include <GraphMol/Fingerprints/Fingerprints.h>
-#include <GraphMol/FileParsers/MolFileStereochem.h>
+#include <GraphMol/MolFileStereochem.h>
 #include <GraphMol/ChemTransforms/ChemTransforms.h>
 #include <GraphMol/GenericGroups/GenericGroups.h>
 #include <RDBoost/PySequenceHolder.h>
@@ -961,6 +961,8 @@ struct molops_wrapper {
         .value("SANITIZE_SETCONJUGATION", MolOps::SANITIZE_SETCONJUGATION)
         .value("SANITIZE_SETHYBRIDIZATION", MolOps::SANITIZE_SETHYBRIDIZATION)
         .value("SANITIZE_CLEANUPCHIRALITY", MolOps::SANITIZE_CLEANUPCHIRALITY)
+        .value("SANITIZE_CLEANUPATROPISOMERS",
+               MolOps::SANITIZE_CLEANUPATROPISOMERS)
         .value("SANITIZE_ADJUSTHS", MolOps::SANITIZE_ADJUSTHS)
         .value("SANITIZE_ALL", MolOps::SANITIZE_ALL)
         .export_values();

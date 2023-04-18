@@ -40,6 +40,9 @@
 #include <GraphMol/SmilesParse/SmartsWrite.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
 #include <GraphMol/MolOps.h>
+#include <GraphMol/Chirality.h>
+#include <GraphMol/MolFileStereochem.h>
+
 #include <sstream>
 
 namespace {
@@ -203,7 +206,7 @@ std::string ChemicalReactionToRxnBlock(const ChemicalReaction &rxn,
     }
     MolOps::findSSSR(**iter);
     res << "$MOL\n";
-    res << MolToMolBlock(**iter, true, -1, false);
+    res << MolToMolBlock(**iter, true, -1, false, false);
   }
   if (!separateAgents) {
     for (auto iter = rxn.beginAgentTemplates(); iter != rxn.endAgentTemplates();
@@ -213,7 +216,7 @@ std::string ChemicalReactionToRxnBlock(const ChemicalReaction &rxn,
         MolOps::findSSSR(**iter);
       }
       res << "$MOL\n";
-      res << MolToMolBlock(**iter, true, -1, false);
+      res << MolToMolBlock(**iter, true, -1, false, false);
     }
   }
   for (auto iter = rxn.beginProductTemplates();
@@ -223,7 +226,7 @@ std::string ChemicalReactionToRxnBlock(const ChemicalReaction &rxn,
       MolOps::findSSSR(**iter);
     }
     res << "$MOL\n";
-    res << MolToMolBlock(**iter, true, -1, false);
+    res << MolToMolBlock(**iter, true, -1, false, false);
   }
   if (separateAgents) {
     for (auto iter = rxn.beginAgentTemplates(); iter != rxn.endAgentTemplates();
@@ -231,7 +234,7 @@ std::string ChemicalReactionToRxnBlock(const ChemicalReaction &rxn,
       // to write the mol block, we need ring information:
       MolOps::findSSSR(**iter);
       res << "$MOL\n";
-      res << MolToMolBlock(**iter, true, -1, false);
+      res << MolToMolBlock(**iter, true, -1, false, false);
     }
   }
   return res.str();

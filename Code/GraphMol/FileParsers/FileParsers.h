@@ -56,6 +56,8 @@ typedef std::vector<RWMOL_SPTR> RWMOL_SPTR_VECT;
  *                     is only done if the molecule is sanitized
  *   \param line     - current line number (used for error reporting)
  *   \param strictParsing - if set to false, the parser is more lax about
+ *   \param explicit3dChiralityOnly - in 3D mode, only chrial atoms that had a
+ *                     wedge or hash bond in the original input will be detected
  * correctness of the contents.
  * \param explicit3dChiralityOnly - if set to true,
  * only chiral centers with wedge /hash bonds are set from a 3D conformer
@@ -64,13 +66,13 @@ typedef std::vector<RWMOL_SPTR> RWMOL_SPTR_VECT;
 RDKIT_FILEPARSERS_EXPORT RWMol *MolDataStreamToMol(
     std::istream *inStream, unsigned int &line, bool sanitize = true,
     bool removeHs = true, bool strictParsing = true,
-    bool explicit3dChiralityOnly = true);
+    bool explicit3dChiralityOnly = false);
 
 // \overload
 RDKIT_FILEPARSERS_EXPORT RWMol *MolDataStreamToMol(
     std::istream &inStream, unsigned int &line, bool sanitize = true,
     bool removeHs = true, bool strictParsing = true,
-    bool explicit3dChiralityOnly = true);
+    bool explicit3dChiralityOnly = false);
 
 // \brief construct a molecule from an MDL mol block
 /*!
@@ -80,14 +82,14 @@ RDKIT_FILEPARSERS_EXPORT RWMol *MolDataStreamToMol(
  *   \param removeHs - toggles removal of Hs from the molecule. H removal
  *                     is only done if the molecule is sanitized
  *   \param strictParsing - if set to false, the parser is more lax about
- *   \param explicit3dChiralityOnly - if set to true, only chiral centers with
- wedge /hash bonds are set from a 3D conformer
-
- * correctness of the contents.
+ *                     correctness of the contents.
+ *   \param explicit3dChiralityOnly - in 3D mode, only chiral atoms that had a
+ *                     wedge or hash bond in the original input will be detected
+ *                     (default=false)
  */
 RDKIT_FILEPARSERS_EXPORT RWMol *MolBlockToMol(
     const std::string &molBlock, bool sanitize = true, bool removeHs = true,
-    bool strictParsing = true, bool explicit3dChiralityOnly = true);
+    bool strictParsing = true, bool explicit3dChiralityOnly = false);
 
 // \brief construct a molecule from an MDL mol file
 /*!
@@ -110,26 +112,30 @@ RDKIT_FILEPARSERS_EXPORT RWMol *MolFileToMol(
 /*!
  *   \param mol           - the molecule in question
  *   \param includeStereo - toggles inclusion of stereochemistry information
+ *                          (default=true)
  *   \param confId        - selects the conformer to be used
- *   \param kekulize      - triggers kekulization of the molecule before it is
- * written
- *   \param forceV3000    - force generation a V3000 mol block (happens
- * automatically with
- *                          more than 999 atoms or bonds)
+ *                          (default=-1 - find first in mol)
+ *   \param kekulize      - triggers kekulization
+ *                          of the molecule before it is written (default=true)
+ *   \param forceV3000      -force generation a V3000 mol block (happens
+ *                          automatically with more than 999 atoms or
+ *                          bonds)(default=false)*
+ *   \param explicitUnknownDoubleBondOnly      -only detects unkown stereo bonds
+ *                          if explicitly makred with wiggle bond)
+ *                          (default=false)
  */
-RDKIT_FILEPARSERS_EXPORT std::string MolToMolBlock(const ROMol &mol,
-                                                   bool includeStereo = true,
-                                                   int confId = -1,
-                                                   bool kekulize = true,
-                                                   bool forceV3000 = false);
+RDKIT_FILEPARSERS_EXPORT std::string MolToMolBlock(
+    const ROMol &mol, bool includeStereo = true, int confId = -1,
+    bool kekulize = true, bool forceV3000 = false,
+    bool explicitUnknownDoubleBondOnly = false);
 
 // \brief generates an MDL v3000 mol block for a molecule
 /*!
  *   \param mol           - the molecule in question
  *   \param includeStereo - toggles inclusion of stereochemistry information
  *   \param confId        - selects the conformer to be used
- *   \param kekulize      - triggers kekulization of the molecule before it is
- * written
+ *   \param kekulize      - triggers kekulization of the molecule before it is *
+ *                        - written
  */
 inline std::string MolToV3KMolBlock(const ROMol &mol, bool includeStereo = true,
                                     int confId = -1, bool kekulize = true) {
@@ -143,9 +149,9 @@ inline std::string MolToV3KMolBlock(const ROMol &mol, bool includeStereo = true,
  *   \param includeStereo - toggles inclusion of stereochemistry information
  *   \param confId        - selects the conformer to be used
  *   \param kekulize      - triggers kekulization of the molecule before it is
- * written
+ *                          written
  *   \param forceV3000    - force generation a V3000 mol block (happens
- * automatically with
+ *                          automatically with
  *                          more than 999 atoms or bonds)
  */
 RDKIT_FILEPARSERS_EXPORT void MolToMolFile(
@@ -159,7 +165,7 @@ RDKIT_FILEPARSERS_EXPORT void MolToMolFile(
  *   \param includeStereo - toggles inclusion of stereochemistry information
  *   \param confId        - selects the conformer to be used
  *   \param kekulize      - triggers kekulization of the molecule before it is
- * written
+ *                         written
  */
 inline void MolToV3KMolFile(const ROMol &mol, const std::string &fName,
                             bool includeStereo = true, int confId = -1,

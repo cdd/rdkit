@@ -2482,6 +2482,7 @@ unsigned int sanitizeMMFFMol(RWMol &mol) {
                        MolOps::SANITIZE_SETCONJUGATION |
                        MolOps::SANITIZE_SETHYBRIDIZATION |
                        MolOps::SANITIZE_CLEANUPCHIRALITY |
+                       MolOps::SANITIZE_CLEANUPATROPISOMERS |
                        MolOps::SANITIZE_ADJUSTHS));
     if (!(mol.hasProp(common_properties::_MMFFSanitized))) {
       mol.setProp(common_properties::_MMFFSanitized, 1, true);

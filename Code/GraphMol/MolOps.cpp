@@ -445,6 +445,11 @@ void sanitizeMol(RWMol &mol, unsigned int &operationThatFailed,
     cleanupChirality(mol);
   }
 
+  operationThatFailed = SANITIZE_CLEANUPATROPISOMERS;
+  if (sanitizeOps & operationThatFailed) {
+    cleanupAtropisomers(mol);
+  }
+
   // adjust Hydrogen counts:
   operationThatFailed = SANITIZE_ADJUSTHS;
   if (sanitizeOps & operationThatFailed) {
@@ -906,7 +911,7 @@ bool checkNeighbors(const Bond *bond, const Atom *atom) {
 }
 }  // namespace
 
-int GetDoubleBondDirFlag(const Bond *bond) {
+int GetDoubleBondDirFlag(const Bond *bond, bool explicitUnknownDoubleBondOnly) {
   PRECONDITION(bond, "");
 
   // double bond stereochemistry -
@@ -958,7 +963,8 @@ int GetDoubleBondDirFlag(const Bond *bond) {
     return 3;  // crossed double bond
   }
 
-  if ((bond->getBeginAtom()->getTotalValence() -
+  if (!explicitUnknownDoubleBondOnly &&
+      (bond->getBeginAtom()->getTotalValence() -
        bond->getBeginAtom()->getTotalDegree()) == 1 &&
       (bond->getEndAtom()->getTotalValence() -
        bond->getEndAtom()->getTotalDegree()) == 1) {

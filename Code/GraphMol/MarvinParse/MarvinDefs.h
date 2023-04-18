@@ -114,6 +114,10 @@ class MarvinAtom {
   std::string elementType;
   double x2;
   double y2;
+  double x3;
+  double y3;
+  double z3;
+
   int formalCharge;
   std::string radical;
   int isotope;
@@ -279,6 +283,8 @@ class MarvinMolBase {
   IsSgroupInAtomSetResult isSgroupInSetOfAtoms(
       std::vector<MarvinAtom *> &setOfAtoms) const;
 
+  bool has2dCoords() const;
+  bool has3dCoords() const;
   bool hasCoords() const;
   void removeCoords();
 };

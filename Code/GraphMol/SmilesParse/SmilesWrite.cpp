@@ -14,6 +14,8 @@
 #include <GraphMol/Canon.h>
 #include <GraphMol/new_canon.h>
 #include <GraphMol/Chirality.h>
+#include <GraphMol/Atropisomers.h>
+#include <GraphMol/MolFileStereochem.h>
 #include <RDGeneral/BoostStartInclude.h>
 #include <boost/dynamic_bitset.hpp>
 #include <RDGeneral/utils.h>
@@ -631,6 +633,8 @@ std::string MolToSmiles(const ROMol &mol, const SmilesWriteParams &params) {
     for (auto &i : allAtomOrdering) {
       flattenedAtomOrdering.insert(flattenedAtomOrdering.end(), i.begin(),
                                    i.end());
+    }
+    for (auto &i : allBondOrdering) {
       flattenedBondOrdering.insert(flattenedBondOrdering.end(), i.begin(),
                                    i.end());
     }
@@ -648,16 +652,62 @@ std::string MolToSmiles(const ROMol &mol, const SmilesWriteParams &params) {
   return result;
 }
 
-std::string MolToCXSmiles(const ROMol &mol, const SmilesWriteParams &params,
-                          std::uint32_t flags) {
-  auto res = MolToSmiles(mol, params);
-  if (!res.empty()) {
-    auto cxext = SmilesWrite::getCXExtensions(mol, flags);
-    if (!cxext.empty()) {
-      res += " " + cxext;
+std::string MolToCXSmiles(const ROMol &romol, const SmilesWriteParams &params,
+                          std::uint32_t flags,
+                          RestoreBondDirOption restoreBondDirs) {
+  RWMol trwmol(romol);
+
+  for (int pass = 0; pass < 2; ++pass) {
+    auto res = MolToSmiles(trwmol, params);
+    if (res.empty()) {
+      return res;
+    }
+    bool caughtAromaticError = false;
+    try {
+      if (restoreBondDirs == RestoreBondDirOptionTrue) {
+        reapplyMolBlockWedging(trwmol, true);
+      } else if (restoreBondDirs == RestoreBondDirOptionClear) {
+        for (auto bond : trwmol.bonds()) {
+          if (bond->getBondType() != Bond::BondType::SINGLE) {
+            continue;
+          }
+          if (bond->getBondDir() != Bond::BondDir::NONE) {
+            bond->setBondDir(Bond::BondDir::NONE);
+          }
+          unsigned int cfg;
+          if (bond->getPropIfPresent<unsigned int>(
+                  common_properties::_MolFileBondCfg, cfg)) {
+            bond->clearProp(common_properties::_MolFileBondCfg);
+          }
+        }
+      } else if (restoreBondDirs == RestoreBondDirOptionFalse) {
+        // do nothing
+      }
+
+      auto cxext = SmilesWrite::getCXExtensions(trwmol, flags);
+      if (!cxext.empty()) {
+        res += " " + cxext;
+      }
+      return res;
+
+    } catch (RDKit::AromaticException &) {
+      // try after kekule'ing
+
+      if (pass == 0) {
+        caughtAromaticError = true;
+      } else {
+        throw;
+      }
+    } catch (...) {
+      throw;
+    }
+
+    if (caughtAromaticError) {
+      MolOps::Kekulize(trwmol);
+      // try again  - do not allow kekuling again that is what we are trying now
     }
   }
-  return res;
+  return "";  // should not get here
 }
 
 std::vector<std::string> MolToRandomSmilesVect(

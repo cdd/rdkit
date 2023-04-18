@@ -66,8 +66,10 @@ RDKIT_FILEPARSERS_EXPORT double toDouble(const std::string_view input,
                                          bool acceptSpaces = true);
 
 // parses info from a V3000 CTAB into a molecule
-RDKIT_FILEPARSERS_EXPORT std::string getV3000CTAB(const ROMol &tmol,
-                                                  int confId = -1);
+RDKIT_FILEPARSERS_EXPORT std::string getV3000CTAB(
+    const ROMol &tmol, int confId = -1,
+    bool explicitDoubleBondUnknownOnly = false);
+
 // reads a line from an MDL v3K CTAB
 RDKIT_FILEPARSERS_EXPORT std::string getV3000Line(std::istream *inStream,
                                                   unsigned int &line);

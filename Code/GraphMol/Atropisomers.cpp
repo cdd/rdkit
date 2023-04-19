@@ -124,7 +124,7 @@ Bond::BondDir getBondDirForAtropisomer2d(RDGeom::Point3D bondVecs[2],
               // is a flip
   }
 
-  return flips % 2 ? Bond::BEGINDASH : Bond::BEGINWEDGE;
+  return flips % 2 ? Bond::BEGINWEDGE : Bond::BEGINDASH;
 }
 Bond::BondDir getBondDirForAtropisomer3d(Bond *whichBond,
                                          const Conformer *conf) {
@@ -357,7 +357,7 @@ void DetectAtropisomerChiralityOneBond(Bond *bond, ROMol &mol,
     }
   }
 
-  auto crossProduct = bondVecs[0].crossProduct(bondVecs[1]);
+  auto crossProduct = bondVecs[1].crossProduct(bondVecs[0]);
 
   if (crossProduct.x > REALLY_SMALL_BOND_LEN) {
     bond->setStereo(Bond::BondStereo::STEREOATROPCCW);

@@ -22,7 +22,6 @@
 #include <GraphMol/ChemReactions/ReactionParser.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
-#include <GraphMol/SmilesParse/SmilesWrite.h>
 
 #include <string>
 #include <fstream>

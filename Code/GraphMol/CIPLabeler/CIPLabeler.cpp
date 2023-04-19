@@ -17,6 +17,7 @@
 #include "CIPMol.h"
 #include "configs/Sp2Bond.h"
 #include "configs/Tetrahedral.h"
+#include "configs/AtropisomerBond.h"
 
 #include "rules/Rules.h"
 #include "rules/Rule1a.h"
@@ -61,23 +62,35 @@ std::vector<std::unique_ptr<Configuration>> findConfigs(
        index = bonds.find_next(index)) {
     auto bond = mol.getBond(index);
 
-    auto bond_cfg = Bond::STEREONONE;
-    switch (bond->getStereo()) {
+    auto bond_cfg = bond->getStereo();
+    switch (bond_cfg) {
       case Bond::STEREOE:
-      case Bond::STEREOTRANS:
         bond_cfg = Bond::STEREOTRANS;
         break;
       case Bond::STEREOZ:
-      case Bond::STEREOCIS:
         bond_cfg = Bond::STEREOCIS;
         break;
       default:
+        break;
+    }
+    switch (bond_cfg) {
+      case Bond::STEREOTRANS:
+      case Bond::STEREOCIS: {
+        std::unique_ptr<Sp2Bond> cfg(new Sp2Bond(
+            mol, bond, bond->getBeginAtom(), bond->getEndAtom(), bond_cfg));
+        configs.push_back(std::move(cfg));
+      } break;
+
+      case Bond::STEREOATROPCCW:
+      case Bond::STEREOATROPCW: {
+        std::unique_ptr<AtropisomerBond> cfgAtrop(new AtropisomerBond(
+            mol, bond, bond->getBeginAtom(), bond->getEndAtom(), bond_cfg));
+        configs.push_back(std::move(cfgAtrop));
+      } break;
+
+      default:
         continue;
     }
-
-    std::unique_ptr<Sp2Bond> cfg(new Sp2Bond(mol, bond, bond->getBeginAtom(),
-                                             bond->getEndAtom(), bond_cfg));
-    configs.push_back(std::move(cfg));
   }
 
   return configs;

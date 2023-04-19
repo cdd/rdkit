@@ -13,7 +13,7 @@
 #include "../Descriptors/MolDescriptors.h"
 #include "StripSmallFragments.h"
 #include "../SmilesParse/SmilesWrite.h"
-#include "../FileParsers/MolFileStereochem.h"
+#include "../MolFileStereochem.h"
 
 // define snprintf for msvc
 #if _MSC_VER
@@ -42,7 +42,9 @@ void AddMWMF(RWMol &mol,
            }
   */
   std::string formula = getMolecularFormula(mol);
-  if (!formula.empty()) mol.setProp((pre ? "MF_PRE" : "MF_POST"), formula);
+  if (!formula.empty()) {
+    mol.setProp((pre ? "MF_PRE" : "MF_POST"), formula);
+  }
   char propertyValue[64];
   snprintf(propertyValue, sizeof(propertyValue), "%g", mass);
   mol.setProp((pre ? "MW_PRE" : "MW_POST"), mass);
@@ -52,7 +54,9 @@ bool StripSmallFragments(RWMol &mol, bool verbose) {
   const bool sanitize = false;
   std::vector<boost::shared_ptr<ROMol>> frags =
       MolOps::getMolFrags(mol, sanitize);
-  if (frags.size() <= 1) return false;
+  if (frags.size() <= 1) {
+    return false;
+  }
 
   size_t maxFragSize = 0;
   size_t maxFragIdx = 0;

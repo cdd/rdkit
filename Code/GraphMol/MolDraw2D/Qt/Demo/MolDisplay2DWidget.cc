@@ -18,7 +18,7 @@
 
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/Depictor/RDDepictor.h>
-#include <GraphMol/FileParsers/MolFileStereochem.h>
+#include <GraphMol/MolFileStereochem.h>
 
 #include <limits>
 #include <map>

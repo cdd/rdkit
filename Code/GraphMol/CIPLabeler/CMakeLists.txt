@@ -2,7 +2,8 @@
 set(configs_src
     configs/Configuration.cpp
     configs/Sp2Bond.cpp
-    configs/Tetrahedral.cpp)
+    configs/Tetrahedral.cpp
+    configs/AtropisomerBond.cpp)
 
 set(rules_src
     rules/Rule1a.cpp

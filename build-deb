@@ -45,6 +45,21 @@ cmake .. \
     -DRDK_INSTALL_INTREE=OFF \
     -DCMAKE_POLICY_DEFAULT_CMP0074=NEW ${EXTRA_FLAGS}
 
+if [[ $4 == "TEST" ]]; then
+    make -j$(nproc)
+    export RDBASE=`pwd`/..
+    ctest --output-on-failure
+    if [[ $1 == "ON" ]]; then
+        sh ./Code/PgSQL/rdkit/pgsql_regress.sh
+        if [ -e ./Code/PgSQL/rdkit/regression.diffs ]
+        then
+            cat ./Code/PgSQL/rdkit/regression.diffs
+            exit 1
+        fi
+    fi
+fi
+
+
 UPSTREAM_VERSION=$(<../UPSTREAM_VERSION)
 CDD_VERSION=$(<../CDD_VERSION)
 

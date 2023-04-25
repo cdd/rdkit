@@ -610,11 +610,13 @@ class MarvinCMLReader {
 
       for (auto groupPtr : stereoGroups) {
         std::vector<Atom *> atoms;
+        std::vector<Bond *> bonds;
         for (auto atomPtr : groupPtr->atoms) {
           atoms.push_back(mol->getAtomWithIdx(atomPtr));
         }
 
-        groups.emplace_back(groupPtr->groupType, std::move(atoms));
+        groups.emplace_back(groupPtr->groupType, std::move(atoms),
+                            std::move(bonds));
       }
       if (!groups.empty()) {
         mol->setStereoGroups(std::move(groups));

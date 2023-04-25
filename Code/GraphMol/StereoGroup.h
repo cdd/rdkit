@@ -23,6 +23,7 @@
 
 namespace RDKit {
 class Atom;
+class Bond;
 
 // OR means that it is known to be one or the other, but not both
 // AND means that it is known to be a mix.
@@ -43,12 +44,15 @@ class RDKIT_GRAPHMOL_EXPORT StereoGroup {
  private:
   StereoGroupType d_grouptype{StereoGroupType::STEREO_ABSOLUTE};
   std::vector<Atom*> d_atoms;
+  std::vector<Bond*> d_bonds;
 
  public:
-  StereoGroup() : d_atoms(0u) {}
+  StereoGroup() : d_atoms(0u), d_bonds(0u) {}
   // Takes control of atoms if possible.
-  StereoGroup(StereoGroupType grouptype, std::vector<Atom*>&& atoms);
-  StereoGroup(StereoGroupType grouptype, const std::vector<Atom*>& atoms);
+  StereoGroup(StereoGroupType grouptype, std::vector<Atom*>&& atoms,
+              std::vector<Bond*>&& bonds);
+  StereoGroup(StereoGroupType grouptype, const std::vector<Atom*>& atoms,
+              std::vector<Bond*>& bonds);
   StereoGroup(const StereoGroup& other) = default;
   StereoGroup& operator=(const StereoGroup& other) = default;
   StereoGroup(StereoGroup&& other) = default;
@@ -56,19 +60,27 @@ class RDKIT_GRAPHMOL_EXPORT StereoGroup {
 
   StereoGroupType getGroupType() const;
   const std::vector<Atom*>& getAtoms() const;
+  const std::vector<Bond*>& getBonds() const;
   // Seems odd to have to define these, but otherwise the SWIG wrappers
   // won't build
   bool operator==(const StereoGroup& other) const {
-    return (d_grouptype == other.d_grouptype) && (d_atoms == other.d_atoms);
+    return (d_grouptype == other.d_grouptype) && (d_atoms == other.d_atoms) &&
+           (d_bonds == other.d_bonds);
   }
   bool operator!=(const StereoGroup& other) const {
-    return (d_grouptype != other.d_grouptype) || (d_atoms != other.d_atoms);
+    return (d_grouptype != other.d_grouptype) || (d_atoms != other.d_atoms) ||
+           (d_bonds != other.d_bonds);
   }
 };
 RDKIT_GRAPHMOL_EXPORT void removeGroupsWithAtom(
     const Atom* atom, std::vector<StereoGroup>& groups);
 RDKIT_GRAPHMOL_EXPORT void removeGroupsWithAtoms(
     const std::vector<Atom*>& atoms, std::vector<StereoGroup>& groups);
+
+RDKIT_GRAPHMOL_EXPORT void removeGroupsWithBond(
+    const Bond* bond, std::vector<StereoGroup>& groups);
+RDKIT_GRAPHMOL_EXPORT void removeGroupsWithBonds(
+    const std::vector<Atom*>& bonds, std::vector<StereoGroup>& groups);
 
 }  // namespace RDKit
 

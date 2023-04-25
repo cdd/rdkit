@@ -181,6 +181,21 @@ double Bond::getBondTypeAsDouble() const {
   }
   return res;
 }
+bool Bond::invertChirality() {
+  /// inverts chirality of an atropisoeric bond
+  switch (getStereo()) {
+    case Bond::BondStereo::STEREOATROPCCW:
+      setStereo(Bond::BondStereo::STEREOATROPCW);
+      return true;
+    case Bond::BondStereo::STEREOATROPCW:
+      setStereo(Bond::BondStereo::STEREOATROPCCW);
+      return true;
+
+    default:
+      break;
+  }
+  return false;
+}
 
 double Bond::getValenceContrib(const Atom *atom) const {
   if (atom != getBeginAtom() && atom != getEndAtom()) {

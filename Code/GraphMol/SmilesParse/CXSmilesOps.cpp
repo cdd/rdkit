@@ -1337,6 +1337,8 @@ bool parse_enhanced_stereo(Iterator &first, Iterator last, RDKit::RWMol &mol,
   ++first;
 
   std::vector<Atom *> atoms;
+  std::vector<Bond *> bonds;
+
   while (first <= last && *first >= '0' && *first <= '9') {
     unsigned int aidx;
     if (read_int(first, last, aidx)) {
@@ -1370,12 +1372,16 @@ bool parse_enhanced_stereo(Iterator &first, Iterator last, RDKit::RWMol &mol,
     if (iter != sgTracker.end()) {
       auto index = iter - sgTracker.begin();
       auto gAtoms = mol_stereo_groups[index].getAtoms();
+      auto gBonds = mol_stereo_groups[index].getBonds();
       gAtoms.insert(gAtoms.end(), atoms.begin(), atoms.end());
-      mol_stereo_groups[index] = StereoGroup(
-          mol_stereo_groups[index].getGroupType(), std::move(gAtoms));
+      gBonds.insert(gBonds.end(), bonds.begin(), bonds.end());
+      mol_stereo_groups[index] =
+          StereoGroup(mol_stereo_groups[index].getGroupType(),
+                      std::move(gAtoms), std::move(gBonds));
     } else {
       // not seen this before, create a new stereogroup
-      mol_stereo_groups.emplace_back(group_type, std::move(atoms));
+      mol_stereo_groups.emplace_back(group_type, std::move(atoms),
+                                     std::move(bonds));
       sgTracker.resize(mol_stereo_groups.size());
       sgTracker.back() = group_id;
       mol.setProp(cxsgTracker, sgTracker);
@@ -1570,6 +1576,9 @@ std::string get_enhanced_stereo_block(
     aids.reserve(sg.getAtoms().size());
     for (const auto at : sg.getAtoms()) {
       aids.push_back(revOrder[at->getIdx()]);
+    }
+    for (const auto bond : sg.getBonds()) {
+      aids.push_back(revOrder[bond->getBeginAtomIdx()]);
     }
     switch (sg.getGroupType()) {
       case StereoGroupType::STEREO_ABSOLUTE:

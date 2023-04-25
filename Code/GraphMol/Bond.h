@@ -192,6 +192,9 @@ class RDKIT_GRAPHMOL_EXPORT Bond : public RDProps {
   //! sets our owning molecule
   void setOwningMol(ROMol &other) { setOwningMol(&other); }
 
+  // invertes the chirality of an atropisomer
+  bool invertChirality();
+
   //! returns our index within the ROMol
   /*!
     <b>Notes:</b>

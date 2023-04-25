@@ -1306,13 +1306,48 @@ void canonicalizeEnhancedStereo(ROMol &mol,
     };
     auto sgAtoms = sg.getAtoms();
     std::sort(sgAtoms.begin(), sgAtoms.end(), getAtomRank);
-    // find the reference (lowest-ranked) atom
-    auto refAtom = sgAtoms.front();
 
+    // sort the bonds by atom rank:
+    auto getBondRank = [&atomRanks](const Bond *bd1, const Bond *bd2) {
+      uint bd1at1 = atomRanks->at(bd1->getBeginAtomIdx());
+      uint bd1at2 = atomRanks->at(bd1->getEndAtomIdx());
+      uint bd2at1 = atomRanks->at(bd2->getBeginAtomIdx());
+      uint bd2at2 = atomRanks->at(bd2->getEndAtomIdx());
+      if (bd1at1 < bd1at2) {
+        std::swap(bd1at1, bd1at2);
+      }
+      if (bd2at1 < bd2at2) {
+        std::swap(bd2at1, bd2at2);
+      }
+      if (bd1at1 != bd2at1) {
+        return bd1at1 < bd2at1;
+      }
+      return bd1at2 < bd2at2;
+    };
+    auto sgBonds = sg.getBonds();
+    std::sort(sgBonds.begin(), sgBonds.end(), getBondRank);
+
+    // find the reference (lowest-ranked) atom (or lowest-ranked bond)
+
+    Atom::ChiralType foundRefState = Atom::ChiralType::CHI_TETRAHEDRAL_CCW;
+    if (sgAtoms.size() > 0) {
+      foundRefState = sgAtoms.front()->getChiralTag();
+    } else if (sgBonds.size() > 0) {
+      if (sgBonds.front()->getStereo() == Bond::BondStereo::STEREOATROPCCW) {
+        foundRefState =
+            Atom::ChiralType::CHI_TETRAHEDRAL_CCW;  // convert atropisomer CCW
+                                                    // to atom CCW
+      } else {
+        foundRefState =
+            Atom::ChiralType::CHI_TETRAHEDRAL_CW;  // convert atropisomer CW to
+                                                   // atom CW
+      }
+    }
     // we will use CCW as the "canonical" state for chirality, so if the
-    // referenceAtom is already CCW then we don't need to do anything more with
-    // this stereogroup
+    // referenceAtom is already CCW then we don't need to do anything more
+    // with this stereogroup
     auto refState = Atom::ChiralType::CHI_TETRAHEDRAL_CCW;
+
 #if 0
     INT_LIST nbrs;
     auto [beg, end] = mol.getAtomBonds(*refAtom);
@@ -1329,14 +1364,23 @@ void canonicalizeEnhancedStereo(ROMol &mol,
       refState = Atom::ChiralType::CHI_TETRAHEDRAL_CW;
     }
 #endif
-    if (refAtom->getChiralTag() != refState) {
-      // we need to flip everyone... so loop over the other atoms and flip them
-      // all:
-      std::for_each(sgAtoms.begin(), sgAtoms.end(),
-                    [](auto atom) { atom->invertChirality(); });
+    if (foundRefState != refState) {
+      // we need to flip everyone... so loop over the other atoms and bonds and
+      // flip them all:
+
+      for (auto atom : sgAtoms) {
+        atom->invertChirality();
+      }
+      for (auto bond : sgBonds) {
+        bond->invertChirality();
+      }
     }
-    newSgs.emplace_back(StereoGroup(sg.getGroupType(), std::move(sgAtoms)));
-    refAtom->setProp("_stereoGroup", newSgs.size() - 1, true);
+    newSgs.emplace_back(
+        StereoGroup(sg.getGroupType(), std::move(sgAtoms), std::move(sgBonds)));
+
+    if (sgAtoms.size() > 0) {
+      sgAtoms.front()->setProp("_stereoGroup", newSgs.size() - 1, true);
+    }
   }
   mol.setStereoGroups(newSgs);
 }

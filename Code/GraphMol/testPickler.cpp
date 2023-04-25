@@ -857,7 +857,7 @@ void testGithubIssue6036() {
   m->setProp("shared_array", sptr);
   std::string pkl;
   MolPickler::pickleMol(*m, pkl, PicklerOps::AllProps);
-  std::unique_ptr<RWMol> roundTripped(new RWMol(pkl));  
+  std::unique_ptr<RWMol> roundTripped(new RWMol(pkl));
 }
 
 void testIssue3496759() {
@@ -1377,12 +1377,19 @@ void testEnhancedStereoChemistry() {
   {
     std::vector<StereoGroup> groups;
     std::vector<Atom *> atoms0 = {{m.getAtomWithIdx(0), m.getAtomWithIdx(1)}};
+    std::vector<Bond *> bonds0;
     groups.emplace_back(RDKit::StereoGroupType::STEREO_ABSOLUTE,
-                        std::move(atoms0));
+                        std::move(atoms0), std::move(bonds0));
     std::vector<Atom *> atoms1 = {{m.getAtomWithIdx(2), m.getAtomWithIdx(3)}};
-    groups.emplace_back(RDKit::StereoGroupType::STEREO_OR, std::move(atoms1));
+    std::vector<Bond *> bonds1;
+
+    groups.emplace_back(RDKit::StereoGroupType::STEREO_OR, std::move(atoms1),
+                        std::move(bonds1));
     std::vector<Atom *> atoms2 = {{m.getAtomWithIdx(4), m.getAtomWithIdx(5)}};
-    groups.emplace_back(RDKit::StereoGroupType::STEREO_AND, std::move(atoms2));
+    std::vector<Bond *> bonds2;
+
+    groups.emplace_back(RDKit::StereoGroupType::STEREO_AND, std::move(atoms2),
+                        std::move(bonds2));
     m.setStereoGroups(std::move(groups));
   }
 

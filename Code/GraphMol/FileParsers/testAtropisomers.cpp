@@ -199,7 +199,8 @@ void testMolFiles(const MolTest *molFileTest) {
       unsigned int flags = SmilesWrite::CXSmilesFields::CX_COORDS |
                            SmilesWrite::CXSmilesFields::CX_MOLFILE_VALUES |
                            SmilesWrite::CXSmilesFields::CX_ATOM_PROPS |
-                           SmilesWrite::CXSmilesFields::CX_BOND_CFG
+                           SmilesWrite::CXSmilesFields::CX_BOND_CFG |
+                           SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO
           //| SmilesWrite::CXSmilesFields::CX_ALL
           ;
 
@@ -240,6 +241,8 @@ void RunTests() {
   // the molecule tests
 
   std::list<MolTest> sdfTests{
+      MolTest("AtropManyChiralsEnhanced.sdf", true, LoadAsMolOrRxn, 20, 20),
+      MolTest("AtropManyChiralsEnhanced2.sdf", true, LoadAsMolOrRxn, 20, 20),
       MolTest("AtropManyChirals.sdf", true, LoadAsMolOrRxn, 20, 20),
       MolTest("BMS-986142.sdf", true, LoadAsMolOrRxn, 42, 47),
       MolTest("BMS-986142_3d_chiral.sdf", true, LoadAsMolOrRxn, 72, 77),

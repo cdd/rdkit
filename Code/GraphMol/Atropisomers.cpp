@@ -188,7 +188,8 @@ bool getAtropIsomerEndVect(const Atom *mainBondAtom,
   bondVec.normalize();
   return true;
 }
-void DetectAtropisomerChiralityOneBond(Bond *bond, ROMol &mol,
+
+bool DetectAtropisomerChiralityOneBond(Bond *bond, ROMol &mol,
                                        const Conformer *conf) {
   // the approach is this:
   // we will view the system along the line from the potential atropisomer
@@ -215,7 +216,7 @@ void DetectAtropisomerChiralityOneBond(Bond *bond, ROMol &mol,
                                  // should end up with 1 ro 2 entries
 
   if (!GetAtropisomerAtomsAndBonds(bond, atoms, bonds, mol)) {
-    return;  // not an atropisomer
+    return false;  // not an atropisomer
   }
 
   // make sure we do not have wiggle bonds
@@ -223,7 +224,7 @@ void DetectAtropisomerChiralityOneBond(Bond *bond, ROMol &mol,
   for (auto endBonds : bonds) {
     for (auto endBond : endBonds) {
       if (endBond->getBondDir() == Bond::UNKNOWN) {
-        return;  // not an atropisomer
+        return false;  // not an atropisomer
       }
     }
   }
@@ -237,7 +238,7 @@ void DetectAtropisomerChiralityOneBond(Bond *bond, ROMol &mol,
     BOOST_LOG(rdWarningLog)
         << "Failed to get a frame of reference along an atropisomer bond - atoms are: "
         << bond->getBeginAtomIdx() << " " << bond->getEndAtomIdx() << std::endl;
-    return;
+    return false;
   }
   RDGeom::Point3D bondVecs[2];  // one bond vector from each end of the
                                 // potential atropisomer bond
@@ -274,7 +275,7 @@ void DetectAtropisomerChiralityOneBond(Bond *bond, ROMol &mol,
             << "The bonds on one end of an atropisomer are both UP or both DOWN - atoms are: "
             << bond->getBeginAtomIdx() << " " << bond->getEndAtomIdx()
             << std::endl;
-        return;
+        return false;
       }
 
       if (bond1Dir != Bond::NONE || bond2Dir != Bond::NONE) {
@@ -285,7 +286,7 @@ void DetectAtropisomerChiralityOneBond(Bond *bond, ROMol &mol,
               << "An atropisomer has a wedge or hash bond on both ends - atoms are: "
               << bond->getBeginAtomIdx() << " " << bond->getEndAtomIdx()
               << std::endl;
-          return;
+          return false;
         }
         foundWedgeOrHash = true;
 
@@ -302,7 +303,7 @@ void DetectAtropisomerChiralityOneBond(Bond *bond, ROMol &mol,
         if (!getAtropIsomerEndVect(atoms[bondAtomIndex], bonds[bondAtomIndex],
                                    yAxis, zAxis, conf,
                                    bondVecs[bondAtomIndex])) {
-          return;
+          return false;
         }
       }
     } else {  // the conf is 3D
@@ -343,7 +344,7 @@ void DetectAtropisomerChiralityOneBond(Bond *bond, ROMol &mol,
               << "Both bonds on one end of an atropisomer are on the same side - atoms are: "
               << bond->getBeginAtomIdx() << " " << bond->getEndAtomIdx()
               << std::endl;
-          return;
+          return false;
         }
       }
 
@@ -352,7 +353,7 @@ void DetectAtropisomerChiralityOneBond(Bond *bond, ROMol &mol,
             << "Failed to find a bond on one end of an atropisomer that is NOT co-linear - atoms are: "
             << bond->getBeginAtomIdx() << " " << bond->getEndAtomIdx()
             << std::endl;
-        return;
+        return false;
       }
     }
   }
@@ -367,8 +368,43 @@ void DetectAtropisomerChiralityOneBond(Bond *bond, ROMol &mol,
     BOOST_LOG(rdWarningLog)
         << "The 2 defining bonds for an atropisomer are co-planar - atoms are: "
         << bond->getBeginAtomIdx() << " " << bond->getEndAtomIdx() << std::endl;
-    return;
+    return false;
   }
+
+  return true;
+}
+
+void cleanupAtropisomerStereoGroups(ROMol &mol) {
+  std::vector<StereoGroup> newsgs;
+  for (auto sg : mol.getStereoGroups()) {
+    std::vector<Atom *> okatoms;
+    std::vector<Bond *> okbonds;
+
+    for (auto atom : sg.getAtoms()) {
+      bool foundAtrop = false;
+      for (auto bndI : boost::make_iterator_range(mol.getAtomBonds(atom))) {
+        auto bond = (mol)[bndI];
+        if (bond->getStereo() == Bond::BondStereo::STEREOATROPCCW ||
+            bond->getStereo() == Bond::BondStereo::STEREOATROPCW) {
+          foundAtrop = true;
+          okbonds.push_back(bond);
+          break;
+        }
+      }
+
+      if (!foundAtrop) {
+        okatoms.push_back(atom);
+      }
+    }
+
+    if (okbonds.empty()) {
+      newsgs.push_back(sg);
+    } else {
+      newsgs.emplace_back(sg.getGroupType(), std::move(okatoms),
+                          std::move(okbonds));
+    }
+  }
+  mol.setStereoGroups(std::move(newsgs));
 }
 
 void DetectAtropisomerChirality(ROMol &mol, const Conformer *conf) {
@@ -397,6 +433,7 @@ void DetectAtropisomerChirality(ROMol &mol, const Conformer *conf) {
 
   // const RingInfo *ri = bond->getOwningMol().getRingInfo();
   const RingInfo *ri = mol.getRingInfo();
+  bool foundAtrop = false;
   for (auto bondToTry : bondsToTry) {
     if (ri->numBondRings(bondToTry->getIdx()) > 0) {
       continue;
@@ -419,7 +456,13 @@ void DetectAtropisomerChirality(ROMol &mol, const Conformer *conf) {
       continue;
     }
 
-    DetectAtropisomerChiralityOneBond(bondToTry, mol, conf);
+    if (DetectAtropisomerChiralityOneBond(bondToTry, mol, conf)) {
+      foundAtrop = true;
+    }
+  }
+
+  if (foundAtrop) {
+    cleanupAtropisomerStereoGroups(mol);
   }
 }
 

@@ -664,6 +664,10 @@ class MarvinCMLWriter {
         for (auto &&atom : group.getAtoms()) {
           marvinMol->atoms[atom->getIdx()]->mrvStereoGroup = stereoGroupType;
         }
+        for (auto &&bond : group.getBonds()) {
+          marvinMol->atoms[bond->getBeginAtomIdx()]->mrvStereoGroup =
+              stereoGroupType;
+        }
       }
 
       for (const SubstanceGroup &sgroup : getSubstanceGroups(*mol)) {

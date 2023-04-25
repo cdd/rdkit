@@ -222,6 +222,7 @@ std::string parseEnhancedStereo(std::istream *inStream, unsigned int &line,
 
       const unsigned int count = FileParserUtils::toUnsigned(match[2], true);
       std::vector<Atom *> atoms;
+      std::vector<Bond *> bonds;
       std::stringstream ss(match[3]);
       unsigned int index;
       for (size_t i = 0; i < count; ++i) {
@@ -229,7 +230,7 @@ std::string parseEnhancedStereo(std::istream *inStream, unsigned int &line,
         // atoms are 1 indexed in molfiles
         atoms.push_back(mol->getAtomWithIdx(index - 1));
       }
-      groups.emplace_back(grouptype, std::move(atoms));
+      groups.emplace_back(grouptype, std::move(atoms), std::move(bonds));
     } else {
       // skip collection types we don't know how to read. Only one documented
       // is MDLV30/HILITE

@@ -1929,6 +1929,7 @@ void cleanupStereoGroups(ROMol &mol) {
   std::vector<StereoGroup> newsgs;
   for (auto sg : mol.getStereoGroups()) {
     std::vector<Atom *> okatoms;
+    std::vector<Bond *> okbonds;
     bool keep = true;
     for (const auto atom : sg.getAtoms()) {
       if (atom->getChiralTag() == Atom::ChiralType::CHI_UNSPECIFIED) {
@@ -1937,11 +1938,20 @@ void cleanupStereoGroups(ROMol &mol) {
         okatoms.push_back(atom);
       }
     }
+    for (const auto bond : sg.getBonds()) {
+      if (bond->getStereo() != Bond::BondStereo::STEREOATROPCCW &&
+          bond->getStereo() != Bond::BondStereo::STEREOATROPCW) {
+        keep = false;
+      } else {
+        okbonds.push_back(bond);
+      }
+    }
 
     if (keep) {
       newsgs.push_back(sg);
-    } else if (!okatoms.empty()) {
-      newsgs.emplace_back(sg.getGroupType(), std::move(okatoms));
+    } else if (!okatoms.empty() || !okbonds.empty()) {
+      newsgs.emplace_back(sg.getGroupType(), std::move(okatoms),
+                          std::move(okbonds));
     }
   }
   mol.setStereoGroups(std::move(newsgs));

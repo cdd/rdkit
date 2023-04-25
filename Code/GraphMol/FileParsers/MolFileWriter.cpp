@@ -1052,11 +1052,17 @@ void appendEnhancedStereoGroups(std::string &res, const RWMol &tmol) {
       }
       res += " ATOMS=(";
       auto &atoms = group.getAtoms();
-      res += std::to_string(atoms.size());
+      auto &bonds = group.getBonds();
+      res += std::to_string(atoms.size() + bonds.size());
       for (auto &&atom : atoms) {
         res += ' ';
         // atoms are 1 indexed in molfiles
         res += std::to_string(atom->getIdx() + 1);
+      }
+      for (auto &&bond : bonds) {
+        res += ' ';
+        // atoms are 1 indexed in molfiles
+        res += std::to_string(bond->getBeginAtomIdx() + 1);
       }
       res += ")\n";
     }

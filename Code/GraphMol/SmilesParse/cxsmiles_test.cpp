@@ -699,7 +699,8 @@ void testOneAtropisomers(const SmilesTest *smilesTest) {
       unsigned int flags = SmilesWrite::CXSmilesFields::CX_COORDS |
                            SmilesWrite::CXSmilesFields::CX_MOLFILE_VALUES |
                            SmilesWrite::CXSmilesFields::CX_ATOM_PROPS |
-                           SmilesWrite::CXSmilesFields::CX_BOND_CFG
+                           SmilesWrite::CXSmilesFields::CX_BOND_CFG |
+                           SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO
           //| SmilesWrite::CXSmilesFields::CX_ALL
           ;
 
@@ -738,7 +739,8 @@ void testOneAtropisomers(const SmilesTest *smilesTest) {
       unsigned int flags = SmilesWrite::CXSmilesFields::CX_COORDS |
                            SmilesWrite::CXSmilesFields::CX_MOLFILE_VALUES |
                            SmilesWrite::CXSmilesFields::CX_ATOM_PROPS |
-                           SmilesWrite::CXSmilesFields::CX_BOND_CFG;
+                           SmilesWrite::CXSmilesFields::CX_BOND_CFG |
+                           SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO;
 
       std::string smilesOut =
           MolToCXSmiles(*smilesMol, ps, flags, RestoreBondDirOptionClear);
@@ -844,6 +846,9 @@ TEST_CASE("base testAtropisomersInCXSmiles") {
         SmilesTest("ShortAtropisomer.cxsmi", true, 14, 15),
         SmilesTest("ShortAtropisomerArom.cxsmi", true, 14, 15),
         SmilesTest("AtropManyChirals.cxsmi", true, 20, 20),
+        SmilesTest("AtropManyChiralsEnhanced.cxsmi", true, 20, 20),
+        SmilesTest("AtropManyChiralsEnhanced2.cxsmi", true, 20, 20),
+        SmilesTest("AtropManyChiralsEnhanced3.cxsmi", true, 20, 20),
         SmilesTest("BMS-986142_3d_chiral.cxsmi", true, 72, 77),
         SmilesTest("BMS-986142_3d.cxsmi", true, 72, 77),
         SmilesTest("BMS-986142_atrop1.cxsmi", true, 42, 47),

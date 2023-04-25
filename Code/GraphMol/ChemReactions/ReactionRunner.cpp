@@ -1254,6 +1254,7 @@ void copyEnhancedStereoGroups(const ROMol &reactant, RWMOL_SPTR product,
   std::vector<StereoGroup> new_stereo_groups;
   for (const auto &sg : reactant.getStereoGroups()) {
     std::vector<Atom *> atoms;
+    std::vector<Bond *> bonds;
     for (auto &&reactantAtom : sg.getAtoms()) {
       auto productAtoms = mapping.reactProdAtomMap.find(reactantAtom->getIdx());
       if (productAtoms == mapping.reactProdAtomMap.end()) {
@@ -1278,7 +1279,8 @@ void copyEnhancedStereoGroups(const ROMol &reactant, RWMOL_SPTR product,
       }
     }
     if (!atoms.empty()) {
-      new_stereo_groups.emplace_back(sg.getGroupType(), std::move(atoms));
+      new_stereo_groups.emplace_back(sg.getGroupType(), std::move(atoms),
+                                     std::move(bonds));
     }
   }
 

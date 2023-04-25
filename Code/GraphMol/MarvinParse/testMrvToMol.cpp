@@ -813,6 +813,9 @@ void RunTests() {
 
   std::list<MolTest> atropisomerTests{
       MolTest("AtropManyChirals.mrv", true, LoadAsMolOrRxn, 20, 20),
+      MolTest("AtropManyChiralsEnhanced.mrv", true, LoadAsMolOrRxn, 20, 20),
+      MolTest("AtropManyChiralsEnhanced2.mrv", true, LoadAsMolOrRxn, 20, 20),
+      MolTest("AtropManyChiralsEnhanced3.mrv", true, LoadAsMolOrRxn, 20, 20),
       MolTest("BMS-986142_3d_chiral.mrv", true, LoadAsMolOrRxn, 72, 77),
       MolTest("BMS-986142_3d.mrv", true, LoadAsMolOrRxn, 72, 77),
       MolTest("BMS-986142_atrop1.mrv", true, LoadAsMolOrRxn, 42, 47),

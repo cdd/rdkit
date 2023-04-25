@@ -34,8 +34,8 @@ using std::uint32_t;
 namespace RDKit {
 
 const int32_t MolPickler::versionMajor = 13;
-const int32_t MolPickler::versionMinor = 0;
-const int32_t MolPickler::versionPatch = 2;
+const int32_t MolPickler::versionMinor = 1;
+const int32_t MolPickler::versionPatch = 0;
 const int32_t MolPickler::endianId = 0xDEADBEEF;
 
 void streamWrite(std::ostream &ss, MolPickler::Tags tag) {
@@ -966,7 +966,7 @@ void MolPickler::_pickle(const ROMol *mol, std::ostream &ss,
     auto &stereo_groups = mol->getStereoGroups();
     if (stereo_groups.size() > 0u) {
       streamWrite(ss, BEGINSTEREOGROUP);
-      _pickleStereo<T>(ss, stereo_groups, atomIdxMap);
+      _pickleStereo<T>(ss, stereo_groups, atomIdxMap, bondIdxMap);
     }
   }
 
@@ -2142,7 +2142,8 @@ SubstanceGroup MolPickler::_getSubstanceGroupFromPickle(std::istream &ss,
 template <typename T>
 void MolPickler::_pickleStereo(std::ostream &ss,
                                const std::vector<StereoGroup> &groups,
-                               std::map<int, int> &atomIdxMap) {
+                               std::map<int, int> &atomIdxMap,
+                               std::map<int, int> &bondIdxMap) {
   T tmpT = static_cast<T>(groups.size());
   streamWrite(ss, tmpT);
   for (auto &&group : groups) {
@@ -2151,6 +2152,13 @@ void MolPickler::_pickleStereo(std::ostream &ss,
     streamWrite(ss, static_cast<T>(atoms.size()));
     for (auto &&atom : atoms) {
       tmpT = static_cast<T>(atomIdxMap[atom->getIdx()]);
+      streamWrite(ss, tmpT);
+    }
+
+    auto &bonds = group.getBonds();
+    streamWrite(ss, static_cast<T>(bonds.size()));
+    for (auto &&bond : bonds) {
+      tmpT = static_cast<T>(bondIdxMap[bond->getIdx()]);
       streamWrite(ss, tmpT);
     }
   }
@@ -2179,7 +2187,19 @@ void MolPickler::_depickleStereo(std::istream &ss, ROMol *mol, int version) {
         atoms.push_back(mol->getAtomWithIdx(tmpT));
       }
 
-      groups.emplace_back(groupType, std::move(atoms));
+      // stereo group bonds for atropisomers starting at version 13010
+      std::vector<Bond *> bonds;
+      if (version >= 13010) {
+        streamRead(ss, tmpT, version);
+        const auto numBonds = static_cast<unsigned>(tmpT);
+
+        bonds.reserve(numBonds);
+        for (unsigned i = 0u; i < numBonds; ++i) {
+          streamRead(ss, tmpT, version);
+          bonds.push_back(mol->getBondWithIdx(tmpT));
+        }
+      }
+      groups.emplace_back(groupType, std::move(atoms), std::move(bonds));
     }
 
     mol->setStereoGroups(std::move(groups));

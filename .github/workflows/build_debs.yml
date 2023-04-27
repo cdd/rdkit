@@ -3,6 +3,12 @@ name: Build deb package
 on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+    inputs:
+      skip-tests:
+        type: "string"
+        description: "Skip tests"
+        required: false
+        default: "false"
   push:
 
 jobs:
@@ -15,6 +21,7 @@ jobs:
           {pg: ON, py: OFF, pkg: rdkit-pg},
           {pg: OFF, py: ON, pkg: rdkit-py}
         ]
+      fail-fast: false
     runs-on: ${{matrix.arch}}
     env:
       DEB_PACKAGE: ${{matrix.variant.pkg}}
@@ -28,4 +35,4 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
       - name: Build and push
-        run: ./build-and-push ${{matrix.variant.pg}} ${{matrix.variant.py}} ${{matrix.variant.pkg}}
+        run: ./build-and-push ${{matrix.variant.pg}} ${{matrix.variant.py}} ${{matrix.variant.pkg}} ${{ github.event.inputs.skip-tests == 'true' && 'NO-TESTS' }}

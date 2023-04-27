@@ -13,7 +13,11 @@ EXTANT_VERSIONS=`aws codeartifact list-package-versions --domain cdd --repositor
 
 DEB_VERSION=$(<UPSTREAM_VERSION)-$(<CDD_VERSION)
 
-source ./build-deb $1 $2 $3 TEST
+if [[ $4 != "NO-TESTS" ]]; then
+  source ./build-deb $1 $2 $3 TEST
+else
+  source ./build-deb $1 $2 $3
+fi
 
 if [[ $EXTANT_VERSIONS == *$DEB_VERSION* ]]; then
     echo "VERSION ALREADY EXISTS"

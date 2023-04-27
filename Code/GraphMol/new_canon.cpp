@@ -12,6 +12,7 @@
 #include "new_canon.h"
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/QueryOps.h>
+#include <GraphMol/Atropisomers.h>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -439,6 +440,30 @@ bondholder makeBondHolder(const Bond *bond, unsigned int otherIdx,
             res.controllingAtoms[3] = &atoms[nbr->getIdx()];
           }
         }
+      }
+    }
+
+    if (res.stype == Bond::BondStereo::STEREOATROPCCW ||
+        res.stype == Bond::BondStereo::STEREOATROPCW) {
+      Atom *atropAtoms[2];
+      std::vector<Bond *> atropBonds[2];  // one vector for each end - each one
+                                          // should end up with 1 ro 2 entries
+
+      CHECK_INVARIANT(GetAtropisomerAtomsAndBonds(bond, atropAtoms, atropBonds,
+                                                  bond->getOwningMol()),
+                      "Could not find atropisomer controlling atoms")
+
+      res.controllingAtoms[0] =
+          &atoms[atropBonds[0][0]->getOtherAtom(atropAtoms[0])->getIdx()];
+      res.controllingAtoms[2] =
+          &atoms[atropBonds[1][0]->getOtherAtom(atropAtoms[1])->getIdx()];
+      if (atropBonds[0].size() > 1) {
+        res.controllingAtoms[1] =
+            &atoms[atropBonds[0][1]->getOtherAtom(atropAtoms[0])->getIdx()];
+      }
+      if (atropBonds[1].size() > 1) {
+        res.controllingAtoms[3] =
+            &atoms[atropBonds[1][1]->getOtherAtom(atropAtoms[1])->getIdx()];
       }
     }
   }

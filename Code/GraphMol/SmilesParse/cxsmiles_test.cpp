@@ -761,6 +761,44 @@ void testOneAtropisomers(const SmilesTest *smilesTest) {
       CHECK(expectedStr == smilesOut);
     }
 
+    // third pass without using original wedges and with canonicalization
+
+    smilesMol =
+        std::unique_ptr<RWMol>(SmilesToMol(inputSmiles, smilesParserParams));
+
+    // test round trip back to smiles
+    {
+      std::string expectedMrvName = fName + ".expected3.cxsmi";
+
+      SmilesWriteParams ps;
+      ps.canonical = true;
+      ps.doIsomericSmiles = true;
+
+      unsigned int flags = SmilesWrite::CXSmilesFields::CX_COORDS |
+                           SmilesWrite::CXSmilesFields::CX_MOLFILE_VALUES |
+                           SmilesWrite::CXSmilesFields::CX_ATOM_PROPS |
+                           SmilesWrite::CXSmilesFields::CX_BOND_CFG |
+                           SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO;
+
+      std::string smilesOut =
+          MolToCXSmiles(*smilesMol, ps, flags, RestoreBondDirOptionClear);
+
+      // code to generate the expected files
+
+      // {
+      //   std::ofstream out;
+      //   out.open(fName + ".NEW3.cxsmi");
+      //   out << smilesOut;
+      // }
+      std::stringstream expectedMolStr;
+      std::ifstream in;
+      in.open(expectedMrvName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      CHECK(expectedStr == smilesOut);
+    }
+
     smilesMol =
         std::unique_ptr<RWMol>(SmilesToMol(inputSmiles, smilesParserParams));
     {

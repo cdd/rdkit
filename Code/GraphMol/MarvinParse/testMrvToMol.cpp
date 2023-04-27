@@ -591,8 +591,6 @@ void testMolFiles(const MolTest *molFileTest) {
   std::string fName =
       rdbase + "/Code/GraphMol/MarvinParse/test_data/" + molFileTest->fileName;
 
-  std::unique_ptr<RWMol> mol;
-
   try {
     std::unique_ptr<RWMol> mol(MolFileToMol(fName, true, false, false));
 
@@ -666,6 +664,40 @@ void testMolFiles(const MolTest *molFileTest) {
       TEST_ASSERT(expectedStr == outMolStr);
     }
 
+    {
+      std::string expectedSmiName = fName + ".expected.cxsmi";
+
+      SmilesWriteParams ps;
+      ps.canonical = true;
+      unsigned int flags = SmilesWrite::CXSmilesFields::CX_COORDS |
+                           SmilesWrite::CXSmilesFields::CX_MOLFILE_VALUES |
+                           SmilesWrite::CXSmilesFields::CX_ATOM_PROPS |
+                           SmilesWrite::CXSmilesFields::CX_BOND_CFG |
+                           SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO
+          //| SmilesWrite::CXSmilesFields::CX_ALL
+          ;
+
+      std::string smilesOut = MolToCXSmiles(*mol, ps);
+      SmilesParserParams smilesParserParams;
+      smilesParserParams.sanitize = true;
+
+      // code to create the expected files for new or changed tests
+
+      {
+        std::ofstream out;
+        out.open(fName + ".NEW.cxsmi");
+        out << smilesOut;
+      }
+
+      std::stringstream expectedMolStr;
+      std::ifstream in;
+      in.open(expectedSmiName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      TEST_ASSERT(expectedStr == smilesOut);
+    }
+
     BOOST_LOG(rdInfoLog) << "done" << std::endl;
   } catch (const std::exception &e) {
     if (molFileTest->expectedResult != false) {
@@ -683,6 +715,7 @@ void RunTests() {
   // the molecule tests - starting with molfiles/sdf
 
   std::list<MolTest> sdfTests{
+      MolTest("badWedgeError.sdf", true, LoadAsMolOrRxn, 12, 13),
       MolTest("CrossedDoubleBondWithChiralNbr2.sdf", true, LoadAsMolOrRxn, 10,
               9),
       MolTest("CrossedDoubleBondWithChiralNbr.sdf", true, LoadAsMolOrRxn, 10,

@@ -906,8 +906,6 @@ RDKIT_GRAPHMOL_EXPORT void cleanupChirality(RWMol &mol);
   \param confId               the conformer to use
   \param replaceExistingTags  if this flag is true, any existing atomic chiral
                               tags will be replaced
-  \param explicitOnly         if this flag is true, only atoms with explicit
-                              wedge/hash bonds will be assigned chiral types
 
   If the conformer provided is not a 3D conformer, nothing will be done.
 
@@ -918,8 +916,7 @@ RDKIT_GRAPHMOL_EXPORT void cleanupChirality(RWMol &mol);
   you want chiral flags only on actual stereocenters.
 */
 RDKIT_GRAPHMOL_EXPORT void assignChiralTypesFrom3D(
-    ROMol &mol, int confId = -1, bool replaceExistingTags = true,
-    bool explicitOnly = false);
+    ROMol &mol, int confId = -1, bool replaceExistingTags = true);
 
 //! \brief Uses a conformer to assign ChiralTypes to a molecule's atoms and
 //! stereo flags to its bonds

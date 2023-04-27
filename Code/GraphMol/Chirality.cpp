@@ -32,7 +32,6 @@ namespace RDKit {
 namespace {
 bool shouldDetectDoubleBondStereo(const Bond *bond) {
   const RingInfo *ri = bond->getOwningMol().getRingInfo();
-
   return (!ri->numBondRings(bond->getIdx()) ||
           ri->minBondRingSize(bond->getIdx()) >=
               Chirality::minRingSizeForDoubleBondStereo);
@@ -2761,8 +2760,7 @@ static bool assignNontetrahedralChiralTypeFrom3D(ROMol &mol,
   return res;
 }
 
-void assignChiralTypesFrom3D(ROMol &mol, int confId, bool replaceExistingTags,
-                             bool explicitOnly) {
+void assignChiralTypesFrom3D(ROMol &mol, int confId, bool replaceExistingTags) {
   const double ZERO_VOLUME_TOL = 0.1;
   if (!mol.getNumConformers()) {
     return;
@@ -2781,31 +2779,7 @@ void assignChiralTypesFrom3D(ROMol &mol, int confId, bool replaceExistingTags,
   }
 
   auto allowNontetrahedralStereo = Chirality::getAllowNontetrahedralChirality();
-
-  boost::dynamic_bitset<> atomsToUse;
-  if (explicitOnly) {
-    atomsToUse.resize(mol.getNumAtoms(), 0);
-    for (auto bond : mol.bonds()) {
-      auto bondDir = bond->getBondDir();
-      if (bondDir == Bond::BondDir::BEGINWEDGE ||
-          bondDir == Bond::BondDir::BEGINDASH) {
-        atomsToUse[bond->getBeginAtom()->getIdx()] = 1;
-      }
-    }
-
-    for (auto atom : mol.atoms()) {
-      if (atom->getChiralTag() != Atom::ChiralType::CHI_UNSPECIFIED) {
-        atomsToUse[atom->getIdx()] = 1;
-      }
-    }
-  }
-
   for (auto atom : mol.atoms()) {
-    // see if only the explicitly wedged atoms are to be used
-    if (explicitOnly && !atomsToUse[atom->getIdx()]) {
-      continue;
-    }
-
     // if we aren't replacing existing tags and the atom is already tagged,
     // punt:
     if (!replaceExistingTags && atom->getChiralTag() != Atom::CHI_UNSPECIFIED) {
@@ -2959,7 +2933,7 @@ void setDoubleBondNeighborDirections(ROMol &mol, const Conformer *conf) {
   bool resetRings = false;
   if (!mol.getRingInfo()->isInitialized()) {
     resetRings = true;
-    MolOps::symmetrizeSSSR(mol);
+    MolOps::fastFindRings(mol);
   }
 
   for (auto bond : mol.bonds()) {

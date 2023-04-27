@@ -79,8 +79,6 @@ rdkit_headers(CDXMLParser.h
 rdkit_test(fileParsersTest1 test1.cpp
            LINK_LIBRARIES FileParsers SubstructMatch)
 
-rdkit_test(testAtropisomers testAtropisomers.cpp
-           LINK_LIBRARIES FileParsers SubstructMatch )
 
 rdkit_catch_test(testSquiggleDoubleBonds testSquiggleDoubleBonds.cpp
            LINK_LIBRARIES FileParsers SubstructMatch )

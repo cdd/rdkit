@@ -538,10 +538,6 @@ class MarvinCMLWriter {
 
       INT_MAP_INT wedgeBonds = pickBondsToWedge(*mol);
 
-      if (conf != nullptr) {
-        WedgeBondsFromAtropisomers(*mol, conf, wedgeBonds);
-      }
-
       for (auto bond : mol->bonds()) {
         auto marvinBond = new MarvinBond();
         marvinMol->bonds.push_back(marvinBond);

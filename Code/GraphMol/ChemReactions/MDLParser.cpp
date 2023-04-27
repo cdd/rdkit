@@ -169,8 +169,7 @@ void ParseV2000RxnBlock(std::istream &inStream, unsigned int &line,
 
 void ParseV3000RxnBlock(std::istream &inStream, unsigned int &line,
                         bool sanitize, bool removeHs, bool strictParsing,
-                        ChemicalReaction *&rxn,
-                        bool explicit3dChiralityOnly = false) {
+                        ChemicalReaction *&rxn) {
   std::string tempStr;
 
   // skip the header block:
@@ -216,7 +215,7 @@ void ParseV3000RxnBlock(std::istream &inStream, unsigned int &line,
                                       chiralityPossible, natoms, nbonds,
                                       strictParsing, expectMEND);
       FileParserUtils::finishMolProcessing(react, chiralityPossible, sanitize,
-                                           removeHs, explicit3dChiralityOnly);
+                                           removeHs);
     } catch (FileParseException &e) {
       std::ostringstream errout;
       errout << "Cannot parse reactant " << i << ". The error was:\n\t"
@@ -252,7 +251,7 @@ void ParseV3000RxnBlock(std::istream &inStream, unsigned int &line,
                                       chiralityPossible, natoms, nbonds,
                                       strictParsing, expectMEND);
       FileParserUtils::finishMolProcessing(prod, chiralityPossible, sanitize,
-                                           removeHs, explicit3dChiralityOnly);
+                                           removeHs);
     } catch (FileParseException &e) {
       std::ostringstream errout;
       errout << "Cannot parse product " << i << ". The error was:\n\t"
@@ -311,9 +310,10 @@ void ParseV3000RxnBlock(std::istream &inStream, unsigned int &line,
 }  // namespace
 
 //! Parse a text stream in MDL rxn format into a ChemicalReaction
-ChemicalReaction *RxnDataStreamToChemicalReaction(
-    std::istream &inStream, unsigned int &line, bool sanitize, bool removeHs,
-    bool strictParsing, bool explicit3dChiralityOnly) {
+ChemicalReaction *RxnDataStreamToChemicalReaction(std::istream &inStream,
+                                                  unsigned int &line,
+                                                  bool sanitize, bool removeHs,
+                                                  bool strictParsing) {
   std::string tempStr;
 
   // header line
@@ -336,8 +336,8 @@ ChemicalReaction *RxnDataStreamToChemicalReaction(
       ParseV2000RxnBlock(inStream, line, sanitize, removeHs, strictParsing,
                          res);
     } else {
-      ParseV3000RxnBlock(inStream, line, sanitize, removeHs, strictParsing, res,
-                         explicit3dChiralityOnly);
+      ParseV3000RxnBlock(inStream, line, sanitize, removeHs, strictParsing,
+                         res);
     }
   } catch (ChemicalReactionParserException &e) {
     // catch our exceptions and throw them back after cleanup

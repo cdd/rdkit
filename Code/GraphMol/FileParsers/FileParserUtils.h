@@ -86,9 +86,9 @@ RDKIT_FILEPARSERS_EXPORT bool ParseV2000CTAB(
 
 //! finishes up the processing (sanitization, etc.) of a molecule read from
 //! CTAB
-RDKIT_FILEPARSERS_EXPORT void finishMolProcessing(
-    RWMol *res, bool chiralityPossible, bool sanitize, bool removeHs,
-    bool explicit3dChiralityOnly = false);
+RDKIT_FILEPARSERS_EXPORT void finishMolProcessing(RWMol *res,
+                                                  bool chiralityPossible,
+                                                  bool sanitize, bool removeHs);
 
 //! Deprecated, please use QueryOps::replaceAtomWithQueryAtom instead
 RDKIT_FILEPARSERS_EXPORT Atom *replaceAtomWithQueryAtom(RWMol *mol, Atom *atom);

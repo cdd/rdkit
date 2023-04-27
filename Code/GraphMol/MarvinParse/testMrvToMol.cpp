@@ -1,6 +1,5 @@
 //
-//  Copyright (C) 2002-2021 Collaborative Drug Discovery and other RDKit
-//  contributors
+//  Copyright (C) 2002-2021 Greg Landrum and other RDKit contributors
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
 //  The contents are covered by the terms of the BSD license
@@ -140,16 +139,25 @@ void testSmilesToMarvin(const SmilesTest *smilesTest) {
   std::string fName =
       rdbase + "/Code/GraphMol/MarvinParse/test_data/" + smilesTest->name;
 
+  class LocalVars  // protect against mem leak on error
+  {
+   public:
+    RWMol *smilesMol;
+
+    LocalVars(){};
+
+    ~LocalVars() { delete smilesMol; }
+  } localVars;
+
   try {
     SmilesParserParams smilesParserParams;
     smilesParserParams.sanitize = true;
 
-    std::unique_ptr<RWMol> smilesMol(
-        SmilesToMol(smilesTest->smiles, smilesParserParams));
-    reapplyMolBlockWedging(*smilesMol);
+    localVars.smilesMol = SmilesToMol(smilesTest->smiles, smilesParserParams);
+    reapplyMolBlockWedging(*localVars.smilesMol);
 
-    TEST_ASSERT(smilesMol->getNumAtoms() == smilesTest->atomCount);
-    TEST_ASSERT(smilesMol->getNumBonds() == smilesTest->bondCount);
+    TEST_ASSERT(localVars.smilesMol->getNumAtoms() == smilesTest->atomCount);
+    TEST_ASSERT(localVars.smilesMol->getNumBonds() == smilesTest->bondCount);
 
     // test round trip back to smiles
     {
@@ -158,7 +166,7 @@ void testSmilesToMarvin(const SmilesTest *smilesTest) {
       SmilesWriteParams ps;
       ps.canonical = false;
 
-      std::string smilesOut = MolToSmiles(*smilesMol, ps);
+      std::string smilesOut = MolToSmiles(*localVars.smilesMol, ps);
 
       // code to generate the expected files
 
@@ -180,14 +188,14 @@ void testSmilesToMarvin(const SmilesTest *smilesTest) {
       std::string expectedMrvName = fName + ".expected.sdf";
       std::string outMolStr = "";
       try {
-        outMolStr = MolToMolBlock(*smilesMol, true, 0, true, true);
+        outMolStr = MolToMolBlock(*localVars.smilesMol, true, 0, true, true);
       } catch (const RDKit::KekulizeException &e) {
         outMolStr = "";
       } catch (...) {
         throw;  // re-trhow the error if not a kekule error
       }
       if (outMolStr == "") {
-        outMolStr = MolToMolBlock(*smilesMol, true, 0, false,
+        outMolStr = MolToMolBlock(*localVars.smilesMol, true, 0, false,
                                   true);  // try without kekule'ing
       }
 
@@ -212,14 +220,14 @@ void testSmilesToMarvin(const SmilesTest *smilesTest) {
       std::string expectedMrvName = fName + ".expected.mrv";
       std::string outMolStr = "";
       try {
-        outMolStr = MolToMrvBlock(*smilesMol, true, -1, true, false);
+        outMolStr = MolToMrvBlock(*localVars.smilesMol, true, -1, true, false);
       } catch (const RDKit::KekulizeException &e) {
         outMolStr = "";
       } catch (...) {
         throw;  // re-trhow the error if not a kekule error
       }
       if (outMolStr == "") {
-        outMolStr = MolToMrvBlock(*smilesMol, true, -1, false,
+        outMolStr = MolToMrvBlock(*localVars.smilesMol, true, -1, false,
                                   false);  // try without kekule'ing
       }
 
@@ -431,7 +439,7 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest) {
         } catch (const RDKit::KekulizeException &e) {
           outMolStr = "";
         } catch (...) {
-          throw;  // re-throw the error if not a kekule error
+          throw;  // re-trhow the error if not a kekule error
         }
         if (outMolStr == "") {
           outMolStr = MolToMrvBlock(*mol, true, -1, false,
@@ -703,6 +711,7 @@ void RunTests() {
   // now the reactions
 
   std::list<RxnTest> rxnFileTests{
+
       RxnTest("AlexRxn.mrv", true, LoadAsMolOrRxn, 1, 0, 1, 2, 0),
       RxnTest("BadReactionSign.mrv", true, LoadAsMolOrRxn, 2, 0, 1, 3, 0),
       RxnTest("bondArray_node.mrv", true, LoadAsMolOrRxn, 2, 4, 1, 3, 0),
@@ -766,6 +775,7 @@ void RunTests() {
 int main(int argc, char *argv[]) {
   (void)argc;
   (void)argv;
+  //  std::locale::global(std::locale("de_DE.UTF-8"));
 
   RDLog::InitLogs();
   BOOST_LOG(rdInfoLog) << " ---- Running with POSIX locale ----- " << std::endl;

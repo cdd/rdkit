@@ -7,7 +7,7 @@ mkdir -p build
 cd build
 
 if [[ $1 == "ON" ]]; then
-    EXTRA_FLAGS="-DPostgreSQL_ROOT=/usr -DPostgreSQL_TYPE_INCLUDE_DIR=/usr/include/postgresql/${POSTGRES_VERSION}/server/"
+    EXTRA_FLAGS="-DPostgreSQL_ROOT=/usr -DPostgreSQL_TYPE_INCLUDE_DIR=/usr/include/postgresql/14/server/"
 fi
 
 cmake .. \
@@ -22,7 +22,16 @@ cmake .. \
 
 if [[ $4 == "TEST" ]]; then
     make -j$(nproc)
+    make -j$(nproc) install
+    ldconfig
     export RDBASE=`pwd`/..
+    if [[ $1 == "ON" ]]; then
+        sh ./Code/PgSQL/rdkit/pgsql_install.sh
+        sudo service postgresql restart
+    fi
+    if [[ $2 == "ON" ]]; then
+        echo "/usr/local/lib/python3/dist-packages/" > /usr/local/lib/python3.10/dist-packages/rdkit.pth
+    fi
     ctest --output-on-failure
     if [[ $1 == "ON" ]]; then
         sh ./Code/PgSQL/rdkit/pgsql_regress.sh

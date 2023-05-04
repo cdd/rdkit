@@ -22,7 +22,7 @@ if [[ $1 == "ON" ]]; then
     sudo apt-get update
     sudo DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y libpq-dev postgresql-14 postgresql-server-dev-14
     sudo service postgresql start
-    sudo -u postgres createuser -s `whoami`
+    sudo -u postgres createuser -s `whoami` || true
 fi
 
 if [[ $2 == "ON" ]]; then

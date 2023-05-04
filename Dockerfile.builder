@@ -3,8 +3,13 @@ ARG BUILD_PG
 ARG BUILD_PY
 ARG PACKAGE_NAME
 ARG TEST
+
+COPY install-deps install-deps
+RUN ./install-deps ${BUILD_PG} ${BUILD_PY}
+
+WORKDIR /rdkit
 COPY . .
-RUN ./build-deb ${BUILD_PG} ${BUILD_PY} ${PACKAGE_NAME} ${TEST}
+RUN --mount=type=cache,target=/rdkit/build ./build-deb ${BUILD_PG} ${BUILD_PY} ${PACKAGE_NAME} ${TEST}
 
 FROM scratch as artifact
-COPY --from=build build/*.deb build/
+COPY --from=build /rdkit/build/*.deb build/

@@ -3,37 +3,12 @@
 set -e
 set -x
 
-export POSTGRES_VERSION=14
-export DEBIAN_FRONTEND=noninteractive
-export TZ=Etc/UTC
-
-if [[ `which sudo` ]]; then
-    echo "sudo present"
-else
-    apt-get update
-    apt-get install sudo
-fi
-
-sudo apt-get update
-sudo apt-get install -y \
-    build-essential cmake checkinstall wget lsb-release \
-    libboost-thread-dev libboost-iostreams-dev libboost-filesystem-dev libboost-program-options-dev \
-    libcairo2-dev libeigen3-dev
-
-if [[ $1 == "ON" ]]; then
-    sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
-    sudo apt-get update
-    sudo apt-get install -y postgresql-14 postgresql-server-dev-14
-    EXTRA_FLAGS="-DPostgreSQL_ROOT=/usr -DPostgreSQL_TYPE_INCLUDE_DIR=/usr/include/postgresql/${POSTGRES_VERSION}/server/"
-fi
-
-if [[ $2 == "ON" ]]; then
-    sudo apt-get install -y libboost-python-dev python3-numpy libpython3-dev
-fi
-
 mkdir -p build
 cd build
+
+if [[ $1 == "ON" ]]; then
+    EXTRA_FLAGS="-DPostgreSQL_ROOT=/usr -DPostgreSQL_TYPE_INCLUDE_DIR=/usr/include/postgresql/${POSTGRES_VERSION}/server/"
+fi
 
 cmake .. \
     -DCMAKE_BUILD_TYPE=Release \

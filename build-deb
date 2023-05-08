@@ -43,6 +43,9 @@ if [[ $4 == "TEST" ]]; then
     fi
 fi
 
+if [[ $5 == "NODEB" ]]; then
+    exit
+fi
 
 UPSTREAM_VERSION=$(<../UPSTREAM_VERSION)
 CDD_VERSION=$(<../CDD_VERSION)

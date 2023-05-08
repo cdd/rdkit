@@ -1,0 +1,5 @@
+#!/bin/bash
+
+source ./install-deps $1 $2
+
+source ./build-deb $1 $2 $3 TEST NODEB

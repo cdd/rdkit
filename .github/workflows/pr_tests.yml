@@ -1,0 +1,29 @@
+name: Run tests
+
+on:
+  pull_request:
+
+jobs:
+  tests:
+    strategy:
+      matrix:
+        arch: [[self-hosted, linux, x64, rdkit]]
+        variant: [
+          {pg: OFF, py: OFF, pkg: rdkit},
+          {pg: ON, py: OFF, pkg: rdkit-pg},
+          {pg: OFF, py: ON, pkg: rdkit-py}
+        ]
+      fail-fast: false
+    runs-on: ${{matrix.arch}}
+    env:
+      DEB_PACKAGE: ${{matrix.variant.pkg}}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: us-west-2
+      - name: Build and test
+        run: ./build-and-test ${{matrix.variant.pg}} ${{matrix.variant.py}} ${{matrix.variant.pkg}}
+

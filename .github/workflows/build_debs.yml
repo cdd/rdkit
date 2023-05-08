@@ -32,7 +32,5 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-region: us-west-2
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
       - name: Build and push
         run: ./build-and-push ${{matrix.variant.pg}} ${{matrix.variant.py}} ${{matrix.variant.pkg}} ${{ github.event.inputs.skip-tests == 'true' && 'NO-TESTS' }}

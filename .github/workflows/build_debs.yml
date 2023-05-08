@@ -9,7 +9,6 @@ on:
         description: "Skip tests"
         required: false
         default: "false"
-  push:
 
 jobs:
   build_deb:

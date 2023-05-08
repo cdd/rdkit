@@ -1309,10 +1309,10 @@ void canonicalizeEnhancedStereo(ROMol &mol,
 
     // sort the bonds by atom rank:
     auto getBondRank = [&atomRanks](const Bond *bd1, const Bond *bd2) {
-      uint bd1at1 = atomRanks->at(bd1->getBeginAtomIdx());
-      uint bd1at2 = atomRanks->at(bd1->getEndAtomIdx());
-      uint bd2at1 = atomRanks->at(bd2->getBeginAtomIdx());
-      uint bd2at2 = atomRanks->at(bd2->getEndAtomIdx());
+      unsigned int bd1at1 = atomRanks->at(bd1->getBeginAtomIdx());
+      unsigned int bd1at2 = atomRanks->at(bd1->getEndAtomIdx());
+      unsigned int bd2at1 = atomRanks->at(bd2->getBeginAtomIdx());
+      unsigned int bd2at2 = atomRanks->at(bd2->getEndAtomIdx());
       if (bd1at1 < bd1at2) {
         std::swap(bd1at1, bd1at2);
       }

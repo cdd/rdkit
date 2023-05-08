@@ -8,6 +8,7 @@
 //  of the RDKit source tree.
 //
 
+#include <RDGeneral/RDLog.h>
 #include "MarvinDefs.h"
 
 namespace RDKit {
@@ -1319,12 +1320,12 @@ void MarvinMolBase::cleanUpSgNumbering(int &sgCount) {
 }
 
 void MarvinMolBase::cleanUpNumberingMolsAtomsBonds(
-    int &molCount  // this is the starting mol count, and receives the ending
-                   // mol count - THis is used when
-                   // MarvinMol->convertToSuperAtaoms is called multiple times
-                   // from a RXN
+    int &molCount    // this is the starting mol count, and receives the ending
+                     // mol count - THis is used when
+                     // MarvinMol->convertToSuperAtaoms is called multiple times
+                     // from a RXN
     ,
-    int &atomCount  // starting and ending atom count
+    int &atomCount   // starting and ending atom count
     ,
     int &bondCount)  // starting and ending bond count)
 {
@@ -1374,16 +1375,16 @@ void MarvinMolBase::cleanUpNumberingMolsAtomsBonds(
 }
 
 void MarvinMolBase::cleanUpNumbering(
-    int &molCount  // this is the starting mol count, and receives the ending
-                   // mol count - THis is used when
-                   // MarvinMol->convertToSuperAtaoms is called multiple times
-                   // from a RXN
+    int &molCount   // this is the starting mol count, and receives the ending
+                    // mol count - THis is used when
+                    // MarvinMol->convertToSuperAtaoms is called multiple times
+                    // from a RXN
     ,
     int &atomCount  // starting and ending atom count
     ,
     int &bondCount  // starting and ending bond count
     ,
-    int &sgCount)  // starting and ending sg  count)
+    int &sgCount)   // starting and ending sg  count)
 {
   this->cleanUpSgNumbering(sgCount);
   this->cleanUpNumberingMolsAtomsBonds(molCount, atomCount, bondCount);
@@ -1681,7 +1682,7 @@ void MarvinSuperatomSgroup::convertFromOneSuperAtom() {
 
     superatomSgroupExpanded->title = this->title;
     superatomSgroupExpanded->id =
-        this->id;  // the expanded sgroup will replace the contracted one
+        this->id;     // the expanded sgroup will replace the contracted one
     superatomSgroupExpanded->molID =
         this->molID;  // the expanded sgroup will replace the contracted one
 
@@ -1987,8 +1988,8 @@ void MarvinMolBase::prepSgroupsForRDKit() {
 
   std::vector<std::string> sgroupsMolIdsDone;
   for (bool allDone = false;
-       !allDone;)  // until all at this level are done - but fixing one child
-                   // can add sgroups to this level
+       !allDone;)    // until all at this level are done - but fixing one child
+                     // can add sgroups to this level
   {
     allDone = true;  // unitl it is not true in the loop below
     for (auto childSgroup : this->sgroups) {
@@ -2348,6 +2349,7 @@ void MarvinMultipleSgroup::contractOneMultipleSgroup() {
   std::vector<MarvinAtom *> atomsToDelete;
   std::vector<MarvinBond *> bondsToDelete;
   std::vector<MarvinBond *> orphanedBonds;
+  std::vector<MarvinMolBase *> sgroupsToDelete;
 
   for (MarvinAtom *atomPtr : this->atoms) {
     // Atoms in the group but NOT in the parent part are to be deleted
@@ -2393,23 +2395,17 @@ void MarvinMultipleSgroup::contractOneMultipleSgroup() {
   if (orphanedBonds.size() != 0 && orphanedBonds.size() != 2 &&
       orphanedBonds.size() != 4) {
     throw FileParseException(
-        "Error: there should be zero or two orphaned bonds while contracting a MultipleSgroup");
+        "Error: there should be zero, two or four orphaned bonds while contracting a MultipleSgroup");
   }
 
   // delete any of this group's children that were using the atoms to be
   // deleted
 
-  std::vector<MarvinMolBase *> sgroupsToDelete;
   for (auto childSgroup : sgroups) {
     if (childSgroup->isSgroupInSetOfAtoms(atomsToDelete) !=
         SgroupNotInAtomSet) {
       sgroupsToDelete.push_back(childSgroup);
     }
-  }
-
-  for (auto childSgroup : sgroupsToDelete) {
-    sgroups.erase(std::find(sgroups.begin(), sgroups.end(), childSgroup));
-    delete childSgroup;
   }
 
   // now fix the orphaned bonds - The first gets the atoms from the matched
@@ -2477,6 +2473,14 @@ void MarvinMultipleSgroup::contractOneMultipleSgroup() {
 
     orphanedBonds.erase(orphanedBonds.begin() + matchedOrphanBondIndex);
   };
+
+  // if we get here, all the changes to be made have been determined. so
+  // make them
+
+  for (auto childSgroup : sgroupsToDelete) {
+    sgroups.erase(std::find(sgroups.begin(), sgroups.end(), childSgroup));
+    delete childSgroup;
+  }
 
   // remove the atoms
 
@@ -2586,8 +2590,8 @@ void MarvinMolBase::processSgroupsFromRDKit() {
   {
     std::vector<std::string> sgroupsMolIdsDone;
     for (bool allDone = false;
-         !allDone;)  // until all at this level are done - but fixing one
-                     // child can add sgroups to this level
+         !allDone;)    // until all at this level are done - but fixing one
+                       // child can add sgroups to this level
     {
       allDone = true;  // unitl it is not true in the loop below
       for (auto sibling : this->parent->sgroups) {
@@ -2624,7 +2628,18 @@ void MarvinMolBase::processSgroupsFromRDKit() {
           ((MarvinSuperatomSgroupExpanded *)this)->convertToOneSuperAtom();
     } else if (thisSgroupRole == "MultipleSgroup" &&
                ((MarvinMultipleSgroup *)this)->isExpanded == true) {
-      ((MarvinMultipleSgroup *)this)->contractOneMultipleSgroup();
+      try {
+        ((MarvinMultipleSgroup *)this)->contractOneMultipleSgroup();
+      } catch (FileParseException &e) {
+        BOOST_LOG(rdErrorLog)
+            << e.what() << std::endl
+            << "The Mutliple sgroup will be ignored" << std::endl;
+
+        this->parent->sgroups.erase(std::find(
+            this->parent->sgroups.begin(), this->parent->sgroups.end(), this));
+        delete this;
+        return;
+      }
     }
   }
 
@@ -2632,8 +2647,8 @@ void MarvinMolBase::processSgroupsFromRDKit() {
 
   std::vector<std::string> chilrenSgroupsMolIdsDone;
   for (bool allDone = false;
-       !allDone;)  // until all at this level are done - but fixing one child
-                   // can add sgroups to this level
+       !allDone;)    // until all at this level are done - but fixing one child
+                     // can add sgroups to this level
   {
     allDone = true;  // unitl it is not true in the loop below
     for (auto childSgroup : molToProcess->sgroups) {

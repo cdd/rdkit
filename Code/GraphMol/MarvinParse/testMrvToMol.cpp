@@ -715,6 +715,7 @@ void RunTests() {
   // the molecule tests - starting with molfiles/sdf
 
   std::list<MolTest> sdfTests{
+      MolTest("ProblemShort.mol", true, LoadAsMolOrRxn, 993, 992),
       MolTest("badWedgeError.sdf", true, LoadAsMolOrRxn, 12, 13),
       MolTest("CrossedDoubleBondWithChiralNbr2.sdf", true, LoadAsMolOrRxn, 10,
               9),

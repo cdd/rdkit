@@ -17,6 +17,7 @@
 #include <vector>
 #include <sstream>
 #include <iomanip>
+#include <float.h>
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/xml_parser.hpp>
@@ -875,14 +876,7 @@ class MarvinCMLReader {
 
         MolOps::assignStereochemistry(*mol, true, true, true);
       } else {
-        // determine hybridization and remobe chiral atoms that are not sp3
-        uint operationThatFailed;
-        uint santitizeOps = MolOps::SANITIZE_SETCONJUGATION |
-                            MolOps::SANITIZE_SETHYBRIDIZATION |
-                            MolOps::SANITIZE_CLEANUPCHIRALITY |
-                            MolOps::SANITIZE_CLEANUPATROPISOMERS;
-
-        MolOps::sanitizeMol(*mol, operationThatFailed, santitizeOps);
+        MolOps::cleanupBadStereo(*mol);
 
         // we still need to do something about double bond stereochemistry
         // (was github issue 337)

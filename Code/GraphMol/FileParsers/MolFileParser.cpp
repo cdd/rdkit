@@ -3258,13 +3258,7 @@ void finishMolProcessing(RWMol *res, bool chiralityPossible, bool sanitize,
     }
     MolOps::assignStereochemistry(*res, true, true, true);
   } else {
-    // determine hybridization and remobe chiral atoms that are not sp3
-    unsigned int operationThatFailed;
-    unsigned int santitizeOps = MolOps::SANITIZE_SETCONJUGATION |
-                                MolOps::SANITIZE_SETHYBRIDIZATION |
-                                MolOps::SANITIZE_CLEANUPCHIRALITY |
-                                MolOps::SANITIZE_CLEANUPATROPISOMERS;
-    MolOps::sanitizeMol(*res, operationThatFailed, santitizeOps);
+    MolOps::cleanupBadStereo(*res);
 
     // we still need to do something about double bond stereochemistry
     // (was github issue 337)

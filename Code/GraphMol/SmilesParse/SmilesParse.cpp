@@ -494,13 +494,7 @@ RWMol *SmilesToMol(const std::string &smiles,
     bool cleanIt = true, force = true, flagPossible = true;
     MolOps::assignStereochemistry(*res, cleanIt, force, flagPossible);
   } else {
-    // determine hybridization and remobe chiral atoms that are not sp3
-    unsigned int operationThatFailed;
-    unsigned int santitizeOps = MolOps::SANITIZE_SETCONJUGATION |
-                                MolOps::SANITIZE_SETHYBRIDIZATION |
-                                MolOps::SANITIZE_CLEANUPCHIRALITY |
-                                MolOps::SANITIZE_CLEANUPATROPISOMERS;
-    MolOps::sanitizeMol(*res, operationThatFailed, santitizeOps);
+    MolOps::cleanupBadStereo(*res);
 
     // we still need to do something about double bond stereochemistry
     // (was github issue 337)

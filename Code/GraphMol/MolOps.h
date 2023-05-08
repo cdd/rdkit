@@ -900,9 +900,18 @@ RDKIT_GRAPHMOL_EXPORT std::list<int> getShortestPath(const ROMol &mol, int aid1,
 
 //! removes bogus chirality markers (those on non-sp3 centers):
 RDKIT_GRAPHMOL_EXPORT void cleanupChirality(RWMol &mol);
+RDKIT_GRAPHMOL_EXPORT void cleanupTetrahedralChirality(
+    RWMol &mol, std::vector<Atom::HybridizationType> &hybridizations);
 
 //! removes bogus chirality markers (those on non-sp3 centers):
 RDKIT_GRAPHMOL_EXPORT void cleanupAtropisomers(RWMol &mol);
+RDKIT_GRAPHMOL_EXPORT void cleanupAtropisomers(
+    RWMol &mol, std::vector<Atom::HybridizationType> &hybridizations);
+
+RDKIT_GRAPHMOL_EXPORT void getHybridizations(
+    RWMol &mol, std::vector<Atom::HybridizationType> &hybridizations);
+
+RDKIT_GRAPHMOL_EXPORT void cleanupBadStereo(RWMol &mol);
 
 //! \brief Uses a conformer to assign ChiralTypes to a molecule's atoms
 /*!

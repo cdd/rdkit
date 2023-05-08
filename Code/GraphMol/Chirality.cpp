@@ -2504,6 +2504,37 @@ void cleanupChirality(RWMol &mol) {
   }
 }
 
+void cleanupTetrahedralChirality(
+    RWMol &mol, std::vector<Atom::HybridizationType> &hybridizations) {
+  unsigned int perm;
+  for (auto atom : mol.atoms()) {
+    switch (atom->getChiralTag()) {
+      case Atom::CHI_TETRAHEDRAL_CW:
+      case Atom::CHI_TETRAHEDRAL_CCW:
+        if (hybridizations[atom->getIdx()] != Atom::SP3) {
+          atom->setChiralTag(Atom::CHI_UNSPECIFIED);
+        }
+        break;
+
+      case Atom::CHI_TETRAHEDRAL:
+        if (hybridizations[atom->getIdx()] != Atom::SP3) {
+          atom->setChiralTag(Atom::CHI_UNSPECIFIED);
+        } else {
+          perm = 0;
+          atom->getPropIfPresent(common_properties::_chiralPermutation, perm);
+          if (perm > 2) {
+            perm = 0;
+            atom->setProp(common_properties::_chiralPermutation, perm);
+          }
+        }
+        break;
+
+      default:
+        break;
+    }
+  }
+}
+
 void cleanupAtropisomers(RWMol &mol) {
   for (auto bond : mol.bonds()) {
     switch (bond->getStereo()) {
@@ -2511,6 +2542,25 @@ void cleanupAtropisomers(RWMol &mol) {
       case Bond::BondStereo::STEREOATROPCCW:
         if (bond->getBeginAtom()->getHybridization() != Atom::SP2 ||
             bond->getEndAtom()->getHybridization() != Atom::SP2) {
+          bond->setStereo(Bond::BondStereo::STEREONONE);
+        }
+
+        break;
+
+      default:
+        break;
+    }
+  }
+}
+
+void cleanupAtropisomers(RWMol &mol,
+                         std::vector<Atom::HybridizationType> &hybs) {
+  for (auto bond : mol.bonds()) {
+    switch (bond->getStereo()) {
+      case Bond::BondStereo::STEREOATROPCW:
+      case Bond::BondStereo::STEREOATROPCCW:
+        if (hybs[bond->getBeginAtom()->getIdx()] != Atom::SP2 ||
+            hybs[bond->getEndAtom()->getIdx()] != Atom::SP2) {
           bond->setStereo(Bond::BondStereo::STEREONONE);
         }
 

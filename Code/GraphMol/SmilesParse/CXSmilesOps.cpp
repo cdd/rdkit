@@ -63,6 +63,7 @@ void processCXSmilesLabels(RWMol &mol) {
   for (auto atom : mol.atoms()) {
     std::string symb = "";
     if (atom->getPropIfPresent(common_properties::atomLabel, symb)) {
+      atom->clearProp(common_properties::dummyLabel);
       if (symb == "star_e") {
         /* according to the MDL spec, these match anything, but in MARVIN they
         are "unspecified end groups" for polymers */

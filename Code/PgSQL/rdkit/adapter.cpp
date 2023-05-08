@@ -56,7 +56,6 @@
 #include <GraphMol/SmilesParse/SmilesWrite.h>
 #include <GraphMol/Fingerprints/Fingerprints.h>
 #include <GraphMol/FileParsers/FileParsers.h>
-#include <GraphMol/GenericGroups/GenericGroups.h>
 #include <GraphMol/Depictor/RDDepictor.h>
 #include <GraphMol/Fingerprints/AtomPairs.h>
 #include <GraphMol/Fingerprints/MorganFingerprints.h>
@@ -106,6 +105,13 @@
 using namespace std;
 using namespace RDKit;
 
+constexpr unsigned int pickleForQuery =
+        PicklerOps::PropertyPickleOptions::AtomProps |
+        PicklerOps::PropertyPickleOptions::BondProps |
+        PicklerOps::PropertyPickleOptions::PrivateProps |
+        PicklerOps::PropertyPickleOptions::QueryAtomData;
+constexpr unsigned int pickleDefault = PicklerOps::PropertyPickleOptions::NoProps;
+        
 class ByteA : public std::string {
  public:
   ByteA() : string(){};
@@ -168,12 +174,12 @@ extern "C" CROMol constructROMol(Mol *data) {
   return (CROMol)mol;
 }
 
-extern "C" Mol *deconstructROMol(CROMol data) {
+Mol *deconstructROMolWithProps(CROMol data, unsigned int properties) {
   auto *mol = (ROMol *)data;
   ByteA b;
 
   try {
-    MolPickler::pickleMol(mol, b);
+    MolPickler::pickleMol(mol, b, properties);
   } catch (MolPicklerException &e) {
     elog(ERROR, "pickleMol: %s", e.what());
   } catch (...) {
@@ -182,6 +188,15 @@ extern "C" Mol *deconstructROMol(CROMol data) {
 
   return (Mol *)b.toByteA();
 }
+
+extern "C" Mol *deconstructROMol(CROMol data) {
+  return deconstructROMolWithProps(data, pickleDefault);
+}
+
+extern "C" Mol *deconstructROMolWithQueryProperties(CROMol data) {
+  return deconstructROMolWithProps(data, pickleForQuery);
+}
+
 
 extern "C" CROMol parseMolText(char *data, bool asSmarts, bool warnOnFail,
                                bool asQuery, bool sanitize) {
@@ -560,6 +575,7 @@ extern "C" int molcmp(CROMol i, CROMol a) {
   params.useChirality = useChirality;
   params.useEnhancedStereo = useEnhancedStereo;
   params.maxMatches = 1;
+  params.useQueryQueryMatches = true;  // <- this was part of github #6002
   auto mv1 = RDKit::SubstructMatch(*im, *am, params);
   auto mv2 = RDKit::SubstructMatch(*am, *im, params);
   bool ss1 = mv1.size() != 0;
@@ -583,7 +599,8 @@ extern "C" int molcmp(CROMol i, CROMol a) {
   return smi1 == smi2 ? 0 : (smi1 < smi2 ? -1 : 1);
 }
 
-extern "C" int MolSubstruct(CROMol i, CROMol a, bool useChirality, bool useMatchers) {
+extern "C" int MolSubstruct(CROMol i, CROMol a, bool useChirality,
+                            bool useMatchers) {
   auto *im = (ROMol *)i;
   auto *am = (ROMol *)a;
   RDKit::SubstructMatchParameters params;
@@ -594,13 +611,11 @@ extern "C" int MolSubstruct(CROMol i, CROMol a, bool useChirality, bool useMatch
     params.useChirality = getDoChiralSSS();
     params.useEnhancedStereo = getDoEnhancedStereoSSS();
   }
-  
-  if (useMatchers) {
-    GenericGroups::setGenericQueriesFromProperties(*am);
-    params.useGenericMatchers = true;
-  }
+  params.useQueryQueryMatches = true;
+
+  params.useGenericMatchers = useMatchers;
   params.maxMatches = 1;
-  
+
   auto matchVect = RDKit::SubstructMatch(*im, *am, params);
   return static_cast<int>(matchVect.size());
 }
@@ -618,6 +633,7 @@ extern "C" int MolSubstructCount(CROMol i, CROMol a, bool uniquify,
     params.useEnhancedStereo = getDoEnhancedStereoSSS();
   }
   params.uniquify = uniquify;
+  params.useQueryQueryMatches = true;
   auto matchVect = RDKit::SubstructMatch(*im, *am, params);
   return static_cast<int>(matchVect.size());
 }

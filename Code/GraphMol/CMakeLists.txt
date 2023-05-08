@@ -15,6 +15,7 @@ rdkit_library(GraphMol
               Renumber.cpp AdjustQuery.cpp Resonance.cpp StereoGroup.cpp
               new_canon.cpp SubstanceGroup.cpp FindStereo.cpp MonomerInfo.cpp
               NontetrahedralStereo.cpp Atropisomers.cpp MolFileStereochem.cpp
+              GenericGroups/GenericGroups.cpp
               SHARED
               LINK_LIBRARIES RDGeometryLib RDGeneral ${RDKit_SERIALIZATION_LIBS} )
 target_compile_definitions(GraphMol PRIVATE RDKIT_GRAPHMOL_BUILD)
@@ -131,7 +132,7 @@ add_subdirectory(Abbreviations)
 rdkit_test(graphmolTest1 test1.cpp LINK_LIBRARIES FileParsers SmilesParse GraphMol
  SubstructMatch ForceFieldHelpers ForceField)
 
-rdkit_test(graphmolcpTest cptest.cpp LINK_LIBRARIES  SmilesParse GraphMol)
+rdkit_test(graphmolcpTest cptest.cpp LINK_LIBRARIES  SmilesParse GraphMol )
 
 rdkit_test(graphmolqueryTest querytest.cpp LINK_LIBRARIES SubstructMatch SmilesParse GraphMol)
 

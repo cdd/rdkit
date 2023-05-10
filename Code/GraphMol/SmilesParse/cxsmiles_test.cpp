@@ -994,6 +994,39 @@ void testSmilesCanonicalization(std::string smiles,
   }
 }
 
+void testMolCanonicalization(std::string fileName1, std::string fileName2,
+                             unsigned int atomIndexToMark1,
+                             Atom::ChiralType chiralType1,
+                             unsigned int atomIndexToMark2,
+                             Atom::ChiralType chiralType2) {
+  BOOST_LOG(rdInfoLog) << "testing mol canonicalization " << std::endl;
+  std::string rdbase = getenv("RDBASE");
+  std::string fName1 =
+      rdbase + "/Code/GraphMol/SmilesParse/test_data/" + fileName1;
+  std::string fName2 =
+      rdbase + "/Code/GraphMol/SmilesParse/test_data/" + fileName2;
+
+  try {
+    std::unique_ptr<RWMol> mol1(MolFileToMol(fName1, true, false, false));
+    mol1->getAtomWithIdx(atomIndexToMark1)->setChiralTag(chiralType1);
+
+    std::unique_ptr<RWMol> mol2(MolFileToMol(fName2, true, false, false));
+    mol2->getAtomWithIdx(atomIndexToMark2)->setChiralTag(chiralType2);
+    CHECK(mol1->getNumAtoms() > 0);
+    CHECK(mol2->getNumAtoms() > 0);
+
+    auto smilesOut1 = MolToSmiles(*mol1);
+    auto smilesOut2 = MolToSmiles(*mol2);
+
+    CHECK(smilesOut1 == smilesOut2);
+
+    BOOST_LOG(rdInfoLog) << "done" << std::endl;
+  } catch (const std::exception &e) {
+    CHECK(false);
+    return;
+  }
+}
+
 TEST_CASE("SMILES CANONICALIZATION") {
   SECTION("adamantaneError") {
     std::string expectedSmiles =
@@ -1005,6 +1038,12 @@ TEST_CASE("SMILES CANONICALIZATION") {
 
     testSmilesCanonicalization(AdamantaneError1, expectedSmiles);
     testSmilesCanonicalization(AdamantaneError2, expectedSmiles);
+  }
+
+  SECTION("chiralCopper") {
+    testMolCanonicalization("ChiralSpiro.sdf", "ChiralSpiro2.sdf", 4,
+                            Atom::CHI_TETRAHEDRAL_CCW, 4,
+                            Atom::CHI_TETRAHEDRAL_CCW);
   }
 
   SECTION("Other Compounds") {

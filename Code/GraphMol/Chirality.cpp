@@ -306,9 +306,9 @@ Atom::ChiralType atomChiralTypeFromBondDir(const ROMol &mol, const Bond *bond,
         if (dir1 != Bond::NONE && dir1 != dir0) {
           if ((angle01 >= M_PI) ||  // last two examples
               (angle02 > M_PI && dir2 != Bond::NONE &&
-               dir1 != dir2) ||  // top two examples
+               dir1 != dir2) ||     // top two examples
               (angle02 <= M_PI && dir2 != Bond::NONE &&
-               dir0 != dir2)) {  // middle two examples
+               dir0 != dir2)) {     // middle two examples
             BOOST_LOG(rdWarningLog)
                 << "Warning: conflicting stereochemistry at atom "
                 << bond->getBeginAtomIdx() << " ignored."
@@ -2536,21 +2536,10 @@ void cleanupTetrahedralChirality(
 }
 
 void cleanupAtropisomers(RWMol &mol) {
-  for (auto bond : mol.bonds()) {
-    switch (bond->getStereo()) {
-      case Bond::BondStereo::STEREOATROPCW:
-      case Bond::BondStereo::STEREOATROPCCW:
-        if (bond->getBeginAtom()->getHybridization() != Atom::SP2 ||
-            bond->getEndAtom()->getHybridization() != Atom::SP2) {
-          bond->setStereo(Bond::BondStereo::STEREONONE);
-        }
+  std::vector<Atom::HybridizationType> hybs;
+  MolOps::getHybridizations(mol, hybs);
 
-        break;
-
-      default:
-        break;
-    }
-  }
+  cleanupAtropisomers(mol, hybs);
 }
 
 void cleanupAtropisomers(RWMol &mol,
@@ -2782,19 +2771,19 @@ static bool assignNontetrahedralChiralTypeFrom3D(ROMol &mol,
           atom->setChiralTag(Atom::ChiralType::CHI_TRIGONALBIPYRAMIDAL);
           res = true;
           if (pair[0] == 2) {
-            perm = VOLTEST(0, 2, 3) ? 7 : 8;  // a b
+            perm = VOLTEST(0, 2, 3) ? 7 : 8;    // a b
           } else if (pair[0] == 3) {
-            perm = VOLTEST(0, 1, 3) ? 5 : 6;  // a c
+            perm = VOLTEST(0, 1, 3) ? 5 : 6;    // a c
           } else if (pair[0] == 4) {
-            perm = VOLTEST(0, 1, 2) ? 3 : 4;  // a d
+            perm = VOLTEST(0, 1, 2) ? 3 : 4;    // a d
           } else if (pair[0] == 5) {
-            perm = VOLTEST(0, 1, 2) ? 1 : 2;  // a e
+            perm = VOLTEST(0, 1, 2) ? 1 : 2;    // a e
           } else if (pair[1] == 3) {
             perm = VOLTEST(1, 0, 3) ? 13 : 14;  // b c
           } else if (pair[1] == 4) {
             perm = VOLTEST(1, 0, 2) ? 10 : 12;  // b d
           } else if (pair[1] == 5) {
-            perm = VOLTEST(1, 0, 2) ? 9 : 11;  // b e
+            perm = VOLTEST(1, 0, 2) ? 9 : 11;   // b e
           } else if (pair[2] == 4) {
             perm = VOLTEST(2, 0, 1) ? 16 : 19;  // c d
           } else if (pair[2] == 5) {

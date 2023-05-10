@@ -683,11 +683,11 @@ void testMolFiles(const MolTest *molFileTest) {
 
       // code to create the expected files for new or changed tests
 
-      {
-        std::ofstream out;
-        out.open(fName + ".NEW.cxsmi");
-        out << smilesOut;
-      }
+      // {
+      //   std::ofstream out;
+      //   out.open(fName + ".NEW.cxsmi");
+      //   out << smilesOut;
+      // }
 
       std::stringstream expectedMolStr;
       std::ifstream in;

@@ -494,7 +494,7 @@ RWMol *SmilesToMol(const std::string &smiles,
     bool cleanIt = true, force = true, flagPossible = true;
     MolOps::assignStereochemistry(*res, cleanIt, force, flagPossible);
   } else {
-    MolOps::cleanupBadStereo(*res);
+    MolOps::cleanupAtropisomers(*res);
 
     // we still need to do something about double bond stereochemistry
     // (was github issue 337)

@@ -2002,12 +2002,14 @@ to the terminal dummy atoms.\n\
     - mol: the molecule to use\n\
     - confId: the conformer id to use, -1 for the default \n\
     - replaceExistingTags: if True, existing stereochemistry information will be cleared\n\
+    - explicitOnly: if True, only atoms with wedge information will be marked as chiral - default false\n\
     before running the calculation.\n\
 \n";
     python::def("AssignAtomChiralTagsFromStructure",
                 MolOps::assignChiralTypesFrom3D,
                 (python::arg("mol"), python::arg("confId") = -1,
-                 python::arg("replaceExistingTags") = true),
+                 python::arg("replaceExistingTags") = true,
+                 python::arg("explicitOnly") = false),
                 docString.c_str());
 
     // ------------------------------------------------------------------------

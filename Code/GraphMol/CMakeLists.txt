@@ -34,6 +34,7 @@ rdkit_headers(Atom.h
               Canon.h
               Chirality.h
               Conformer.h
+              MolFileStereochem.h  
               details.h
               GraphMol.h
               MolOps.h

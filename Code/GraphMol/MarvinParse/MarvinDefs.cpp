@@ -17,6 +17,16 @@ thread_local std::map<std::string, std::string> sgMap;
 thread_local std::map<std::string, std::string> atomMap;
 thread_local std::map<std::string, std::string> bondMap;
 
+std::string getDoubleAsText(double val) {
+  if (fabs(val) < 0.00001) {
+    return "0.00000";
+  }
+
+  std::ostringstream valstr;
+  valstr << val;
+  return valstr.str();
+}
+
 void MarvinMolBase::clearMaps() {
   sgMap.clear();
   atomMap.clear();
@@ -61,15 +71,10 @@ void MarvinMolBase::addSgroupsToPtree(ptree &out) const {
 ptree MarvinArrow::toPtree() const {
   ptree out;
   out.put("<xmlattr>.type", type);
-  std::ostringstream x1str, y1str, x2str, y2str;
-  x1str << x1;
-  y1str << y1;
-  x2str << x2;
-  y2str << y2;
-  out.put("<xmlattr>.x1", x1str.str());
-  out.put("<xmlattr>.y1", y1str.str());
-  out.put("<xmlattr>.x2", x2str.str());
-  out.put("<xmlattr>.y2", y2str.str());
+  out.put("<xmlattr>.x1", getDoubleAsText(x1));
+  out.put("<xmlattr>.y1", getDoubleAsText(y1));
+  out.put("<xmlattr>.x2", getDoubleAsText(x2));
+  out.put("<xmlattr>.y2", getDoubleAsText(y2));
 
   return out;
 }
@@ -112,27 +117,22 @@ ptree MarvinPlus::toPtree() const {
   field.put_value("{D font=SansSerif,size=18,bold}+");
 
   out.put_child("Field", field);
-  std::ostringstream x1str, y1str, x2str, y2str;
-  x1str << x1;
-  y1str << y1;
-  x2str << x2;
-  y2str << y2;
 
   ptree p1, p2, p3, p4;
-  p1.put("<xmlattr>.x", x1str.str());
-  p1.put("<xmlattr>.y", y1str.str());
+  p1.put("<xmlattr>.x", getDoubleAsText(x1));
+  p1.put("<xmlattr>.y", getDoubleAsText(y1));
   out.add_child("MPoint", p1);
 
-  p2.put("<xmlattr>.x", x2str.str());
-  p2.put("<xmlattr>.y", y1str.str());
+  p2.put("<xmlattr>.x", getDoubleAsText(x2));
+  p2.put("<xmlattr>.y", getDoubleAsText(y1));
   out.add_child("MPoint", p2);
 
-  p3.put("<xmlattr>.x", x2str.str());
-  p3.put("<xmlattr>.y", y2str.str());
+  p3.put("<xmlattr>.x", getDoubleAsText(x2));
+  p3.put("<xmlattr>.y", getDoubleAsText(y2));
   out.add_child("MPoint", p3);
 
-  p4.put("<xmlattr>.x", x1str.str());
-  p4.put("<xmlattr>.y", y2str.str());
+  p4.put("<xmlattr>.x", getDoubleAsText(x1));
+  p4.put("<xmlattr>.y", getDoubleAsText(y2));
   out.add_child("MPoint", p4);
 
   return out;
@@ -341,21 +341,14 @@ ptree MarvinAtom::toPtree() const {
   out.put("<xmlattr>.elementType", elementType);
 
   if (x2 != DBL_MAX && y2 != DBL_MAX) {
-    std::ostringstream xstr, ystr;
-    xstr << x2;
-    ystr << y2;
-    out.put("<xmlattr>.x2", xstr.str());
-    out.put("<xmlattr>.y2", ystr.str());
+    out.put("<xmlattr>.x2", getDoubleAsText(x2));
+    out.put("<xmlattr>.y2", getDoubleAsText(y2));
   }
 
   if (x3 != DBL_MAX && y3 != DBL_MAX && z3 != DBL_MAX) {
-    std::ostringstream xstr, ystr, zstr;
-    xstr << x3;
-    ystr << y3;
-    zstr << z3;
-    out.put("<xmlattr>.x3", xstr.str());
-    out.put("<xmlattr>.y3", ystr.str());
-    out.put("<xmlattr>.z3", zstr.str());
+    out.put("<xmlattr>.x3", getDoubleAsText(x3));
+    out.put("<xmlattr>.y3", getDoubleAsText(y3));
+    out.put("<xmlattr>.z3", getDoubleAsText(z3));
   }
 
   if (formalCharge != 0) {

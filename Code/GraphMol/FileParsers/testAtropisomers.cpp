@@ -271,7 +271,7 @@ void RunTests() {
       // note the rp-6306_3d.sdf is backwards from the 2D versions
       // the 2D version were based on images from drug hunter
       // the 3D version came from PUBCHEM
-      MolTest("Rp-6306_3d.sdf", true, LoadAsMolOrRxn, 44, 46),
+      MolTest("RP-6306_3d.sdf", true, LoadAsMolOrRxn, 44, 46),
       MolTest("Sotorasib.sdf", true, LoadAsMolOrRxn, 41, 45),
       MolTest("Sotorasib_atrop1.sdf", true, LoadAsMolOrRxn, 41, 45),
       MolTest("Sotorasib_atrop2.sdf", true, LoadAsMolOrRxn, 41, 45),

@@ -20,6 +20,23 @@ cmake .. \
     -DRDK_INSTALL_INTREE=OFF \
     -DCMAKE_POLICY_DEFAULT_CMP0074=NEW ${EXTRA_FLAGS}
 
+
+if [[ $5 != "NODEB" ]]; then
+    UPSTREAM_VERSION=$(<../UPSTREAM_VERSION)
+    CDD_VERSION=$(<../CDD_VERSION)
+
+    sudo checkinstall \
+        --pakdir .. \
+        --backup=no \
+        --install=no \
+        --nodoc \
+        --pkgname $3 \
+        --pkgversion $UPSTREAM_VERSION \
+        --pkgrelease $CDD_VERSION \
+        -y \
+        make -j$(nproc) install
+fi
+
 if [[ $4 == "TEST" ]]; then
     make -j$(nproc)
     sudo make -j$(nproc) install
@@ -42,20 +59,3 @@ if [[ $4 == "TEST" ]]; then
         fi
     fi
 fi
-
-if [[ $5 == "NODEB" ]]; then
-    exit
-fi
-
-UPSTREAM_VERSION=$(<../UPSTREAM_VERSION)
-CDD_VERSION=$(<../CDD_VERSION)
-
-sudo checkinstall \
-    --backup=no \
-    --install=no \
-    --nodoc \
-    --pkgname $3 \
-    --pkgversion $UPSTREAM_VERSION \
-    --pkgrelease $CDD_VERSION \
-    -y \
-    make -j$(nproc) install

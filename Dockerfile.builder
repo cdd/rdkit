@@ -12,4 +12,4 @@ COPY . .
 RUN --mount=type=cache,target=/rdkit/build ./build-deb ${BUILD_PG} ${BUILD_PY} ${PACKAGE_NAME} ${TEST}
 
 FROM scratch as artifact
-COPY --from=build /rdkit/build/*.deb .
+COPY --from=build /rdkit/*.deb .

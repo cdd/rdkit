@@ -11,6 +11,6 @@ docker buildx build \
     --build-arg PACKAGE_NAME=$3 \
     --build-arg TEST=$4 \
     --target=artifact \
-    --output type=local,dest=$(pwd)/build \
+    --output build \
     -f Dockerfile.builder \
     .

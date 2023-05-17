@@ -711,6 +711,96 @@ void testMolFiles(const MolTest *molFileTest) {
   return;
 }
 
+void testRxn(const RxnTest *rxnTest) {
+  BOOST_LOG(rdInfoLog) << "testing RXN file to Marvin" << std::endl;
+
+  std::string rdbase = getenv("RDBASE");
+  std::string fName =
+      rdbase + "/Code/GraphMol/MarvinParse/test_data/" + rxnTest->fileName;
+
+  try {
+    std::unique_ptr<ChemicalReaction> rxn(
+        RxnFileToChemicalReaction(fName, false, false, false));
+
+    // check for errors
+
+    unsigned int nWarn = 0, nError = 0;
+
+    TEST_ASSERT(rxn != nullptr);
+
+    TEST_ASSERT(rxn->getNumReactantTemplates() == rxnTest->reactantCount);
+    TEST_ASSERT(rxn->getNumProductTemplates() == rxnTest->productCount);
+    TEST_ASSERT(rxn->getNumAgentTemplates() == rxnTest->agentCount);
+    rxn->initReactantMatchers(true);
+
+    if (rxn->getNumReactantTemplates() > 0 &&
+        rxn->getNumProductTemplates() > 0) {
+      TEST_ASSERT(rxn->validate(nWarn, nError, true));
+    } else {
+      nWarn = 0;
+      nError = 0;
+    }
+
+    TEST_ASSERT(nWarn == rxnTest->warnings);
+    TEST_ASSERT(nError == rxnTest->errors);
+
+    // // make sure the Rxn is kekule'ed
+
+    for (auto mol : rxn->getReactants()) {
+      auto rwMol = (RWMol *)mol.get();
+      if (rwMol->needsUpdatePropertyCache()) {
+        rwMol->updatePropertyCache(false);
+      }
+      MolOps::Kekulize(*rwMol);
+    }
+    for (auto mol : rxn->getAgents()) {
+      auto rwMol = (RWMol *)mol.get();
+      if (rwMol->needsUpdatePropertyCache()) {
+        rwMol->updatePropertyCache(false);
+      }
+      MolOps::Kekulize(*rwMol);
+    }
+    for (auto mol : rxn->getProducts()) {
+      auto rwMol = (RWMol *)mol.get();
+      if (rwMol->needsUpdatePropertyCache()) {
+        rwMol->updatePropertyCache(false);
+      }
+      MolOps::Kekulize(*rwMol);
+    }
+
+    {
+      std::string outMolStr = ChemicalReactionToMrvBlock(*rxn);
+
+      // code to create the expected files for new or changed tests
+
+      // {
+      //   std::ofstream out;
+      //   out.open(fName + ".NEW.mrv");
+      //   out << outMolStr;
+      // }
+
+      std::string expectedRxnName = fName + ".expected.mrv";
+      std::stringstream expectedMolStr;
+      std::ifstream in;
+      in.open(expectedRxnName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      TEST_ASSERT(expectedStr == outMolStr);
+    }
+    BOOST_LOG(rdInfoLog) << "done" << std::endl;
+  } catch (const std::exception &e) {
+    if (rxnTest->expectedResult != false) {
+      throw;
+    }
+    return;
+  }
+
+  TEST_ASSERT(rxnTest->expectedResult == true);
+
+  return;
+}
+
 void RunTests() {
   // the molecule tests - starting with molfiles/sdf
 
@@ -736,6 +826,17 @@ void RunTests() {
 
     printf("Test\n\n %s\n\n", sdfTest.fileName.c_str());
     testMolFiles(&sdfTest);
+  }
+
+  // now the RXN reactions
+
+  std::list<RxnTest> rxnFileTests{
+      RxnTest("BadRxn.rxn", true, LoadAsMolOrRxn, 2, 0, 1, 3, 0),
+  };
+
+  for (auto rxnFileTest : rxnFileTests) {
+    printf("Test\n\n %s\n\n", rxnFileTest.fileName.c_str());
+    testRxn(&rxnFileTest);
   }
 
   std::list<MolTest> molFileTests{
@@ -909,7 +1010,7 @@ void RunTests() {
 
   // now the reactions
 
-  std::list<RxnTest> rxnFileTests{
+  std::list<RxnTest> mrvRxnFileTests{
       RxnTest("AlexRxn.mrv", true, LoadAsMolOrRxn, 1, 0, 1, 2, 0),
       RxnTest("BadReactionSign.mrv", true, LoadAsMolOrRxn, 2, 0, 1, 3, 0),
       RxnTest("bondArray_node.mrv", true, LoadAsMolOrRxn, 2, 4, 1, 3, 0),
@@ -931,7 +1032,7 @@ void RunTests() {
       RxnTest("aspirineSynthesisWithAttributes.mrv", true, LoadAsMolOrRxn, 2, 0,
               1, 3, 0)};
 
-  for (auto rxnFileTest : rxnFileTests) {
+  for (auto rxnFileTest : mrvRxnFileTests) {
     printf("Test\n\n %s\n\n", rxnFileTest.fileName.c_str());
     testMarvin(&rxnFileTest);
   }

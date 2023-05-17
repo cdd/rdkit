@@ -502,6 +502,9 @@ class MarvinCMLWriter {
         }
       }
 
+      if (mol->needsUpdatePropertyCache()) {
+        mol->updatePropertyCache(false);
+      }
       for (auto atom : mol->atoms()) {
         auto marvinAtom = new MarvinAtom();
         marvinMol->atoms.push_back(marvinAtom);
@@ -567,11 +570,6 @@ class MarvinCMLWriter {
         }
 
         // atom maps for rxns
-
-        if (!atom->getPropIfPresent(common_properties::molAtomMapNumber,
-                                    marvinAtom->mrvMap)) {
-          marvinAtom->mrvMap = 0;
-        }
       }
 
       INT_MAP_INT wedgeBonds = pickBondsToWedge(*mol);
@@ -891,7 +889,7 @@ class MarvinCMLWriter {
         MarvinRectangle(v1);  // composite rectangle for the previous row
     auto rect2 = MarvinRectangle(v2);  // composite rectangle for the row
     return MarvinRectangle::compareRectanglesByYReverse(
-        rect1, rect2);  // just compare the first one in each row
+        rect1, rect2);                 // just compare the first one in each row
   }
 
   double GetArrowPerdendicularPosition(

@@ -26,6 +26,8 @@ if [[ $EXTANT_VERSIONS == *$DEB_VERSION* ]]; then
     exit
 fi
 
+# The source install deps changed directory
+cd ..
 DEB_FILE=$(ls | grep *.deb)
 DEB_SHA=$(sha256sum $DEB_FILE | awk '{print $1;}')
 

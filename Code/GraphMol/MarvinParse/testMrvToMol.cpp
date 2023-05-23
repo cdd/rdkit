@@ -417,15 +417,15 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest) {
 
         std::string outMolStr = "";
         try {
-          outMolStr = MolToMrvBlock(*mol, true, -1, true, false);
+          outMolStr = MolToMrvBlock(*mol, true, -1, true, false, true);
         } catch (const RDKit::KekulizeException &e) {
           outMolStr = "";
         } catch (...) {
           throw;  // re-throw the error if not a kekule error
         }
         if (outMolStr == "") {
-          outMolStr = MolToMrvBlock(*mol, true, -1, false,
-                                    false);  // try without kekule'ing
+          outMolStr = MolToMrvBlock(*mol, true, -1, false, false,
+                                    true);  // try without kekule'ing
         }
         // code to create the expected files for new or changed tests
 
@@ -455,6 +455,63 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest) {
 
   TEST_ASSERT(molOrRxnTest->expectedResult == true);
 
+  return;
+}
+
+void testMarvinRxnMols(const RxnTest *rxnTest) {
+  BOOST_LOG(rdInfoLog) << "testing marvin parsing" << std::endl;
+
+  std::string rdbase = getenv("RDBASE");
+  std::string fName =
+      rdbase + "/Code/GraphMol/MarvinParse/test_data/" + rxnTest->fileName;
+
+  try {
+    std::unique_ptr<ChemicalReaction> rxn(
+        MrvRxnFileParser(fName, false, false));
+
+    std::unique_ptr<ROMol> oneMol(ChemicalReactionToRxnMol(*rxn));
+
+    auto rwMol = (RWMol *)oneMol.get();
+    if (rwMol->needsUpdatePropertyCache()) {
+      rwMol->updatePropertyCache(false);
+    }
+    MolOps::Kekulize(*rwMol);
+    reapplyMolBlockWedging(*rwMol);
+
+    {
+      std::string outMolStr =
+          MolToMrvBlock(*rwMol, false, -1, false, false, true);
+
+      // code to create the expected files for new or changed tests
+
+      {
+        std::ofstream out;
+        out.open(fName + ".NEW.mrv");
+        out << outMolStr;
+      }
+
+      std::string expectedRxnName = fName + ".expected.mrv";
+      std::stringstream expectedMolStr;
+      std::ifstream in;
+      in.open(expectedRxnName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      TEST_ASSERT(expectedStr == outMolStr);
+    }
+    BOOST_LOG(rdInfoLog) << "done" << std::endl;
+
+    BOOST_LOG(rdInfoLog) << "done" << std::endl;
+  } catch (const std::exception &e) {
+    if (rxnTest->expectedResult != false) {
+          throw;
+    }
+    return;
+  }
+
+
+  TEST_ASSERT(rxnTest->expectedResult == true);
+  
   return;
 }
 
@@ -663,7 +720,6 @@ void testMarvin3dChiral(const MolOrRxnTest *molOrRxnTest) {
     }
     return;
   }
-
   TEST_ASSERT(molOrRxnTest->expectedResult == true);
 
   return;
@@ -848,7 +904,7 @@ void testMolFiles(const MolTest *molFileTest) {
 
       std::string outMolStr = "";
       try {
-        outMolStr = MolToMrvBlock(*mol, true, -1, true, false);
+        outMolStr = MolToMrvBlock(*mol, true, -1, true, false, true);
       } catch (const RDKit::KekulizeException &e) {
         outMolStr = "";
       } catch (...) {
@@ -856,7 +912,7 @@ void testMolFiles(const MolTest *molFileTest) {
       }
       if (outMolStr == "") {
         // try without kekule'ing
-        outMolStr = MolToMrvBlock(*mol, true, -1, false, false);
+        outMolStr = MolToMrvBlock(*mol, true, -1, false, false, true);
       }
       // code to create the expected files for new or changed tests
 
@@ -1016,6 +1072,20 @@ void testRxn(const RxnTest *rxnTest) {
 }
 
 void RunTests() {
+  // rxn test returning a single mol
+
+  std::list<RxnTest> rxnMolTests{
+      RxnTest("rxnStereoMarkedCrossed.mrv", true, LoadAsMolOrRxn, 1, 0, 1, 2,
+              0),
+  };
+
+  for (auto rxnMolTest : rxnMolTests) {
+    BOOST_LOG(rdInfoLog) << "Test: " << rxnMolTest.fileName << std::endl;
+
+    printf("Test\n\n %s\n\n", rxnMolTest.fileName.c_str());
+    testMarvinRxnMols(&rxnMolTest);
+  }
+
   // the molecule tests - starting with molfiles/sdf
 
   std::list<MolTest> sdfTests{

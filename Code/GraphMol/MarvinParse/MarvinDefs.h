@@ -25,6 +25,8 @@
 #include <boost/format.hpp>
 #include <RDGeneral/BoostEndInclude.h>
 
+#include <float.h> // Needed for DBL_MAX on Clang
+
 using boost::property_tree::ptree;
 
 namespace RDKit {

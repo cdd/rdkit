@@ -357,50 +357,6 @@ class MarvinCMLWriter {
     }
   }
 
- private:
-  bool checkNeighborsForNoBondDir(const Bond *bond, const Atom *atom) {
-    // this checks the neighbors of a double bond to see if they have a wedge
-    // that is NOT associated with a chiral center
-
-    PRECONDITION(bond, "no bond");
-    PRECONDITION(atom, "no atom");
-    std::vector<int> nbrRanks;
-    for (auto nbrBond : bond->getOwningMol().atomBonds(atom)) {
-      if (nbrBond->getBondDir() == Bond::ENDUPRIGHT ||
-          nbrBond->getBondDir() == Bond::ENDDOWNRIGHT) {
-        return false;
-      } else {
-        const auto otherAtom = nbrBond->getOtherAtom(atom);
-        int rank;
-        if (otherAtom->getPropIfPresent(common_properties::_CIPRank, rank)) {
-          if (std::find(nbrRanks.begin(), nbrRanks.end(), rank) !=
-              nbrRanks.end()) {
-            return false;
-          } else {
-            nbrRanks.push_back(rank);
-          }
-        }
-      }
-    }
-    return true;
-  }
-
- private:
-  bool checkNeighborsForWiggleBond(const Bond *bond, Atom *atom) {
-    // this checks the neighbors of a double bond to see if they have a wiggle
-    // bond or not
-
-    PRECONDITION(bond, "no bond");
-    for (auto nbrBond : bond->getOwningMol().atomBonds(atom)) {
-      if (nbrBond->getBondDir() == Bond::BondDir::UNKNOWN &&
-          nbrBond->getBeginAtomIdx() == atom->getIdx()) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
   void GetMarvinBondStereoInfo(const Bond *bond, const INT_MAP_INT &wedgeBonds,
                                const Conformer *conf, Bond::BondDir &dir,
                                bool &reverse,

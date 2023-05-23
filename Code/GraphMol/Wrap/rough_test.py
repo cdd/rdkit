@@ -7177,6 +7177,133 @@ CAS<~>
 
     self.assertEqual(mae, iomae[ctBlockStart:])
 
+  def test3dChiralMolFile(self):
+    fileN = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'FileParsers', 'test_data',
+                         'Cubane.sdf')
+    with open(fileN, 'r') as inF:
+      inD = inF.read()
+
+    fileWedges = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'FileParsers', 'test_data',
+                         'CubaneWedges.cxsmi')
+    with open(fileWedges, 'r') as inF:
+      inWedges = inF.read()
+
+    fileNoWedges = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'FileParsers', 'test_data',
+                         'CubaneNoWedges.cxsmi')
+    with open(fileNoWedges, 'r') as inF:
+      inNoWedges = inF.read()
+
+
+    m1 = Chem.MolFromMolBlock(inD, sanitize:=False, removeHs:=False, strictParsing:=True, explicit3dChiralOnly:=False)
+    self.assertTrue(m1 is not None)
+    self.assertTrue(m1.GetNumAtoms() == 16)
+    smi = Chem.MolToCXSmiles(m1)
+    self.assertTrue(smi == inWedges)
+
+    m1 = Chem.MolFromMolFile(fileN, sanitize:=False, removeHs:=False, strictParsing:=True, explicit3dChiralOnly:=False)
+    self.assertTrue(m1 is not None)
+    self.assertTrue(m1.GetNumAtoms() == 16)
+    smi = Chem.MolToCXSmiles(m1)
+    self.assertTrue(smi == inWedges)
+
+    m1 = Chem.MolFromMolBlock(inD, sanitize:=False, removeHs:=False, strictParsing:=True, explicit3dChiralOnly:=True)
+    self.assertTrue(m1 is not None)
+    self.assertTrue(m1.GetNumAtoms() == 16)
+    smi = Chem.MolToCXSmiles(m1)
+    self.assertTrue(smi == inNoWedges)
+
+    m1 = Chem.MolFromMolFile(fileN, sanitize:=False, removeHs:=False, strictParsing:=True, explicit3dChiralOnly:=True)
+    self.assertTrue(m1 is not None)
+    self.assertTrue(m1.GetNumAtoms() == 16)
+    smi = Chem.MolToCXSmiles(m1)
+    self.assertTrue(smi == inNoWedges)
+
+  def test3dChiralMrvFile(self):
+    fileN = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'MarvinParse', 'test_data',
+                         'Cubane.mrv')
+    with open(fileN, 'r') as inF:
+      inD = inF.read()
+
+    fileWedges = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'MarvinParse', 'test_data',
+                         'CubaneWedges.cxsmi')
+    with open(fileWedges, 'r') as inF:
+      inWedges = inF.read()
+
+    fileNoWedges = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'MarvinParse', 'test_data',
+                         'CubaneNoWedges.cxsmi')
+    with open(fileNoWedges, 'r') as inF:
+      inNoWedges = inF.read()
+
+
+    m1 = Chem.MolFromMrvBlock(inD, sanitize:=False, removeHs:=False, explicit3dChiralOnly:=False)
+    self.assertTrue(m1 is not None)
+    self.assertTrue(m1.GetNumAtoms() == 16)
+    smi = Chem.MolToCXSmiles(m1)
+    print('smi: ', smi)
+    print('inWedges: ', inWedges)
+    sys.stdout.flush()
+    self.assertTrue(smi == inWedges)
+
+    m1 = Chem.MolFromMrvFile(fileN, sanitize:=False, removeHs:=False, explicit3dChiralOnly:=False)
+    self.assertTrue(m1 is not None)
+    self.assertTrue(m1.GetNumAtoms() == 16)
+    smi = Chem.MolToCXSmiles(m1)
+    self.assertTrue(smi == inWedges)
+
+    m1 = Chem.MolFromMrvBlock(inD, sanitize:=False, removeHs:=False, explicit3dChiralOnly:=True)
+    self.assertTrue(m1 is not None)
+    self.assertTrue(m1.GetNumAtoms() == 16)
+    smi = Chem.MolToCXSmiles(m1)
+    self.assertTrue(smi == inNoWedges)
+
+    m1 = Chem.MolFromMrvFile(fileN, sanitize:=False, removeHs:=False, explicit3dChiralOnly:=True)
+    self.assertTrue(m1 is not None)
+    self.assertTrue(m1.GetNumAtoms() == 16)
+    smi = Chem.MolToCXSmiles(m1)
+    self.assertTrue(smi == inNoWedges)
+
+  def test3dChiralCxsmiles(self):
+    fileN = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'SmilesParse', 'test_data',
+                         'Cubane.cxsmi')
+    with open(fileN, 'r') as inF:
+      inD = inF.read()
+
+    fileWedges = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'SmilesParse', 'test_data',
+                         'Cubane.cxsmi.expected3D.cxsmi')
+    with open(fileWedges, 'r') as inF:
+      inWedges = inF.read()
+
+    fileNoWedges = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'SmilesParse', 'test_data',
+                         'Cubane.cxsmi.expected3D2.cxsmi')
+    with open(fileNoWedges, 'r') as inF:
+      inNoWedges = inF.read()
+
+    ps = Chem.SmilesParserParams()
+    ps.allowCXSMILES = True
+    ps.parseName = False
+    ps.sanitize = False
+    ps.removeHs = False
+    ps.explicit3dChirality = False
+
+    m1 = Chem.MolFromSmiles(inD, ps)
+    self.assertTrue(m1 is not None)
+    self.assertTrue(m1.GetNumAtoms() == 16)
+    smi = Chem.MolToCXSmiles(m1)
+    sys.stdout.flush()
+    self.assertTrue(smi == inWedges)
+
+    ps.explicit3dChirality = True
+
+    m1 = Chem.MolFromSmiles(inD, ps)
+    self.assertTrue(m1 is not None)
+    self.assertTrue(m1.GetNumAtoms() == 16)
+    smi = Chem.MolToCXSmiles(m1)
+    print('smi: ', smi)
+    print('inWedges: ', inNoWedges)
+
+    self.assertTrue(smi == inNoWedges)
+
+
 
 if __name__ == '__main__':
   if "RDTESTCASE" in os.environ:

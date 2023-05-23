@@ -126,10 +126,11 @@ ROMol *MolFromTPLBlock(python::object itplBlock, bool sanitize = true,
 }
 
 ROMol *MolFromMolFile(const char *molFilename, bool sanitize, bool removeHs,
-                      bool strictParsing) {
+                      bool strictParsing, bool explicit3dChiralityOnly) {
   RWMol *newM = nullptr;
   try {
-    newM = MolFileToMol(molFilename, sanitize, removeHs, strictParsing);
+    newM = MolFileToMol(molFilename, sanitize, removeHs, strictParsing,
+                        explicit3dChiralityOnly);
   } catch (RDKit::BadFileException &e) {
     PyErr_SetString(PyExc_IOError, e.what());
     throw python::error_already_set();
@@ -141,13 +142,13 @@ ROMol *MolFromMolFile(const char *molFilename, bool sanitize, bool removeHs,
 }
 
 ROMol *MolFromMolBlock(python::object imolBlock, bool sanitize, bool removeHs,
-                       bool strictParsing) {
+                       bool strictParsing, bool explicit3dChiralityOnly) {
   std::istringstream inStream(pyObjectToString(imolBlock));
   unsigned int line = 0;
   RWMol *newM = nullptr;
   try {
-    newM =
-        MolDataStreamToMol(inStream, line, sanitize, removeHs, strictParsing);
+    newM = MolDataStreamToMol(inStream, line, sanitize, removeHs, strictParsing,
+                              explicit3dChiralityOnly);
   } catch (RDKit::FileParseException &e) {
     BOOST_LOG(rdWarningLog) << e.what() << std::endl;
   } catch (...) {
@@ -155,10 +156,12 @@ ROMol *MolFromMolBlock(python::object imolBlock, bool sanitize, bool removeHs,
   return static_cast<ROMol *>(newM);
 }
 
-ROMol *MolFromMrvFile(const char *molFilename, bool sanitize, bool removeHs) {
+ROMol *MolFromMrvFile(const char *molFilename, bool sanitize, bool removeHs,
+                      bool explicit3dChiralityOnly) {
   RWMol *newM = nullptr;
   try {
-    newM = MrvMolFileParser(molFilename, sanitize, removeHs);
+    newM = MrvMolFileParser(molFilename, sanitize, removeHs,
+                            explicit3dChiralityOnly);
   } catch (RDKit::BadFileException &e) {
     PyErr_SetString(PyExc_IOError, e.what());
     throw python::error_already_set();
@@ -169,11 +172,13 @@ ROMol *MolFromMrvFile(const char *molFilename, bool sanitize, bool removeHs) {
   return static_cast<ROMol *>(newM);
 }
 
-ROMol *MolFromMrvBlock(python::object imolBlock, bool sanitize, bool removeHs) {
+ROMol *MolFromMrvBlock(python::object imolBlock, bool sanitize, bool removeHs,
+                       bool explicit3dChiralityOnly) {
   std::istringstream inStream(pyObjectToString(imolBlock));
   RWMol *newM = nullptr;
   try {
-    newM = MrvMolDataStreamParser(inStream, sanitize, removeHs);
+    newM = MrvMolDataStreamParser(inStream, sanitize, removeHs,
+                                  explicit3dChiralityOnly);
   } catch (RDKit::FileParseException &e) {
     BOOST_LOG(rdWarningLog) << e.what() << std::endl;
   } catch (...) {
@@ -793,14 +798,17 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
       correctness of the content.\n\
       Defaults to true.\n\
 \n\
-  RETURNS:\n\
-\n\
-    a Mol object, None on failure.\n\
-\n";
+    - explicit3dChiralOnly: (optional) if this is true, chirality is only perceived\n\
+     from 3D coordinates on centers and atropisomer bonds where a wedge/hash is present.\n\
+     Defaults to false.\n\
+\n RETURNS :\n\
+\n a Mol object, None on failure.\n\
+\n ";
   python::def(
       "MolFromMolFile", RDKit::MolFromMolFile,
       (python::arg("molFileName"), python::arg("sanitize") = true,
-       python::arg("removeHs") = true, python::arg("strictParsing") = true),
+       python::arg("removeHs") = true, python::arg("strictParsing") = true,
+       python::arg("explicit3dChiralOnly") = false),
       docString.c_str(),
       python::return_value_policy<python::manage_new_object>());
 
@@ -821,14 +829,17 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
       correctness of the content.\n\
       Defaults to true.\n\
 \n\
-  RETURNS:\n\
-\n\
-    a Mol object, None on failure.\n\
-\n";
+    - explicit3dChiralOnly: (optional) if this is true, chirality is only perceived\n\
+      from 3D coordinates on centers and atropisomer bonds where a wedge/hash is present.\n\
+      Defaults to false.\n\
+\n RETURNS :\n\
+\n a Mol object, None on failure.\n\
+\n ";
   python::def(
       "MolFromMolBlock", RDKit::MolFromMolBlock,
       (python::arg("molBlock"), python::arg("sanitize") = true,
-       python::arg("removeHs") = true, python::arg("strictParsing") = true),
+       python::arg("removeHs") = true, python::arg("strictParsing") = true,
+       python::arg("explicit3dChiralOnly") = false),
       docString.c_str(),
       python::return_value_policy<python::manage_new_object>());
 
@@ -845,13 +856,16 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
       This only make sense when sanitization is done.\n\
       Defaults to true.\n\
 \n\
-  RETURNS:\n\
-\n\
-    a Mol object, None on failure.\n\
-\n";
+    - explicit3dChiralOnly: (optional) if this is true, chirality is only perceived\n\
+      from 3D coordinates on centers and atropisomer bonds where a wedge/hash is present.\n\
+      Defaults to false.\n\
+\n RETURNS :\n\
+\n a Mol object, None on failure.\n\
+\n ";
   python::def("MolFromMrvFile", RDKit::MolFromMrvFile,
               (python::arg("molFileName"), python::arg("sanitize") = true,
-               python::arg("removeHs") = true),
+               python::arg("removeHs") = true,
+               python::arg("explicit3dChiralOnly") = false),
               docString.c_str(),
               python::return_value_policy<python::manage_new_object>());
 
@@ -868,13 +882,16 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
       This only make sense when sanitization is done.\n\
       Defaults to true.\n\
 \n\
-  RETURNS:\n\
-\n\
-    a Mol object, None on failure.\n\
-\n";
+    - explicit3dChiralOnly: (optional) if this is true, chirality is only perceived\n\
+      from 3D coordinates on centers and atropisomer bonds where a wedge/hash is present.\n\
+      Defaults to false.\n\
+\n RETURNS :\n\
+\n a Mol object, None on failure.\n\
+\n ";
   python::def("MolFromMrvBlock", RDKit::MolFromMrvBlock,
               (python::arg("mrvBlock"), python::arg("sanitize") = true,
-               python::arg("removeHs") = true),
+               python::arg("removeHs") = true,
+               python::arg("explicit3dChiralOnly") = false),
               docString.c_str(),
               python::return_value_policy<python::manage_new_object>());
 
@@ -995,62 +1012,6 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
                python::arg("cleanupSubstructures") = true),
               docString.c_str(),
               python::return_value_policy<python::manage_new_object>());
-
-  docString =
-      "Construct a molecule from a Mol file.\n\n\
-  ARGUMENTS:\n\
-\n\
-    - fileName: name of the file to read\n\
-\n\
-    - sanitize: (optional) toggles sanitization of the molecule.\n\
-      Defaults to true.\n\
-\n\
-    - removeHs: (optional) toggles removing hydrogens from the molecule.\n\
-      This only make sense when sanitization is done.\n\
-      Defaults to true.\n\
-\n\
-    - strictParsing: (optional) if this is false, the parser is more lax about.\n\
-      correctness of the content.\n\
-      Defaults to true.\n\
-\n\
-  RETURNS:\n\
-\n\
-    a Mol object, None on failure.\n\
-\n";
-  python::def(
-      "MolFromMolFile", RDKit::MolFromMolFile,
-      (python::arg("molFileName"), python::arg("sanitize") = true,
-       python::arg("removeHs") = true, python::arg("strictParsing") = true),
-      docString.c_str(),
-      python::return_value_policy<python::manage_new_object>());
-
-  docString =
-      "Construct a molecule from a Mol block.\n\n\
-  ARGUMENTS:\n\
-\n\
-    - molBlock: string containing the Mol block\n\
-\n\
-    - sanitize: (optional) toggles sanitization of the molecule.\n\
-      Defaults to True.\n\
-\n\
-    - removeHs: (optional) toggles removing hydrogens from the molecule.\n\
-      This only make sense when sanitization is done.\n\
-      Defaults to true.\n\
-\n\
-    - strictParsing: (optional) if this is false, the parser is more lax about.\n\
-      correctness of the content.\n\
-      Defaults to true.\n\
-\n\
-  RETURNS:\n\
-\n\
-    a Mol object, None on failure.\n\
-\n";
-  python::def(
-      "MolFromMolBlock", RDKit::MolFromMolBlock,
-      (python::arg("molBlock"), python::arg("sanitize") = true,
-       python::arg("removeHs") = true, python::arg("strictParsing") = true),
-      docString.c_str(),
-      python::return_value_policy<python::manage_new_object>());
 
   docString =
       "Returns a Mol block for a molecule\n\
@@ -1266,7 +1227,12 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
                      "being returned")
       .def_readwrite("removeHs", &RDKit::SmilesParserParams::removeHs,
                      "controls whether or not Hs are removed before the "
-                     "molecule is returned");
+                     "molecule is returned")
+      .def_readwrite(
+          "explicit3dChirality",
+          &RDKit::SmilesParserParams::explicit3dChirality,
+          "If true, chiral centers and atropisomers are only determined "
+          "for centers that have wedge/hash indications");
   python::class_<RDKit::SmartsParserParams, boost::noncopyable>(
       "SmartsParserParams", "Parameters controlling SMARTS Parsing")
       .def_readwrite("debugParse", &RDKit::SmartsParserParams::debugParse,

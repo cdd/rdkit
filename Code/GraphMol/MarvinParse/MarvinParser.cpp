@@ -84,7 +84,7 @@ class MarvinCMLReader {
   //  either way it is cast to a void *
 
   void *parse(std::istream &is, bool &isReaction, bool sanitize = false,
-              bool removeHs = false) {
+              bool removeHs = false, bool explicit3dChiralOnly = true) {
     // Create empty property tree object
     using boost::property_tree::ptree;
     ptree tree;
@@ -105,7 +105,8 @@ class MarvinCMLReader {
     }
 
     if (molFlag) {
-      mol = (RWMol *)parseMolecule(molOrRxn, sanitize, removeHs);
+      mol = (RWMol *)parseMolecule(molOrRxn, sanitize, removeHs,
+                                   explicit3dChiralOnly);
       isReaction = false;
       return (void *)mol;
     }
@@ -136,7 +137,7 @@ class MarvinCMLReader {
     }
 
     rxn = parseReaction(molOrRxn, tree.get_child("cml.MDocument"), sanitize,
-                        removeHs);
+                        removeHs, explicit3dChiralOnly = false);
     isReaction = true;
     return (void *)rxn;
   }
@@ -913,7 +914,8 @@ class MarvinCMLReader {
   }
 
   RWMol *parseMolecule(boost::property_tree::ptree molTree,
-                       bool sanitize = false, bool removeHs = false) {
+                       bool sanitize = false, bool removeHs = false,
+                       bool explicit3dChiralityOnly = true) {
     MarvinMol *marvinMol = nullptr;
 
     try {
@@ -923,7 +925,8 @@ class MarvinCMLReader {
       // marvinMol->expandMultipleSgroups();
       marvinMol->prepSgroupsForRDKit();
 
-      RWMol *mol = parseMolecule(marvinMol, sanitize, removeHs);
+      RWMol *mol =
+          parseMolecule(marvinMol, sanitize, removeHs, explicit3dChiralityOnly);
 
       delete marvinMol;
 
@@ -1992,8 +1995,8 @@ class MarvinCMLReader {
 
   ChemicalReaction *parseReaction(boost::property_tree::ptree rxnTree,
                                   boost::property_tree::ptree documentTree,
-                                  bool sanitize = false,
-                                  bool removeHs = false) {
+                                  bool sanitize = false, bool removeHs = false,
+                                  bool explicit3dChiralityOnly = false) {
     ChemicalReaction *rxn = nullptr;
     MarvinReaction *marvinReaction = nullptr;
     RWMol *mol = nullptr;
@@ -2009,7 +2012,8 @@ class MarvinCMLReader {
       std::vector<MarvinMol *>::iterator molIter;
       for (molIter = marvinReaction->reactants.begin();
            molIter != marvinReaction->reactants.end(); ++molIter) {
-        mol = parseMolecule((*molIter), sanitize, removeHs);
+        mol = parseMolecule((*molIter), sanitize, removeHs,
+                            explicit3dChiralityOnly);
 
         auto *roMol = new ROMol(*mol);
         delete mol;
@@ -2022,7 +2026,8 @@ class MarvinCMLReader {
 
       for (molIter = marvinReaction->agents.begin();
            molIter != marvinReaction->agents.end(); ++molIter) {
-        mol = parseMolecule((*molIter), sanitize, removeHs);
+        mol = parseMolecule((*molIter), sanitize, removeHs,
+                            explicit3dChiralityOnly);
 
         auto *roMol = new ROMol(*mol);
         delete mol;
@@ -2034,7 +2039,8 @@ class MarvinCMLReader {
 
       for (molIter = marvinReaction->products.begin();
            molIter != marvinReaction->products.end(); ++molIter) {
-        mol = parseMolecule((*molIter), sanitize, removeHs);
+        mol = parseMolecule((*molIter), sanitize, removeHs,
+                            explicit3dChiralityOnly);
 
         auto *roMol = new ROMol(*mol);
         delete mol;
@@ -2268,16 +2274,20 @@ class MarvinCMLReader {
 //------------------------------------------------
 
 void *MrvDataStreamParser(std::istream *inStream, bool &isReaction,
-                          bool sanitize, bool removeHs) {
+                          bool sanitize, bool removeHs,
+                          bool explicit3dChiralOnly) {
   PRECONDITION(inStream, "no stream");
   MarvinCMLReader marvinCML;
 
-  return marvinCML.parse(*inStream, isReaction, sanitize, removeHs);
+  return marvinCML.parse(*inStream, isReaction, sanitize, removeHs,
+                         explicit3dChiralOnly);
 }
 
 void *MrvDataStreamParser(std::istream &inStream, bool &isReaction,
-                          bool sanitize, bool removeHs) {
-  return MrvDataStreamParser(&inStream, isReaction, sanitize, removeHs);
+                          bool sanitize, bool removeHs,
+                          bool explicit3dChiralOnly) {
+  return MrvDataStreamParser(&inStream, isReaction, sanitize, removeHs,
+                             explicit3dChiralOnly);
 }
 //------------------------------------------------
 //
@@ -2285,10 +2295,11 @@ void *MrvDataStreamParser(std::istream &inStream, bool &isReaction,
 //
 //------------------------------------------------
 void *MrvBlockParser(const std::string &molmrvText, bool &isReaction,
-                     bool sanitize, bool removeHs) {
+                     bool sanitize, bool removeHs, bool explicit3dChiralOnly) {
   std::istringstream inStream(molmrvText);
   // unsigned int line = 0;
-  return MrvDataStreamParser(inStream, isReaction, sanitize, removeHs);
+  return MrvDataStreamParser(inStream, isReaction, sanitize, removeHs,
+                             explicit3dChiralOnly);
 }
 
 //------------------------------------------------
@@ -2297,7 +2308,7 @@ void *MrvBlockParser(const std::string &molmrvText, bool &isReaction,
 //
 //------------------------------------------------
 void *MrvFileParser(const std::string &fName, bool &isReaction, bool sanitize,
-                    bool removeHs) {
+                    bool removeHs, bool explicit3dChiralOnly) {
   std::ifstream inStream(fName.c_str());
   if (!inStream || (inStream.bad())) {
     std::ostringstream errout;
@@ -2306,7 +2317,8 @@ void *MrvFileParser(const std::string &fName, bool &isReaction, bool sanitize,
   }
   void *res = nullptr;
   if (!inStream.eof()) {
-    res = MrvDataStreamParser(inStream, isReaction, sanitize, removeHs);
+    res = MrvDataStreamParser(inStream, isReaction, sanitize, removeHs,
+                              explicit3dChiralOnly);
   }
   return res;
 }
@@ -2317,11 +2329,12 @@ void *MrvFileParser(const std::string &fName, bool &isReaction, bool sanitize,
 //
 //------------------------------------------------
 RWMol *MrvMolDataStreamParser(std::istream *inStream, bool sanitize,
-                              bool removeHs) {
+                              bool removeHs, bool explicit3dChiralOnly) {
   void *res = nullptr;
 
   bool isReaction = false;
-  res = MrvDataStreamParser(inStream, isReaction, sanitize, removeHs);
+  res = MrvDataStreamParser(inStream, isReaction, sanitize, removeHs,
+                            explicit3dChiralOnly);
   if (isReaction) {
     delete (ChemicalReaction *)res;
     throw FileParseException("The file parsed as a reaction, not a molecule");
@@ -2335,8 +2348,9 @@ RWMol *MrvMolDataStreamParser(std::istream *inStream, bool sanitize,
 //
 //------------------------------------------------
 RWMol *MrvMolDataStreamParser(std::istream &inStream, bool sanitize,
-                              bool removeHs) {
-  return MrvMolDataStreamParser(&inStream, sanitize, removeHs);
+                              bool removeHs, bool explicit3dChiralOnly) {
+  return MrvMolDataStreamParser(&inStream, sanitize, removeHs,
+                                explicit3dChiralOnly);
 }
 //------------------------------------------------
 //
@@ -2344,9 +2358,10 @@ RWMol *MrvMolDataStreamParser(std::istream &inStream, bool sanitize,
 //
 //------------------------------------------------
 RWMol *MrvMolStringParser(const std::string &molmrvText, bool sanitize,
-                          bool removeHs) {
+                          bool removeHs, bool explicit3dChiralOnly) {
   std::istringstream inStream(molmrvText);
-  return MrvMolDataStreamParser(inStream, sanitize, removeHs);
+  return MrvMolDataStreamParser(inStream, sanitize, removeHs,
+                                explicit3dChiralOnly);
 }
 
 //------------------------------------------------
@@ -2354,8 +2369,8 @@ RWMol *MrvMolStringParser(const std::string &molmrvText, bool sanitize,
 //  Read an RWMol from a file
 //
 //------------------------------------------------
-RWMol *MrvMolFileParser(const std::string &fName, bool sanitize,
-                        bool removeHs) {
+RWMol *MrvMolFileParser(const std::string &fName, bool sanitize, bool removeHs,
+                        bool explicit3dChiralOnly) {
   std::ifstream inStream(fName.c_str());
   if (!inStream || (inStream.bad())) {
     std::ostringstream errout;
@@ -2364,7 +2379,8 @@ RWMol *MrvMolFileParser(const std::string &fName, bool sanitize,
   }
   RWMol *res = nullptr;
   if (!inStream.eof()) {
-    res = MrvMolDataStreamParser(inStream, sanitize, removeHs);
+    res = MrvMolDataStreamParser(inStream, sanitize, removeHs,
+                                 explicit3dChiralOnly);
   }
   return res;
 }
@@ -2375,11 +2391,13 @@ RWMol *MrvMolFileParser(const std::string &fName, bool sanitize,
 //
 //------------------------------------------------
 ChemicalReaction *MrvRxnDataStreamParser(std::istream *inStream, bool sanitize,
-                                         bool removeHs) {
+                                         bool removeHs,
+                                         bool explicit3dChiralOnly) {
   void *res = nullptr;
 
   bool isReaction = false;
-  res = MrvDataStreamParser(inStream, isReaction, sanitize, removeHs);
+  res = MrvDataStreamParser(inStream, isReaction, sanitize, removeHs,
+                            explicit3dChiralOnly);
   if (!isReaction) {
     delete (RWMol *)res;
     throw FileParseException("The file parsed as a molecule, not a reaction");
@@ -2394,8 +2412,10 @@ ChemicalReaction *MrvRxnDataStreamParser(std::istream *inStream, bool sanitize,
 //
 //------------------------------------------------
 ChemicalReaction *MrvRxnDataStreamParser(std::istream &inStream, bool sanitize,
-                                         bool removeHs) {
-  return MrvRxnDataStreamParser(&inStream, sanitize, removeHs);
+                                         bool removeHs,
+                                         bool explicit3dChiralOnly) {
+  return MrvRxnDataStreamParser(&inStream, sanitize, removeHs,
+                                explicit3dChiralOnly);
 }
 //------------------------------------------------
 //
@@ -2403,9 +2423,11 @@ ChemicalReaction *MrvRxnDataStreamParser(std::istream &inStream, bool sanitize,
 //
 //------------------------------------------------
 ChemicalReaction *MrvRxnStringParser(const std::string &molmrvText,
-                                     bool sanitize, bool removeHs) {
+                                     bool sanitize, bool removeHs,
+                                     bool explicit3dChiralOnly) {
   std::istringstream inStream(molmrvText);
-  return MrvRxnDataStreamParser(inStream, sanitize, removeHs);
+  return MrvRxnDataStreamParser(inStream, sanitize, removeHs,
+                                explicit3dChiralOnly);
 }
 
 //------------------------------------------------
@@ -2414,14 +2436,15 @@ ChemicalReaction *MrvRxnStringParser(const std::string &molmrvText,
 //
 //------------------------------------------------
 ChemicalReaction *MrvRxnFileParser(const std::string &fName, bool sanitize,
-                                   bool removeHs) {
+                                   bool removeHs, bool explicit3dChiralOnly) {
   std::ifstream inStream(fName.c_str());
   if (!inStream || (inStream.bad())) {
     std::ostringstream errout;
     errout << "Bad input file " << fName;
     throw BadFileException(errout.str());
   }
-  ChemicalReaction *res = MrvRxnDataStreamParser(inStream, sanitize, removeHs);
+  ChemicalReaction *res = MrvRxnDataStreamParser(inStream, sanitize, removeHs,
+                                                 explicit3dChiralOnly);
   return res;
 }
 }  // namespace RDKit

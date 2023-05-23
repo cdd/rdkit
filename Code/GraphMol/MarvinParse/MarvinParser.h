@@ -22,43 +22,46 @@ namespace RDKit {
 RDKIT_FILEPARSERS_EXPORT void *MrvFileParser(const std::string &fname,
                                              bool &isReaction,
                                              bool sanitize = false,
-                                             bool removeHs = false);
-RDKIT_FILEPARSERS_EXPORT void *MrvDataStreamParser(std::istream *inStream,
-                                                   bool &isReaction,
-                                                   bool sanitize,
-                                                   bool removeHs);
+                                             bool removeHs = false,
+                                             bool explicit3dChiralOnly = true);
+RDKIT_FILEPARSERS_EXPORT void *MrvDataStreamParser(
+    std::istream *inStream, bool &isReaction, bool sanitize, bool removeHs,
+    bool explicit3dChiralOnly = true);
 
-RDKIT_FILEPARSERS_EXPORT void *MrvDataStreamParser(std::istream &inStream,
-                                                   bool &isReaction,
-                                                   bool sanitize = false,
-                                                   bool removeHs = false);
+RDKIT_FILEPARSERS_EXPORT void *MrvDataStreamParser(
+    std::istream &inStream, bool &isReaction, bool sanitize = false,
+    bool removeHs = false, bool explicit3dChiralOnly = true);
 RDKIT_FILEPARSERS_EXPORT void *MrvBlockParser(const std::string &molmrvText,
                                               bool &isReaction,
                                               bool sanitize = false,
-                                              bool removeHs = false);
+                                              bool removeHs = false,
+                                              bool explicit3dChiralOnly = true);
 
-RDKIT_FILEPARSERS_EXPORT RWMol *MrvMolDataStreamParser(std::istream *inStream,
-                                                       bool sanitize = false,
-                                                       bool removeHs = false);
-RDKIT_FILEPARSERS_EXPORT RWMol *MrvMolDataStreamParser(std::istream &inStream,
-                                                       bool sanitize = false,
-                                                       bool removeHs = false);
+RDKIT_FILEPARSERS_EXPORT RWMol *MrvMolDataStreamParser(
+    std::istream *inStream, bool sanitize = false, bool removeHs = false,
+    bool explicit3dChiralOnly = true);
+RDKIT_FILEPARSERS_EXPORT RWMol *MrvMolDataStreamParser(
+    std::istream &inStream, bool sanitize = false, bool removeHs = false,
+    bool explicit3dChiralOnly = true);
 RDKIT_FILEPARSERS_EXPORT RWMol *MrvMolStringParser(
-    const std::string &molmrvText, bool sanitize = false,
-    bool removeHs = false);
-RDKIT_FILEPARSERS_EXPORT RWMol *MrvMolFileParser(const std::string &fName,
-                                                 bool sanitize = false,
-                                                 bool removeHs = false);
+    const std::string &molmrvText, bool sanitize = false, bool removeHs = false,
+    bool explicit3dChiralOnly = true);
+RDKIT_FILEPARSERS_EXPORT RWMol *MrvMolFileParser(
+    const std::string &fName, bool sanitize = false, bool removeHs = false,
+    bool explicit3dChiralOnly = true);
 
 RDKIT_FILEPARSERS_EXPORT ChemicalReaction *MrvRxnDataStreamParser(
-    std::istream *inStream, bool sanitize = false, bool removeHs = false);
+    std::istream *inStream, bool sanitize = false, bool removeHs = false,
+    bool explicit3dChiralOnly = true);
 RDKIT_FILEPARSERS_EXPORT ChemicalReaction *MrvRxnDataStreamParser(
-    std::istream &inStream, bool sanitize = false, bool removeHs = false);
+    std::istream &inStream, bool sanitize = false, bool removeHs = false,
+    bool explicit3dChiralOnly = true);
 RDKIT_FILEPARSERS_EXPORT ChemicalReaction *MrvRxnStringParser(
-    const std::string &molmrvText, bool sanitize = false,
-    bool removeHs = false);
+    const std::string &molmrvText, bool sanitize = false, bool removeHs = false,
+    bool explicit3dChiralOnly = true);
 RDKIT_FILEPARSERS_EXPORT ChemicalReaction *MrvRxnFileParser(
-    const std::string &fName, bool sanitize = false, bool removeHs = false);
+    const std::string &fName, bool sanitize = false, bool removeHs = false,
+    bool explicit3dChiralOnly = true);
 
 RDKIT_FILEPARSERS_EXPORT void MolToMrvFile(
     const ROMol &mol, const std::string &fName, bool includeStereo, int confId,

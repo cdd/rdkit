@@ -457,7 +457,8 @@ RWMol *SmilesToMol(const std::string &smiles,
   // if (res->getNumConformers() && res->getConformer().is3D()) {
   if (!conf && conf3d) {
     res->updatePropertyCache(false);
-    MolOps::assignChiralTypesFrom3D(*res, conf3d->getId(), true);
+    MolOps::assignChiralTypesFrom3D(*res, conf3d->getId(), true,
+                                    params.explicit3dChirality);
   }
   if (conf || conf3d) {
     try {

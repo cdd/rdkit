@@ -20,8 +20,8 @@
 namespace RDKit {
 
 struct RDKIT_SMILESPARSE_EXPORT SmilesParserParams {
-  int debugParse = 0;   /**< enable debugging in the SMILES parser*/
-  bool sanitize = true; /**< sanitize the molecule after building it */
+  int debugParse = 0;        /**< enable debugging in the SMILES parser*/
+  bool sanitize = true;      /**< sanitize the molecule after building it */
   std::map<std::string, std::string> *replacements =
       nullptr;               /**< allows SMILES "macros" */
   bool allowCXSMILES = true; /**< recognize and parse CXSMILES*/
@@ -31,6 +31,8 @@ struct RDKIT_SMILESPARSE_EXPORT SmilesParserParams {
   bool removeHs = true;  /**< remove Hs after constructing the molecule */
   bool skipCleanup =
       false; /**<  skip the final cleanup stage (for internal use) */
+  bool explicit3dChirality = false; /**< only perceive 3d chirality where there
+                                     is wedge information */
 };
 RDKIT_SMILESPARSE_EXPORT RWMol *SmilesToMol(const std::string &smi,
                                             const SmilesParserParams &params);
@@ -82,7 +84,7 @@ inline RWMol *SmilesToMol(
 };
 
 struct RDKIT_SMILESPARSE_EXPORT SmartsParserParams {
-  int debugParse = 0; /**< enable debugging in the SMARTS parser*/
+  int debugParse = 0;        /**< enable debugging in the SMARTS parser*/
   std::map<std::string, std::string> *replacements =
       nullptr;               /**< allows SMARTS "macros" */
   bool allowCXSMILES = true; /**< recognize and parse CXSMILES extensions */
@@ -90,7 +92,7 @@ struct RDKIT_SMILESPARSE_EXPORT SmartsParserParams {
       true; /**< throw an exception if the CXSMILES parsing fails */
   bool parseName = true; /**< parse (and set) the molecule name as well */
   bool mergeHs =
-      true; /**< toggles merging H atoms in the SMARTS into neighboring atoms*/
+      true;  /**< toggles merging H atoms in the SMARTS into neighboring atoms*/
   bool skipCleanup =
       false; /**<  skip the final cleanup stage (for internal use) */
 };

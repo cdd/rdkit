@@ -878,7 +878,115 @@ void testOneAtropisomers(const SmilesTest *smilesTest) {
   CHECK(smilesTest->expectedResult == true);
 }
 
-TEST_CASE("base testAtropisomersInCXSmiles") {
+void testOne3dChiral(const SmilesTest *smilesTest) {
+  std::string rdbase = getenv("RDBASE");
+  std::string fName =
+      rdbase + "/Code/GraphMol/SmilesParse/test_data/" + smilesTest->fileName;
+  std::string inputSmiles;
+
+  std::stringstream inputSmilesStr;
+  std::ifstream inStr;
+  inStr.open(fName);
+  inputSmilesStr << inStr.rdbuf();
+  inputSmiles = inputSmilesStr.str();
+
+  try {
+    SmilesParserParams smilesParserParams;
+    smilesParserParams.sanitize = false;
+    smilesParserParams.removeHs = false;
+
+    std::unique_ptr<RWMol> smilesMol(
+        SmilesToMol(inputSmiles, smilesParserParams));
+
+    REQUIRE(smilesMol);
+    CHECK(smilesMol->getNumAtoms() == smilesTest->atomCount);
+    CHECK(smilesMol->getNumBonds() == smilesTest->bondCount);
+
+    // test round trip back to smiles
+    {
+      std::string expectedMrvName = fName + ".expected3D.cxsmi";
+      SmilesWriteParams ps;
+      ps.canonical = false;
+      ps.doIsomericSmiles = true;
+
+      unsigned int flags = SmilesWrite::CXSmilesFields::CX_COORDS |
+                           SmilesWrite::CXSmilesFields::CX_MOLFILE_VALUES |
+                           SmilesWrite::CXSmilesFields::CX_ATOM_PROPS |
+                           SmilesWrite::CXSmilesFields::CX_BOND_CFG |
+                           SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO
+          //| SmilesWrite::CXSmilesFields::CX_ALL
+          ;
+
+      std::string smilesOut =
+          MolToCXSmiles(*smilesMol, ps, flags, RestoreBondDirOptionTrue);
+
+      // code to generate the expected files
+
+      {
+        std::ofstream out;
+        out.open(fName + ".NEW3D.cxsmi");
+        out << smilesOut;
+      }
+      std::stringstream expectedMolStr;
+      std::ifstream in;
+      in.open(expectedMrvName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      CHECK(expectedStr == smilesOut);
+    }
+
+    // second pass use onlyExplicit3D
+
+    smilesParserParams.explicit3dChirality = true;
+    smilesMol =
+        std::unique_ptr<RWMol>(SmilesToMol(inputSmiles, smilesParserParams));
+
+    // test round trip back to smiles
+    {
+      std::string expectedMrvName = fName + ".expected3D2.cxsmi";
+
+      SmilesWriteParams ps;
+      ps.canonical = false;
+      ps.doIsomericSmiles = true;
+
+      unsigned int flags = SmilesWrite::CXSmilesFields::CX_COORDS |
+                           SmilesWrite::CXSmilesFields::CX_MOLFILE_VALUES |
+                           SmilesWrite::CXSmilesFields::CX_ATOM_PROPS |
+                           SmilesWrite::CXSmilesFields::CX_BOND_CFG |
+                           SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO;
+
+      std::string smilesOut =
+          MolToCXSmiles(*smilesMol, ps, flags, RestoreBondDirOptionClear);
+
+      // code to generate the expected files
+
+      {
+        std::ofstream out;
+        out.open(fName + ".NEW3D2.cxsmi");
+        out << smilesOut;
+      }
+      std::stringstream expectedMolStr;
+      std::ifstream in;
+      in.open(expectedMrvName);
+      expectedMolStr << in.rdbuf();
+      std::string expectedStr = expectedMolStr.str();
+
+      CHECK(expectedStr == smilesOut);
+    }
+
+    BOOST_LOG(rdInfoLog) << "done" << std::endl;
+  } catch (const std::exception &e) {
+    if (smilesTest->expectedResult != false) {
+      throw;
+    }
+    return;
+  }
+
+  CHECK(smilesTest->expectedResult == true);
+}
+
+TEST_CASE("testAtropisomersInCXSmiles") {
   {
     std::list<SmilesTest> smiTests{
         SmilesTest("ShortAtropisomer.cxsmi", true, 14, 15),
@@ -942,6 +1050,22 @@ TEST_CASE("base testAtropisomersInCXSmiles") {
       // RDDepict::preferCoordGen = true;
       testOneAtropisomers(&smiTest);
     }
+  }
+
+  BOOST_LOG(rdInfoLog) << "done" << std::endl;
+}
+
+TEST_CASE("test3DChrial") {
+  std::list<SmilesTest> smiTests{
+      SmilesTest("Cubane.cxsmi", true, 16, 20),
+      SmilesTest("BMS-986142_3d_chiral.cxsmi", true, 72, 77),
+      SmilesTest("BMS-986142_3d.cxsmi", true, 72, 77),
+  };
+
+  for (auto smiTest : smiTests) {
+    printf("Test\n\n %s\n\n", smiTest.fileName.c_str());
+    // RDDepict::preferCoordGen = true;
+    testOne3dChiral(&smiTest);
   }
 
   BOOST_LOG(rdInfoLog) << "done" << std::endl;

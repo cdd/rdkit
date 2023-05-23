@@ -458,6 +458,217 @@ void testMarvin(const MolOrRxnTest *molOrRxnTest) {
   return;
 }
 
+void testMarvin3dChiral(const MolOrRxnTest *molOrRxnTest) {
+  BOOST_LOG(rdInfoLog) << "testing marvin parsing for chirality from 3d"
+                       << std::endl;
+
+  std::string rdbase = getenv("RDBASE");
+  std::string fName =
+      rdbase + "/Code/GraphMol/MarvinParse/test_data/" + molOrRxnTest->fileName;
+
+  bool isReaction = false;
+
+  try {
+    void *molOrRxn = GetMolOrReaction(molOrRxnTest, isReaction);
+
+    if (isReaction != molOrRxnTest->isRxnTest()) {
+      if (isReaction) {
+        delete ((ChemicalReaction *)molOrRxn);
+      } else {
+        delete ((RWMol *)molOrRxn);
+      }
+
+      // printf("Wrong type of MRV file\n");
+      TEST_ASSERT(molOrRxnTest->expectedResult == false);
+      // printf("Expected failure!\n");
+      return;
+    }
+
+    if (isReaction) {
+      // reaction test
+
+      std::unique_ptr<ChemicalReaction> rxn((ChemicalReaction *)molOrRxn);
+      auto rxnTest = (RxnTest *)molOrRxnTest;
+
+      // check for errors
+
+      unsigned int nWarn = 0, nError = 0;
+
+      TEST_ASSERT(rxn != nullptr);
+
+      TEST_ASSERT(rxn->getNumReactantTemplates() == rxnTest->reactantCount);
+      TEST_ASSERT(rxn->getNumProductTemplates() == rxnTest->productCount);
+      TEST_ASSERT(rxn->getNumAgentTemplates() == rxnTest->agentCount);
+      rxn->initReactantMatchers(true);
+
+      if (rxn->getNumReactantTemplates() > 0 &&
+          rxn->getNumProductTemplates() > 0) {
+        TEST_ASSERT(rxn->validate(nWarn, nError, true));
+      } else {
+        nWarn = 0;
+        nError = 0;
+      }
+
+      TEST_ASSERT(nWarn == rxnTest->warnings);
+      TEST_ASSERT(nError == rxnTest->errors);
+
+      // make sure the Rxn is kekule'ed
+
+      for (auto mol : rxn->getReactants()) {
+        auto rwMol = (RWMol *)mol.get();
+        if (rwMol->needsUpdatePropertyCache()) {
+          rwMol->updatePropertyCache(false);
+        }
+        MolOps::Kekulize(*rwMol);
+      }
+      for (auto mol : rxn->getAgents()) {
+        auto rwMol = (RWMol *)mol.get();
+        if (rwMol->needsUpdatePropertyCache()) {
+          rwMol->updatePropertyCache(false);
+        }
+        MolOps::Kekulize(*rwMol);
+      }
+      for (auto mol : rxn->getProducts()) {
+        auto rwMol = (RWMol *)mol.get();
+        if (rwMol->needsUpdatePropertyCache()) {
+          rwMol->updatePropertyCache(false);
+        }
+        MolOps::Kekulize(*rwMol);
+      }
+
+      {
+        std::string outMolStr = ChemicalReactionToRxnBlock(*rxn, false, true);
+
+        // code to create the expected files for new or changed tests
+
+        // {
+        //    std::ofstream out;
+        //    out.open(fName + ".NEW.rxn");
+        //    out << outMolStr;
+        //  }
+
+        std::string expectedRxnName = fName + ".expected.rxn";
+
+        std::stringstream expectedMolStr;
+        std::ifstream in;
+        in.open(expectedRxnName);
+        expectedMolStr << in.rdbuf();
+        std::string expectedStr = expectedMolStr.str();
+
+        TEST_ASSERT(expectedStr == outMolStr);
+      }
+
+      {
+        std::string outMolStr = ChemicalReactionToMrvBlock(*rxn, false);
+
+        // code to create the expected files for new or changed tests
+
+        // {
+        //   std::ofstream out;
+        //   out.open(fName + ".NEW.mrv");
+        //   out << outMolStr;
+        // }
+
+        std::string expectedRxnName = fName + ".expected.mrv";
+        std::stringstream expectedMolStr;
+        std::ifstream in;
+        in.open(expectedRxnName);
+        expectedMolStr << in.rdbuf();
+        std::string expectedStr = expectedMolStr.str();
+
+        TEST_ASSERT(expectedStr == outMolStr);
+      }
+      BOOST_LOG(rdInfoLog) << "done" << std::endl;
+    } else {
+      // mol  test
+
+      std::unique_ptr<RWMol> mol((RWMol *)molOrRxn);
+      reapplyMolBlockWedging(*mol);
+
+      auto molTest = (MolTest *)molOrRxnTest;
+      TEST_ASSERT(mol != nullptr);
+
+      TEST_ASSERT(mol->getNumAtoms() == molTest->atomCount)
+      TEST_ASSERT(mol->getNumBonds() == molTest->bondCount)
+
+      {
+        std::string expectedMrvName = fName + ".expected.sdf";
+        std::string outMolStr = "";
+        try {
+          outMolStr = MolToMolBlock(*mol, true, 0, true, true);
+        } catch (const RDKit::KekulizeException &e) {
+          outMolStr = "";
+        } catch (...) {
+          throw;  // re-trhow the error if not a kekule error
+        }
+        if (outMolStr == "") {
+          outMolStr = MolToMolBlock(*mol, true, 0, false,
+                                    true);  // try without kekule'ing
+        }
+
+        // code to create the expected files for new or changed tests
+
+        // {
+        //   std::ofstream out;
+        //   out.open(fName + ".NEW.sdf");
+        //   out << outMolStr;
+        // }
+
+        std::stringstream expectedMolStr;
+        std::ifstream in;
+        in.open(expectedMrvName);
+        expectedMolStr << in.rdbuf();
+        std::string expectedStr = expectedMolStr.str();
+
+        TEST_ASSERT(expectedStr == outMolStr);
+      }
+
+      {
+        std::string expectedMrvName = fName + ".expected.mrv";
+
+        std::string outMolStr = "";
+        try {
+          outMolStr = MolToMrvBlock(*mol, true, -1, true, false);
+        } catch (const RDKit::KekulizeException &e) {
+          outMolStr = "";
+        } catch (...) {
+          throw;  // re-throw the error if not a kekule error
+        }
+        if (outMolStr == "") {
+          outMolStr = MolToMrvBlock(*mol, true, -1, false,
+                                    false);  // try without kekule'ing
+        }
+        // code to create the expected files for new or changed tests
+
+        // {
+        //   std::ofstream out;
+        //   out.open(fName + ".NEW.mrv");
+        //   out << outMolStr;
+        // }
+
+        std::stringstream expectedMolStr;
+        std::ifstream in;
+        in.open(expectedMrvName);
+        expectedMolStr << in.rdbuf();
+        std::string expectedStr = expectedMolStr.str();
+
+        TEST_ASSERT(expectedStr == outMolStr);
+      }
+
+      BOOST_LOG(rdInfoLog) << "done" << std::endl;
+    }
+  } catch (const std::exception &e) {
+    if (molOrRxnTest->expectedResult != false) {
+      throw;
+    }
+    return;
+  }
+
+  TEST_ASSERT(molOrRxnTest->expectedResult == true);
+
+  return;
+}
+
 void testMarvinAtrop(const MolTest *molTest) {
   BOOST_LOG(rdInfoLog) << "testing marvin atropisomers" << std::endl;
 
@@ -673,11 +884,14 @@ void testMolFiles(const MolTest *molFileTest) {
                            SmilesWrite::CXSmilesFields::CX_MOLFILE_VALUES |
                            SmilesWrite::CXSmilesFields::CX_ATOM_PROPS |
                            SmilesWrite::CXSmilesFields::CX_BOND_CFG |
-                           SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO
+                           SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO |
+                           SmilesWrite::CXSmilesFields::CX_SGROUPS |
+                           SmilesWrite::CXSmilesFields::CX_POLYMER
+
           //| SmilesWrite::CXSmilesFields::CX_ALL
           ;
 
-      std::string smilesOut = MolToCXSmiles(*mol, ps);
+      std::string smilesOut = MolToCXSmiles(*mol, ps, flags);
       SmilesParserParams smilesParserParams;
       smilesParserParams.sanitize = true;
 
@@ -942,6 +1156,17 @@ void RunTests() {
 
     printf("Test\n\n %s\n\n", molFileTest.fileName.c_str());
     testMarvin(&molFileTest);
+  }
+
+  std::list<MolTest> chiral3dFileTests{
+      MolTest("Cubane.mrv", true, LoadAsMolOrRxn, 16, 20),
+  };
+
+  for (auto molFileTest : chiral3dFileTests) {
+    BOOST_LOG(rdInfoLog) << "Test: " << molFileTest.fileName << std::endl;
+
+    printf("Test\n\n %s\n\n", molFileTest.fileName.c_str());
+    testMarvin3dChiral(&molFileTest);
   }
 
   // atropisomer tests

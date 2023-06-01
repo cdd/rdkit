@@ -1575,22 +1575,23 @@ std::string get_enhanced_stereo_block(
   for (const auto &sg : mol.getStereoGroups()) {
     std::vector<unsigned int> aids;
     aids.reserve(sg.getAtoms().size());
-    for (const auto at : sg.getAtoms()) {
-      aids.push_back(revOrder[at->getIdx()]);
+    std::vector<unsigned int> atomIds;
+    getAllAtomIdsForStereoGroup(mol, sg, atomIds);
+
+    for (auto atomId : atomIds) {
+      aids.push_back(revOrder[atomId]);
     }
-    for (const auto bond : sg.getBonds()) {
-      aids.push_back(revOrder[bond->getBeginAtomIdx()]);
-    }
+
+    std::sort(aids.begin(), aids.end());
+
     switch (sg.getGroupType()) {
       case StereoGroupType::STEREO_ABSOLUTE:
         absAts.insert(absAts.end(), aids.begin(), aids.end());
         break;
       case StereoGroupType::STEREO_OR:
-        std::sort(aids.begin(), aids.end());
         orGps.push_back(aids);
         break;
       case StereoGroupType::STEREO_AND:
-        std::sort(aids.begin(), aids.end());
         andGps.push_back(aids);
         break;
     }

@@ -922,11 +922,11 @@ void testOne3dChiral(const SmilesTest *smilesTest) {
 
       // code to generate the expected files
 
-      {
-        std::ofstream out;
-        out.open(fName + ".NEW3D.cxsmi");
-        out << smilesOut;
-      }
+      // {
+      //   std::ofstream out;
+      //   out.open(fName + ".NEW3D.cxsmi");
+      //   out << smilesOut;
+      // }
       std::stringstream expectedMolStr;
       std::ifstream in;
       in.open(expectedMrvName);
@@ -961,11 +961,11 @@ void testOne3dChiral(const SmilesTest *smilesTest) {
 
       // code to generate the expected files
 
-      {
-        std::ofstream out;
-        out.open(fName + ".NEW3D2.cxsmi");
-        out << smilesOut;
-      }
+      // {
+      //   std::ofstream out;
+      //   out.open(fName + ".NEW3D2.cxsmi");
+      //   out << smilesOut;
+      // }
       std::stringstream expectedMolStr;
       std::ifstream in;
       in.open(expectedMrvName);
@@ -995,6 +995,7 @@ TEST_CASE("testAtropisomersInCXSmiles") {
         SmilesTest("AtropManyChiralsEnhanced.cxsmi", true, 20, 20),
         SmilesTest("AtropManyChiralsEnhanced2.cxsmi", true, 20, 20),
         SmilesTest("AtropManyChiralsEnhanced3.cxsmi", true, 20, 20),
+        SmilesTest("AtropManyChiralsEnhanced4.cxsmi", true, 20, 20),
         SmilesTest("BMS-986142_3d_chiral.cxsmi", true, 72, 77),
         SmilesTest("BMS-986142_3d.cxsmi", true, 72, 77),
         SmilesTest("BMS-986142_atrop1.cxsmi", true, 42, 47),
@@ -1014,6 +1015,7 @@ TEST_CASE("testAtropisomersInCXSmiles") {
         SmilesTest("RP-6306_atrop3.cxsmi", true, 24, 26),
         SmilesTest("RP-6306_atrop4.cxsmi", true, 24, 26),
         SmilesTest("RP-6306_atrop5.cxsmi", true, 24, 26),
+        SmilesTest("RP-6306_atrop6.cxsmi", true, 24, 26),
         SmilesTest("RP-6306_atropBad1.cxsmi", true, 24, 26),
         SmilesTest("RP-6306_atropBad2.cxsmi", true, 24, 26),
         // note the rp-6306_3d.cxsmi is backwards from the 2D versions
@@ -1034,6 +1036,7 @@ TEST_CASE("testAtropisomersInCXSmiles") {
         SmilesTest("ZM374979_atrop1.cxsmi", true, 45, 49),
         SmilesTest("ZM374979_atrop2.cxsmi", true, 45, 49),
         SmilesTest("ZM374979_atrop3.cxsmi", true, 45, 49),
+        SmilesTest("ZM374979_atrop4.cxsmi", true, 45, 49),
         SmilesTest("ZM374979_atropBad1.cxsmi", true, 45, 49),
         // note the mrtx1719_3d.cxsmi is backwards from the 2D versions
         // the 2D version were based on images from drug hunter
@@ -1042,6 +1045,7 @@ TEST_CASE("testAtropisomersInCXSmiles") {
         SmilesTest("Mrtx1719_atrop1.cxsmi", true, 33, 37),
         SmilesTest("Mrtx1719_atrop2.cxsmi", true, 33, 37),
         SmilesTest("Mrtx1719_atrop3.cxsmi", true, 33, 37),
+        SmilesTest("Mrtx1719_atrop4.cxsmi", true, 33, 37),
         SmilesTest("Mrtx1719_atropBad1.cxsmi", true, 33, 37),
     };
 

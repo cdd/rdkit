@@ -615,12 +615,12 @@ class MarvinCMLWriter {
           default:
             throw MarvinWriterException("Unrecognized stereo group type");
         }
-        for (auto &&atom : group.getAtoms()) {
-          marvinMol->atoms[atom->getIdx()]->mrvStereoGroup = stereoGroupType;
-        }
-        for (auto &&bond : group.getBonds()) {
-          marvinMol->atoms[bond->getBeginAtomIdx()]->mrvStereoGroup =
-              stereoGroupType;
+
+        std::vector<unsigned int> atomIds;
+        getAllAtomIdsForStereoGroup(*mol, group, atomIds);
+
+        for (auto atomId : atomIds) {
+          marvinMol->atoms[atomId]->mrvStereoGroup = stereoGroupType;
         }
       }
 

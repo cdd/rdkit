@@ -484,11 +484,11 @@ void testMarvinRxnMols(const RxnTest *rxnTest) {
 
       // code to create the expected files for new or changed tests
 
-      {
-        std::ofstream out;
-        out.open(fName + ".NEW.mrv");
-        out << outMolStr;
-      }
+      // {
+      //   std::ofstream out;
+      //   out.open(fName + ".NEW.mrv");
+      //   out << outMolStr;
+      // }
 
       std::string expectedRxnName = fName + ".expected.mrv";
       std::stringstream expectedMolStr;
@@ -504,14 +504,13 @@ void testMarvinRxnMols(const RxnTest *rxnTest) {
     BOOST_LOG(rdInfoLog) << "done" << std::endl;
   } catch (const std::exception &e) {
     if (rxnTest->expectedResult != false) {
-          throw;
+      throw;
     }
     return;
   }
 
-
   TEST_ASSERT(rxnTest->expectedResult == true);
-  
+
   return;
 }
 
@@ -843,12 +842,12 @@ void testMarvinAtrop(const MolTest *molTest) {
     if (molTest->expectedResult != false) {
       throw;
     }
-    return;
-
-    TEST_ASSERT(molTest->expectedResult == true);
 
     return;
   }
+  TEST_ASSERT(molTest->expectedResult == true);
+
+  return;
 }
 
 void testMolFiles(const MolTest *molFileTest) {
@@ -1242,10 +1241,12 @@ void RunTests() {
   // atropisomer tests
 
   std::list<MolTest> atropisomerTests{
+      MolTest("AtropEnhancedStereo.mrv", true, LoadAsMolOrRxn, 16, 17),
       MolTest("AtropManyChirals.mrv", true, LoadAsMolOrRxn, 20, 20),
       MolTest("AtropManyChiralsEnhanced.mrv", true, LoadAsMolOrRxn, 20, 20),
       MolTest("AtropManyChiralsEnhanced2.mrv", true, LoadAsMolOrRxn, 20, 20),
       MolTest("AtropManyChiralsEnhanced3.mrv", true, LoadAsMolOrRxn, 20, 20),
+      MolTest("AtropManyChiralsEnhanced4.mrv", true, LoadAsMolOrRxn, 20, 20),
       MolTest("BMS-986142_3d_chiral.mrv", true, LoadAsMolOrRxn, 72, 77),
       MolTest("BMS-986142_3d.mrv", true, LoadAsMolOrRxn, 72, 77),
       MolTest("BMS-986142_atrop1.mrv", true, LoadAsMolOrRxn, 42, 47),
@@ -1253,8 +1254,10 @@ void RunTests() {
       MolTest("BMS-986142_atrop3.mrv", true, LoadAsMolOrRxn, 42, 47),
       MolTest("BMS-986142_atrop4.mrv", true, LoadAsMolOrRxn, 42, 47),
       MolTest("BMS-986142_atrop5.mrv", true, LoadAsMolOrRxn, 42, 47),
-      MolTest("BMS-986142_atropBad1.mrv", false, LoadAsMolOrRxn, 42, 47),
-      MolTest("BMS-986142_atropBad2.mrv", false, LoadAsMolOrRxn, 42, 47),
+      MolTest("BMS-986142_atrop6.mrv", true, LoadAsMolOrRxn, 42, 47),
+      MolTest("BMS-986142_atrop7.mrv", true, LoadAsMolOrRxn, 42, 47),
+      MolTest("BMS-986142_atrop8.mrv", true, LoadAsMolOrRxn, 42, 47),
+      MolTest("BMS-986142_atropBad2.mrv", true, LoadAsMolOrRxn, 42, 47),
       MolTest("JDQ443_3d.mrv", true, LoadAsMolOrRxn, 66, 72),
       MolTest("JDQ443_atrop1.mrv", true, LoadAsMolOrRxn, 38, 44),
       MolTest("JDQ443_atrop2.mrv", true, LoadAsMolOrRxn, 38, 44),
@@ -1265,8 +1268,8 @@ void RunTests() {
       MolTest("RP-6306_atrop3.mrv", true, LoadAsMolOrRxn, 24, 26),
       MolTest("RP-6306_atrop4.mrv", true, LoadAsMolOrRxn, 24, 26),
       MolTest("RP-6306_atrop5.mrv", true, LoadAsMolOrRxn, 24, 26),
-      MolTest("RP-6306_atropBad1.mrv", false, LoadAsMolOrRxn, 24, 26),
-      MolTest("RP-6306_atropBad2.mrv", false, LoadAsMolOrRxn, 24, 26),
+      MolTest("RP-6306_atropBad1.mrv", true, LoadAsMolOrRxn, 24, 26),
+      MolTest("RP-6306_atropBad2.mrv", true, LoadAsMolOrRxn, 24, 26),
       // note the rp-6306_3d.mrv is backwards from the 2D versions
       // the 2D version were based on images from drug hunter
       // the 3D version came from PUBCHEM
@@ -1276,8 +1279,8 @@ void RunTests() {
       MolTest("Sotorasib_atrop3.mrv", true, LoadAsMolOrRxn, 41, 45),
       MolTest("Sotorasib_atrop4.mrv", true, LoadAsMolOrRxn, 41, 45),
       MolTest("Sotorasib_atrop5.mrv", true, LoadAsMolOrRxn, 41, 45),
-      MolTest("Sotorasib_atropBad1.mrv", false, LoadAsMolOrRxn, 41, 45),
-      MolTest("Sotorasib_atropBad2.mrv", false, LoadAsMolOrRxn, 41, 45),
+      MolTest("Sotorasib_atropBad1.mrv", true, LoadAsMolOrRxn, 41, 45),
+      MolTest("Sotorasib_atropBad2.mrv", true, LoadAsMolOrRxn, 41, 45),
       // note the sotorasib_3d.mrv is backwards from the 2D versions
       // the 2D version were based on images from drug hunter
       // the 3D version came from PUBCHEM
@@ -1285,7 +1288,7 @@ void RunTests() {
       MolTest("ZM374979_atrop1.mrv", true, LoadAsMolOrRxn, 45, 49),
       MolTest("ZM374979_atrop2.mrv", true, LoadAsMolOrRxn, 45, 49),
       MolTest("ZM374979_atrop3.mrv", true, LoadAsMolOrRxn, 45, 49),
-      MolTest("ZM374979_atropBad1.mrv", false, LoadAsMolOrRxn, 45, 49),
+      MolTest("ZM374979_atropBad1.mrv", true, LoadAsMolOrRxn, 45, 49),
       // note the mrtx1719_3d.mrv is backwards from the 2D versions
       // the 2D version were based on images from drug hunter
       // the 3D version came from PUBCHEM
@@ -1293,7 +1296,7 @@ void RunTests() {
       MolTest("mrtx1719_atrop1.mrv", true, LoadAsMolOrRxn, 33, 37),
       MolTest("mrtx1719_atrop2.mrv", true, LoadAsMolOrRxn, 33, 37),
       MolTest("mrtx1719_atrop3.mrv", true, LoadAsMolOrRxn, 33, 37),
-      MolTest("mrtx1719_atropBad1.mrv", false, LoadAsMolOrRxn, 33, 37),
+      MolTest("mrtx1719_atropBad1.mrv", true, LoadAsMolOrRxn, 33, 37),
   };
 
   for (auto atropisomerTest : atropisomerTests) {

@@ -18,6 +18,9 @@
 #include <algorithm>
 #include <RDGeneral/Ranking.h>
 #include <RDGeneral/FileParseException.h>
+#include <boost/foreach.hpp>
+#include <boost/algorithm/string.hpp>
+#include <RDGeneral/BoostEndInclude.h>
 
 constexpr double REALLY_SMALL_BOND_LEN = 0.0000001;
 constexpr int MIN_RINGS_FOR_ATROPISOMER = 8;
@@ -243,7 +246,6 @@ bool DetectAtropisomerChiralityOneBond(Bond *bond, ROMol &mol,
   RDGeom::Point3D bondVecs[2];  // one bond vector from each end of the
                                 // potential atropisomer bond
 
-  bool foundWedgeOrHash = false;
   for (int bondAtomIndex = 0; bondAtomIndex < 2; ++bondAtomIndex) {
     // if the conf is 2D, we use the wedge bonds to set the coords for the
     // projected vector onto the xAxis perpendicular plane (looking down
@@ -278,33 +280,17 @@ bool DetectAtropisomerChiralityOneBond(Bond *bond, ROMol &mol,
         return false;
       }
 
-      if (bond1Dir != Bond::NONE || bond2Dir != Bond::NONE) {
-        if (foundWedgeOrHash) {
-          // already found a wedge on the other end of the bond - this is
-          // indeterminate
-          BOOST_LOG(rdWarningLog)
-              << "An atropisomer has a wedge or hash bond on both ends - atoms are: "
-              << bond->getBeginAtomIdx() << " " << bond->getEndAtomIdx()
-              << std::endl;
-          return false;
-        }
-        foundWedgeOrHash = true;
+      if (!getAtropIsomerEndVect(atoms[bondAtomIndex], bonds[bondAtomIndex],
+                                 yAxis, zAxis, conf, bondVecs[bondAtomIndex])) {
+        return false;
+      }
 
-        if (bond1Dir == Bond::BEGINWEDGE || bond2Dir == Bond::BEGINDASH) {
-          bondVecs[bondAtomIndex] = RDGeom::Point3D(0.0, 0.0, 1.0);
-        } else if (bond1Dir == Bond::BEGINDASH ||
-                   bond2Dir == Bond::BEGINWEDGE) {
-          bondVecs[bondAtomIndex] = RDGeom::Point3D(0.0, 0.0, -1.0);
-        }
-      } else {
-        // the coords are taken as the part of the 2d coord that is
-        // in the the x=0 plane.  (for 2d, that means the y-value). The
-        // result is normalized
-        if (!getAtropIsomerEndVect(atoms[bondAtomIndex], bonds[bondAtomIndex],
-                                   yAxis, zAxis, conf,
-                                   bondVecs[bondAtomIndex])) {
-          return false;
-        }
+      if (bond1Dir == Bond::BEGINWEDGE || bond2Dir == Bond::BEGINDASH) {
+        bondVecs[bondAtomIndex].y *= 0.707;
+        bondVecs[bondAtomIndex].z = fabs(bondVecs[bondAtomIndex].y);
+      } else if (bond1Dir == Bond::BEGINDASH || bond2Dir == Bond::BEGINWEDGE) {
+        bondVecs[bondAtomIndex].y *= 0.707;
+        bondVecs[bondAtomIndex].z = -fabs(bondVecs[bondAtomIndex].y);
       }
     } else {  // the conf is 3D
       // to be considered, one or more neighbor bonds must have a wedge or
@@ -336,8 +322,8 @@ bool DetectAtropisomerChiralityOneBond(Bond *bond, ROMol &mol,
 
         if (bondVecs[bondAtomIndex].length() < REALLY_SMALL_BOND_LEN) {
           bondVecs[bondAtomIndex] =
-              -otherBondVec;  // note - it might still be co-linear- this
-                              // is checked below
+              -otherBondVec;  // note - it might still be co-linear-
+                              // this is checked below
         } else if (bondVecs[bondAtomIndex].dotProduct(otherBondVec) >
                    REALLY_SMALL_BOND_LEN) {
           BOOST_LOG(rdWarningLog)
@@ -387,7 +373,10 @@ void cleanupAtropisomerStereoGroups(ROMol &mol) {
         if (bond->getStereo() == Bond::BondStereo::STEREOATROPCCW ||
             bond->getStereo() == Bond::BondStereo::STEREOATROPCW) {
           foundAtrop = true;
-          okbonds.push_back(bond);
+          std::vector<Bond *> oneBondInArray = {bond};
+          if (!boost::algorithm::contains(okbonds, oneBondInArray)) {
+            okbonds.push_back(bond);
+          }
           break;
         }
       }
@@ -463,6 +452,32 @@ void DetectAtropisomerChirality(ROMol &mol, const Conformer *conf) {
 
   if (foundAtrop) {
     cleanupAtropisomerStereoGroups(mol);
+  }
+}
+
+void getAllAtomIdsForStereoGroup(const ROMol &mol, const StereoGroup &group,
+                                 std::vector<unsigned int> &atomIds) {
+  atomIds.clear();
+  for (auto &&atom : group.getAtoms()) {
+    atomIds.push_back(atom->getIdx());
+  }
+
+  for (auto &&bond : group.getBonds()) {
+    // figure out which atoms of the bond get stereo group indications
+    // either to both that have a wedge/hash get the designation
+
+    for (auto atom : bond->getAtoms()) {
+      for (const auto atomBond : mol.atomBonds(atom)) {
+        if (atomBond->getIdx() == bond->getIdx()) {
+          continue;
+        }
+        if (atomBond->getBondDir() == Bond::BEGINWEDGE ||
+            atomBond->getBondDir() == Bond::BEGINDASH) {
+          atomIds.push_back(atom->getIdx());
+          break;
+        }
+      }
+    }
   }
 }
 
@@ -586,8 +601,8 @@ bool WedgeBondFromAtropisomerOneBond2d(Bond *bond, const ROMol &mol,
 
       if (bondToTry->getBondType() != Bond::BondType::SINGLE ||
           wedgeBonds.find(bondToTry->getIdx()) != wedgeBonds.end()) {
-        continue;  // must be a single bond and not already spoken for by a
-                   // chiral center
+        continue;  // must be a single bond and not already spoken
+                   // for by a chiral center
       }
 
       if (bondToTry->getBondDir() != Bond::BondDir::NONE) {
@@ -598,8 +613,8 @@ bool WedgeBondFromAtropisomerOneBond2d(Bond *bond, const ROMol &mol,
               << std::endl;
           return false;
         } else {
-          continue;  // wedge or hash bond affecting the OTHER atom =
-                     // perhaps a chiral center
+          continue;  // wedge or hash bond affecting the OTHER atom
+                     // = perhaps a chiral center
         }
       }
       auto ringCount = ri->numBondRings(bondToTry->getIdx());
@@ -698,8 +713,8 @@ bool WedgeBondFromAtropisomerOneBond3d(Bond *bond, const ROMol &mol,
     }
   }
 
-  // the following may seem redundant, since we just found the useBonds based on
-  // their bond dir PRESENCE, but this endures that the values are correct.
+  // the following may seem redundant, since we just found the useBonds based
+  // on their bond dir PRESENCE, but this endures that the values are correct.
 
   if (useBonds.size() > 0) {
     for (auto useBond : useBonds) {
@@ -733,8 +748,8 @@ bool WedgeBondFromAtropisomerOneBond3d(Bond *bond, const ROMol &mol,
 
       if (bondToTry->getBondType() != Bond::BondType::SINGLE ||
           wedgeBonds.find(bond->getIdx()) != wedgeBonds.end()) {
-        continue;  // must be a single bond and not already spoken for by a
-                   // chiral center
+        continue;  // must be a single bond and not already spoken
+                   // for by a chiral center
       }
 
       // make sure the atoms on the bond are in the right order for the
@@ -754,8 +769,8 @@ bool WedgeBondFromAtropisomerOneBond3d(Bond *bond, const ROMol &mol,
               << std::endl;
           return false;
         } else {
-          continue;  // wedge or hash bond affecting the OTHER atom =
-                     // perhaps a chiral center
+          continue;  // wedge or hash bond affecting the OTHER atom
+                     // = perhaps a chiral center
         }
       }
       auto ringCount = ri->numBondRings(bondToTry->getIdx());

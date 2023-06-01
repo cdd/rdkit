@@ -28,5 +28,9 @@ RDKIT_FILEPARSERS_EXPORT bool doesMolHaveAtropisomers(const ROMol &mol);
 RDKIT_FILEPARSERS_EXPORT bool GetAtropisomerAtomsAndBonds(
     const Bond *bond, Atom *atoms[2], std::vector<Bond *> bonds[2],
     const ROMol &mol);
+
+RDKIT_FILEPARSERS_EXPORT void getAllAtomIdsForStereoGroup(
+    const ROMol &mol, const StereoGroup &group,
+    std::vector<unsigned int> &atomIds);
 }  // namespace RDKit
 #endif

@@ -241,6 +241,7 @@ void RunTests() {
   // the molecule tests
 
   std::list<MolTest> sdfTests{
+      MolTest("AtropTest.sdf", true, LoadAsMolOrRxn, 38, 41),
       MolTest("AtropManyChiralsEnhanced.sdf", true, LoadAsMolOrRxn, 20, 20),
       MolTest("AtropManyChiralsEnhanced2.sdf", true, LoadAsMolOrRxn, 20, 20),
       MolTest("AtropManyChirals.sdf", true, LoadAsMolOrRxn, 20, 20),
@@ -252,7 +253,9 @@ void RunTests() {
       MolTest("BMS-986142_atrop3.sdf", true, LoadAsMolOrRxn, 42, 47),
       MolTest("BMS-986142_atrop4.sdf", true, LoadAsMolOrRxn, 42, 47),
       MolTest("BMS-986142_atrop5.sdf", true, LoadAsMolOrRxn, 42, 47),
-      MolTest("BMS-986142_atropBad1.sdf", true, LoadAsMolOrRxn, 42, 47),
+      MolTest("BMS-986142_atrop6.sdf", true, LoadAsMolOrRxn, 42, 47),
+      MolTest("BMS-986142_atrop7.sdf", true, LoadAsMolOrRxn, 42, 47),
+      MolTest("BMS-986142_atrop8.sdf", true, LoadAsMolOrRxn, 42, 47),
       MolTest("BMS-986142_atropBad2.sdf", true, LoadAsMolOrRxn, 42, 47),
       MolTest("JDQ443.sdf", true, LoadAsMolOrRxn, 38, 44),
       MolTest("JDQ443_3d.sdf", true, LoadAsMolOrRxn, 66, 72),

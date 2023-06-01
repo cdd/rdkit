@@ -1051,19 +1051,17 @@ void appendEnhancedStereoGroups(std::string &res, const RWMol &tmol) {
           break;
       }
       res += " ATOMS=(";
-      auto &atoms = group.getAtoms();
-      auto &bonds = group.getBonds();
-      res += std::to_string(atoms.size() + bonds.size());
-      for (auto &&atom : atoms) {
+
+      std::vector<unsigned int> atomIds;
+      getAllAtomIdsForStereoGroup(tmol, group, atomIds);
+
+      res += std::to_string(atomIds.size());
+      for (auto &&atom : atomIds) {
         res += ' ';
         // atoms are 1 indexed in molfiles
-        res += std::to_string(atom->getIdx() + 1);
+        res += std::to_string(atom + 1);
       }
-      for (auto &&bond : bonds) {
-        res += ' ';
-        // atoms are 1 indexed in molfiles
-        res += std::to_string(bond->getBeginAtomIdx() + 1);
-      }
+
       res += ")\n";
     }
     res += "M  V30 END COLLECTION\n";

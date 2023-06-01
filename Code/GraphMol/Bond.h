@@ -75,7 +75,7 @@ class RDKIT_GRAPHMOL_EXPORT Bond : public RDProps {
     DATIVEL,    //!< standard two-electron dative
     DATIVER,    //!< standard two-electron dative
     OTHER,
-    ZERO  //!< Zero-order bond (from
+    ZERO        //!< Zero-order bond (from
     // http://pubs.acs.org/doi/abs/10.1021/ci200488k)
   } BondType;
 
@@ -223,6 +223,13 @@ class RDKIT_GRAPHMOL_EXPORT Bond : public RDProps {
       - this makes no sense if we do not have an owning molecule
   */
   unsigned int getEndAtomIdx() const { return d_endAtomIdx; }
+
+  std::vector<Atom *> getAtoms() const {
+    std::vector<Atom *> res;
+    res.push_back(getBeginAtom());
+    res.push_back(getEndAtom());
+    return res;
+  }
 
   //! given the index of one Atom, returns the index of the other
   /*!

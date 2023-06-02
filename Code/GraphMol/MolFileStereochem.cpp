@@ -585,7 +585,7 @@ void DetectBondStereoChemistry(ROMol &mol, const Conformer *conf) {
   MolOps::detectBondStereochemistry(mol, conf->getId());
 }
 void reapplyMolBlockWedging(RWMol &mol, bool throwAromaticException) {
-  MolOps::clearAllBondDirFlags(mol);
+  MolOps::clearDirFlags(mol, true);
   for (auto b : mol.bonds()) {
     int explicit_unknown_stereo = -1;
     int molFileBondStereo = (-1);

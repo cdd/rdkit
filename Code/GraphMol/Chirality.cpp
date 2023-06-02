@@ -3148,13 +3148,20 @@ void clearSingleBondDirFlags(ROMol &mol, bool onlyWedgeFlags) {
   }
 }
 
-void clearAllBondDirFlags(ROMol &mol) {
+void clearAllBondDirFlags(ROMol &mol) { clearDirFlags(mol, false); }
+
+void clearDirFlags(ROMol &mol, bool onlyWedgeTypeBondDirs) {
   for (auto bond : mol.bonds()) {
     if (bond->getBondDir() == Bond::UNKNOWN ||
         bond->getBondDir() == Bond::BondDir::EITHERDOUBLE) {
       bond->setProp(common_properties::_UnknownStereo, 1);
     }
-    bond->setBondDir(Bond::NONE);
+
+    if (onlyWedgeTypeBondDirs == false ||
+        (bond->getBondDir() != Bond::BondDir::ENDDOWNRIGHT &&
+         bond->getBondDir() != Bond::BondDir::ENDUPRIGHT)) {
+      bond->setBondDir(Bond::NONE);
+    }
   }
 }
 

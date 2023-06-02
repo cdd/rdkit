@@ -691,8 +691,8 @@ void testMarvin3dChiral(const MolOrRxnTest *molOrRxnTest) {
           throw;  // re-throw the error if not a kekule error
         }
         if (outMolStr == "") {
-          outMolStr = MolToMrvBlock(*mol, true, -1, false,
-                                    false);  // try without kekule'ing
+          outMolStr = MolToMrvBlock(*mol, true, -1, false, false,
+                                    true);  // try without kekule'ing
         }
         // code to create the expected files for new or changed tests
 

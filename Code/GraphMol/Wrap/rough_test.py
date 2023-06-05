@@ -7303,7 +7303,33 @@ CAS<~>
 
     self.assertTrue(smi == inNoWedges)
 
+  def testReapplyMolBlockWedging(self):
+    fileN = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'MarvinParse', 'test_data',
+                         'JDQ443_atrop1.mrv')
+  
+    fileReapplied = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'MarvinParse', 'test_data',
+                         'JDQ443_atrop1.mrv.expected.sdf')
+    with open(fileReapplied, 'r') as inF:
+      isReapplied = inF.read()
 
+    fileNotReapplied = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'MarvinParse', 'test_data',
+                         'JDQ443_atrop1.mrv.expected2.sdf')
+    with open(fileNotReapplied, 'r') as inF:
+      isNotReapplied = inF.read()
+
+    m = Chem.MolFromMrvFile(fileN, False, False, True)
+    self.assertTrue(m is  not None)
+    self.assertTrue(m.GetNumAtoms() == 38)
+    mBlock = Chem.MolToMolBlock(m, False, -1, True, True, True)
+
+    sys.stdout.flush()
+    self.assertTrue(mBlock == isNotReapplied)
+    Chem.ReapplyMolBlockWedging(m, False)
+    
+    mBlock = Chem.MolToMolBlock(m, False, -1, True, True, True)
+    sys.stdout.flush()
+
+    self.assertTrue(mBlock == isReapplied)
 
 if __name__ == '__main__':
   if "RDTESTCASE" in os.environ:

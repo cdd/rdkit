@@ -1,4 +1,4 @@
-//
+
 //  Copyright (C) 2003-2022 Greg Landrum and other RDKit contributors
 //
 //   @@ All Rights Reserved @@
@@ -386,6 +386,11 @@ void addRecursiveQuery(ROMol &mol, const ROMol &query, unsigned int atomIdx,
   } else {
     oAt->expandQuery(q, Queries::COMPOSITE_AND);
   }
+}
+
+void reapplyWedging(ROMol &mol, bool throwAromaticyError) {
+  auto &wmol = static_cast<RWMol &>(mol);
+  reapplyMolBlockWedging(wmol, throwAromaticyError);
 }
 
 MolOps::SanitizeFlags sanitizeMol(ROMol &mol, boost::uint64_t sanitizeOps,
@@ -2283,12 +2288,17 @@ ARGUMENTS:\n\
      MolBlock, over-riding anything that was originally there.\n\
 \n\
           ARGUMENTS:\n\
-        \n\
+\n\
             - molecule: the molecule to update\n\
-        \n\
+\n\
+            - throwAromaticException: bool to indicate if an aromatic bond was found where a wedge bond should be\n\
+\n\
         \n";
-    python::def("ReapplyMolBlockWedging", reapplyMolBlockWedging,
-                docString.c_str());
+    python::def(
+        "ReapplyMolBlockWedging", reapplyWedging,
+        (python::arg("mol"), python::arg("throwAromaticException") = false),
+        docString.c_str());
+
     docString =
         R"DOC(Constants used to set the thresholds for which single bonds can be made wavy.)DOC";
     python::class_<StereoBondThresholds>("StereoBondThresholds",

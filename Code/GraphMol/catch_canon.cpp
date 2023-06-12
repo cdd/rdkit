@@ -347,4 +347,17 @@ TEST_CASE("more enhanced stereo canonicalization") {
 
     CHECK(MolToCXSmiles(*m1) == MolToCXSmiles(*m2));
   }
+
+  SECTION("case 3") {
+    SmilesParserParams ps;
+    ps.allowCXSMILES = true;
+    ps.sanitize = true;
+    ROMol* m =
+        (ROMol*)SmilesToMol("Cl.C[C@@H]1C[C@@H]2CC[C@@]1(C)C2 |&1:2.r|", ps);
+    Canon::canonicalizeEnhancedStereo(*m);
+
+    std::string out = MolToCXSmiles(*m);
+
+    CHECK(out == "C[C@@H]1C[C@@H]2CC[C@@]1(C)C2.Cl |&1:1|");
+  }
 }

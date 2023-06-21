@@ -118,7 +118,9 @@ bool checkBondsInSameBranch(MolStack &molStack, Bond *dblBnd, Bond *dirBnd) {
 
 void switchBondDir(Bond *bond) {
   PRECONDITION(bond, "bad bond");
-  PRECONDITION(bond->getBondType() == Bond::SINGLE || bond->getIsAromatic(),
+  auto bondType = bond->getBondType();
+  auto arom = bond->getIsAromatic();
+  PRECONDITION(bondType == Bond::SINGLE || bondType == Bond::DATIVE || arom,
                "bad bond type");
   switch (bond->getBondDir()) {
     case Bond::ENDUPRIGHT:

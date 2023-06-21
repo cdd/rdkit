@@ -2422,3 +2422,24 @@ TEST_CASE("smilesSymbol in SMARTS", "[smarts][smilesSymbol]") {
     CHECK(MolToSmarts(*m) == "[Xa;C,N,O]C");
   }
 }
+
+TEST_CASE("Dative  bond in cxsmiles double double def", "[bug][cxsmiles]") {
+  SECTION("basics") {
+    SmilesParserParams smilesParserParams;
+    smilesParserParams.sanitize = true;
+    smilesParserParams.allowCXSMILES = true;
+
+    std::unique_ptr<RWMol> smilesMol(
+        SmilesToMol("C1CCC2=[N]1[Fe](\\[O]=C(\\C)/C=C/C1CCCC1)[N]1=C(CCC1)C2",
+                    smilesParserParams));
+    reapplyMolBlockWedging(*smilesMol);
+    {
+      SmilesWriteParams ps;
+      ps.canonical = true;
+
+      std::string smilesOut = MolToSmiles(*smilesMol, ps);
+
+      CHECK(smilesOut == "CC(/C=C/C1CCCC1)=O->[Fe]1<-N2=C(CCC2)CC2=N->1CCC2");
+    }
+  }
+}

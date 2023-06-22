@@ -2423,6 +2423,55 @@ TEST_CASE("smilesSymbol in SMARTS", "[smarts][smilesSymbol]") {
   }
 }
 
+TEST_CASE("Atropisomer output in CXSMILES", "[SMILES]]") {
+  SECTION("'WithChiralAtom' label") {
+    auto mol =
+        "CC1=C(N2C=CC=C2[C@H](C)Cl)C(C)CCC1 |(2.679,0.4142,;1.3509,1.181,;0.0229,0.4141,;0.0229,-1.1195,;1.2645,-2.0302,;0.7901,-3.4813,;-0.7446,-3.4813,;-1.219,-2.0302,;-2.679,-1.5609,;-3.0039,-0.0556,;-3.8202,-2.595,;-1.3054,1.1809,;-2.6335,0.4141,;-1.3054,2.7145,;0.0229,3.4813,;1.3509,2.7146,),wD:2.11,wU:8.10,&1:8|"_smiles;
+    REQUIRE(mol);
+    CHECK(mol->getNumConformers() == 1);
+
+    RDKit::SmilesWriteParams ps;
+    ps.canonical = false;
+    unsigned int flags = SmilesWrite::CXSmilesFields::CX_COORDS |
+                         SmilesWrite::CXSmilesFields::CX_MOLFILE_VALUES |
+                         SmilesWrite::CXSmilesFields::CX_ATOM_PROPS |
+                         SmilesWrite::CXSmilesFields::CX_BOND_CFG |
+                         SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO;
+
+    auto smi = MolToCXSmiles(*mol, ps, flags,
+                             RestoreBondDirOption::RestoreBondDirOptionFalse);
+
+    CHECK(
+        smi ==
+        "CC1=C(n2cccc2[C@H](C)Cl)C(C)CCC1 |(2.679,0.4142,;1.3509,1.181,;0.0229,0.4141,;0.0229,-1.1195,;1.2645,-2.0302,;0.7901,-3.4813,;-0.7446,-3.4813,;-1.219,-2.0302,;-2.679,-1.5609,;-3.0039,-0.0556,;-3.8202,-2.595,;-1.3054,1.1809,;-2.6335,0.4141,;-1.3054,2.7145,;0.0229,3.4813,;1.3509,2.7146,),wD:2.11,wU:8.10,&1:8|");
+
+    flags = SmilesWrite::CXSmilesFields::CX_COORDS |
+            SmilesWrite::CXSmilesFields::CX_MOLFILE_VALUES |
+            SmilesWrite::CXSmilesFields::CX_ATOM_PROPS |
+            SmilesWrite::CXSmilesFields::CX_BOND_ATROPISOMER |
+            SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO;
+
+    smi = MolToCXSmiles(*mol, ps, flags,
+                        RestoreBondDirOption::RestoreBondDirOptionFalse);
+
+    CHECK(
+        smi ==
+        "CC1=C(n2cccc2[C@H](C)Cl)C(C)CCC1 |(2.679,0.4142,;1.3509,1.181,;0.0229,0.4141,;0.0229,-1.1195,;1.2645,-2.0302,;0.7901,-3.4813,;-0.7446,-3.4813,;-1.219,-2.0302,;-2.679,-1.5609,;-3.0039,-0.0556,;-3.8202,-2.595,;-1.3054,1.1809,;-2.6335,0.4141,;-1.3054,2.7145,;0.0229,3.4813,;1.3509,2.7146,),wD:2.11,&1:8|");
+
+    flags = SmilesWrite::CXSmilesFields::CX_COORDS |
+            SmilesWrite::CXSmilesFields::CX_MOLFILE_VALUES |
+            SmilesWrite::CXSmilesFields::CX_ATOM_PROPS |
+            SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO;
+
+    smi = MolToCXSmiles(*mol, ps, flags,
+                        RestoreBondDirOption::RestoreBondDirOptionFalse);
+
+    CHECK(
+        smi ==
+        "CC1=C(n2cccc2[C@H](C)Cl)C(C)CCC1 |(2.679,0.4142,;1.3509,1.181,;0.0229,0.4141,;0.0229,-1.1195,;1.2645,-2.0302,;0.7901,-3.4813,;-0.7446,-3.4813,;-1.219,-2.0302,;-2.679,-1.5609,;-3.0039,-0.0556,;-3.8202,-2.595,;-1.3054,1.1809,;-2.6335,0.4141,;-1.3054,2.7145,;0.0229,3.4813,;1.3509,2.7146,),&1:8|");
+  }
+}
+
 TEST_CASE("Dative  bond in cxsmiles double double def", "[bug][cxsmiles]") {
   SECTION("basics") {
     SmilesParserParams smilesParserParams;

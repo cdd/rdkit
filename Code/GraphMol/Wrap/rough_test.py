@@ -1750,6 +1750,20 @@ M  END
       self.assertEqual(smi, r"F/C=C\F")
       self.assertDoubleBondStereo(smi, Chem.BondStereo.STEREOZ)
 
+      mol = Chem.MolFromSmiles("CC1=C(N2C=CC=C2C)C(C)CCC1 |(2.67903,0.414223,;1.35094,1.18102,;0.0228505,0.41407,;0.0228505,-1.11952,;1.26445,-2.03017,;0.790107,-3.48125,;-0.744559,-3.48125,;-1.21905,-2.03017,;-2.67903,-1.56089,;-1.30539,1.18087,;-2.63348,0.41407,;-1.30539,2.71446,;0.0228505,3.48125,;1.35094,2.71461,),wD:2.9|")
+      Chem.FindPotentialStereoBonds(mol)
+
+      for bond in mol.GetBonds():
+        if (bond.GetBondType() == Chem.BondType.SINGLE
+          and (bond.GetStereo() == Chem.BondStereo.STEREOATROPCW or
+               bond.GetStereo() == Chem.BondStereo.STEREOATROPCCW)):
+          break
+      self.assertEqual(bond.GetBondType(), Chem.BondType.SINGLE)
+      self.assertEqual(bond.GetStereo(), Chem.BondStereo.STEREOATROPCCW)
+
+      bond.SetStereo(Chem.BondStereo.STEREOATROPCW)
+      self.assertEqual(bond.GetStereo(), Chem.BondStereo.STEREOATROPCW)
+
   def recursive_enumerate_stereo_bonds(self, mol, done_bonds, bonds):
     if not bonds:
       yield done_bonds, Chem.Mol(mol)
@@ -7330,6 +7344,43 @@ CAS<~>
     sys.stdout.flush()
 
     self.assertTrue(mBlock == isReapplied)
+
+  def testAtropisomerWedging(self):
+    m =Chem.MolFromSmiles('CC1=C(N2C=CC=C2[C@H](C)Cl)C(C)CCC1 |(2.679,0.4142,;1.3509,1.181,;0.0229,0.4141,;0.0229,-1.1195,;1.2645,-2.0302,;0.7901,-3.4813,;-0.7446,-3.4813,;-1.219,-2.0302,;-2.679,-1.5609,;-3.0039,-0.0556,;-3.8202,-2.595,;-1.3054,1.1809,;-2.6335,0.4141,;-1.3054,2.7145,;0.0229,3.4813,;1.3509,2.7146,),wD:2.11,wU:8.10,&1:8|')
+    self.assertTrue(m is  not None)
+    self.assertTrue(m.GetNumAtoms() == 16)
+    
+    sys.stdout.flush()
+    flags = Chem.CXSmilesFields.CX_COORDS | \
+                        Chem.CXSmilesFields.CX_MOLFILE_VALUES | \
+                        Chem.CXSmilesFields.CX_ATOM_PROPS | \
+                        Chem.CXSmilesFields.CX_BOND_CFG | \
+                        Chem.CXSmilesFields.CX_ENHANCEDSTEREO
+    
+    ps = Chem.SmilesWriteParams()
+    ps.canonical = True
+    smi = Chem.MolToCXSmiles(m, ps, flags, Chem.RestoreBondDirOption.RestoreBondDirOptionFalse)
+    self.assertTrue(smi == 'CC1=C(n2cccc2[C@H](C)Cl)C(C)CCC1 |(2.679,0.4142,;1.3509,1.181,;0.0229,0.4141,;0.0229,-1.1195,;1.2645,-2.0302,;0.7901,-3.4813,;-0.7446,-3.4813,;-1.219,-2.0302,;-2.679,-1.5609,;-3.0039,-0.0556,;-3.8202,-2.595,;-1.3054,1.1809,;-2.6335,0.4141,;-1.3054,2.7145,;0.0229,3.4813,;1.3509,2.7146,),wD:2.11,wU:8.10,&1:8|')
+
+    flags = Chem.CXSmilesFields.CX_COORDS | \
+                        Chem.CXSmilesFields.CX_MOLFILE_VALUES | \
+                        Chem.CXSmilesFields.CX_ATOM_PROPS | \
+                        Chem.CXSmilesFields.CX_BOND_ATROPISOMER | \
+                        Chem.CXSmilesFields.CX_ENHANCEDSTEREO
+    
+    
+    smi = Chem.MolToCXSmiles(m, ps, flags, Chem.RestoreBondDirOption.RestoreBondDirOptionFalse)
+    self.assertTrue(smi == 'CC1=C(n2cccc2[C@H](C)Cl)C(C)CCC1 |(2.679,0.4142,;1.3509,1.181,;0.0229,0.4141,;0.0229,-1.1195,;1.2645,-2.0302,;0.7901,-3.4813,;-0.7446,-3.4813,;-1.219,-2.0302,;-2.679,-1.5609,;-3.0039,-0.0556,;-3.8202,-2.595,;-1.3054,1.1809,;-2.6335,0.4141,;-1.3054,2.7145,;0.0229,3.4813,;1.3509,2.7146,),wD:2.11,&1:8|')
+
+    flags = Chem.CXSmilesFields.CX_COORDS | \
+                        Chem.CXSmilesFields.CX_MOLFILE_VALUES | \
+                        Chem.CXSmilesFields.CX_ATOM_PROPS | \
+                        Chem.CXSmilesFields.CX_ENHANCEDSTEREO
+    
+    
+    smi = Chem.MolToCXSmiles(m, ps, flags, Chem.RestoreBondDirOption.RestoreBondDirOptionFalse)
+    self.assertTrue(smi == 'CC1=C(n2cccc2[C@H](C)Cl)C(C)CCC1 |(2.679,0.4142,;1.3509,1.181,;0.0229,0.4141,;0.0229,-1.1195,;1.2645,-2.0302,;0.7901,-3.4813,;-0.7446,-3.4813,;-1.219,-2.0302,;-2.679,-1.5609,;-3.0039,-0.0556,;-3.8202,-2.595,;-1.3054,1.1809,;-2.6335,0.4141,;-1.3054,2.7145,;0.0229,3.4813,;1.3509,2.7146,),&1:8|')
+
 
 if __name__ == '__main__':
   if "RDTESTCASE" in os.environ:

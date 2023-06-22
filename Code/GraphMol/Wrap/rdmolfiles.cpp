@@ -1496,7 +1496,12 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
              RDKit::SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO)
       .value("CX_SGROUPS", RDKit::SmilesWrite::CXSmilesFields::CX_SGROUPS)
       .value("CX_POLYMER", RDKit::SmilesWrite::CXSmilesFields::CX_POLYMER)
-      .value("CX_ALL", RDKit::SmilesWrite::CXSmilesFields::CX_ALL);
+      .value("CX_BOND_CFG", RDKit::SmilesWrite::CXSmilesFields::CX_BOND_CFG)
+      .value("CX_BOND_ATROPISOMER",
+             RDKit::SmilesWrite::CXSmilesFields::CX_BOND_ATROPISOMER)
+      .value("CX_ALL", RDKit::SmilesWrite::CXSmilesFields::CX_ALL)
+      .value("CX_ALL_BUT_COORDS",
+             RDKit::SmilesWrite::CXSmilesFields::CX_ALL_BUT_COORDS);
 
   python::enum_<RDKit::RestoreBondDirOption>("RestoreBondDirOption")
       .value("RestoreBondDirOptionClear",

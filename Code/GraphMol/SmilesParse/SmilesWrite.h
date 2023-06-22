@@ -51,6 +51,7 @@ enum CXSmilesFields : uint32_t {
   CX_SGROUPS = 1 << 7,
   CX_POLYMER = 1 << 8,
   CX_BOND_CFG = 1 << 9,
+  CX_BOND_ATROPISOMER = 1 << 10,
   CX_ALL = 0x7fffffff,
   CX_ALL_BUT_COORDS = CX_ALL ^ CX_COORDS
 };

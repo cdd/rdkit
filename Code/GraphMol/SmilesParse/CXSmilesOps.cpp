@@ -2007,7 +2007,8 @@ std::string get_atom_props_block(const ROMol &mol,
 std::string get_bond_config_block(const ROMol &mol,
                                   const std::vector<unsigned int> &atomOrder,
                                   const std::vector<unsigned int> &bondOrder,
-                                  bool coordsIncluded, INT_MAP_INT wedgeBonds) {
+                                  bool coordsIncluded, INT_MAP_INT wedgeBonds,
+                                  bool atropisomerOnly = false) {
   std::map<std::string, std ::vector<std::string>> wParts;
   for (unsigned int i = 0; i < bondOrder.size(); ++i) {
     auto idx = bondOrder[i];
@@ -2027,45 +2028,68 @@ std::string get_bond_config_block(const ROMol &mol,
       default:
         bd = Bond::BondDir::NONE;
     }
-    unsigned int cfg = 0;
-    if (bd == Bond::BondDir::NONE &&
-        bond->getPropIfPresent(common_properties::_MolFileBondCfg, cfg)) {
-      switch (cfg) {
-        case 1:
-          bd = Bond::BondDir::BEGINWEDGE;
-          break;
-        case 2:
-          bd = Bond::BondDir::UNKNOWN;
-          break;
-        case 3:
-          bd = Bond::BondDir::BEGINDASH;
-          break;
 
-        default:
-          bd = Bond::BondDir::NONE;
-      }
-    }
+    if (atropisomerOnly) {
+      // on of the bonds on the beging atom of this bond must be an atropisomer
 
-    if (bd == Bond::BondDir::NONE && coordsIncluded) {
-      int dirCode;
-      bool reverse;
-      GetMolFileBondStereoInfo(bond, wedgeBonds, &mol.getConformer(0), dirCode,
-                               reverse);
-      switch (dirCode) {
-        case 1:
-          bd = Bond::BondDir::BEGINWEDGE;
-          break;
-        case 3:
-          bd = Bond::BondDir::UNKNOWN;
-          break;
-        case 6:
-          bd = Bond::BondDir::BEGINDASH;
-          break;
-        default:
-          bd = Bond::BondDir::NONE;
+      if (bd == Bond::BondDir::NONE) {
+        continue;
       }
-      if (reverse) {
-        wedgeStartAtomIdx = bond->getEndAtomIdx();
+      bool foundAtropisomer = false;
+
+      const Atom *firstAtom = bond->getBeginAtom();
+      for (auto bondNbr : mol.atomBonds(firstAtom)) {
+        if (bondNbr->getStereo() == Bond::BondStereo::STEREOATROPCW ||
+            bondNbr->getStereo() == Bond::BondStereo::STEREOATROPCCW) {
+          foundAtropisomer = true;
+          break;
+        }
+      }
+      if (!foundAtropisomer) {
+        continue;
+      }
+    } else {  //  atropisomeronly is FALSE - check for a wedging caused by
+              //  chiral atom
+      unsigned int cfg = 0;
+      if (bd == Bond::BondDir::NONE &&
+          bond->getPropIfPresent(common_properties::_MolFileBondCfg, cfg)) {
+        switch (cfg) {
+          case 1:
+            bd = Bond::BondDir::BEGINWEDGE;
+            break;
+          case 2:
+            bd = Bond::BondDir::UNKNOWN;
+            break;
+          case 3:
+            bd = Bond::BondDir::BEGINDASH;
+            break;
+
+          default:
+            bd = Bond::BondDir::NONE;
+        }
+      }
+
+      if (bd == Bond::BondDir::NONE && coordsIncluded) {
+        int dirCode;
+        bool reverse;
+        GetMolFileBondStereoInfo(bond, wedgeBonds, &mol.getConformer(0),
+                                 dirCode, reverse);
+        switch (dirCode) {
+          case 1:
+            bd = Bond::BondDir::BEGINWEDGE;
+            break;
+          case 3:
+            bd = Bond::BondDir::UNKNOWN;
+            break;
+          case 6:
+            bd = Bond::BondDir::BEGINDASH;
+            break;
+          default:
+            bd = Bond::BondDir::NONE;
+        }
+        if (reverse) {
+          wedgeStartAtomIdx = bond->getEndAtomIdx();
+        }
       }
     }
 
@@ -2093,7 +2117,6 @@ std::string get_bond_config_block(const ROMol &mol,
           boost::str(boost::format("%d.%d") % begAtomOrder % i));
     }
   }
-
   std::string res = "";
 
   for (auto wPart : wParts) {
@@ -2314,6 +2337,22 @@ std::string getCXExtensions(const ROMol &mol, std::uint32_t flags) {
     const auto cistransblock =
         get_ringbond_cistrans_block(mol, atomOrder, bondOrder);
     appendToCXExtension(cistransblock, res);
+  }
+
+  // do the CX_BOND_ATROPISOMER only is CX_BOND_CFG s not done.  CX_BOND_CFG
+  // includes the atropisomer wedging
+  else if (flags & SmilesWrite::CXSmilesFields::CX_BOND_ATROPISOMER) {
+    INT_MAP_INT wedgeBonds;
+
+    if (mol.getNumConformers()) {
+      WedgeBondsFromAtropisomers(mol, &mol.getConformer(), wedgeBonds, true);
+    }
+
+    bool includeCoords = flags & SmilesWrite::CXSmilesFields::CX_COORDS &&
+                         mol.getNumConformers();
+    const auto cfgblock = get_bond_config_block(
+        mol, atomOrder, bondOrder, includeCoords, wedgeBonds, true);
+    appendToCXExtension(cfgblock, res);
   }
 
   if (flags & SmilesWrite::CXSmilesFields::CX_LINKNODES) {

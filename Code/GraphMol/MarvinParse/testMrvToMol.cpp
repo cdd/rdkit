@@ -1123,6 +1123,8 @@ void RunTests() {
   }
 
   std::list<MolTest> molFileTests{
+      MolTest("DataSgroupMissingUnitsDisplayed.mrv", true, LoadAsMolOrRxn, 15,
+              16),
       MolTest("lostStereoAnd.mrv", true, LoadAsMolOrRxn, 6, 5),
       MolTest("DoubleBondChain.mrv", true, LoadAsMolOrRxn, 22, 22),
       MolTest("WigglyAndCrossed.mrv", true, LoadAsMolOrRxn, 8, 7),

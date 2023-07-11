@@ -1193,8 +1193,12 @@ class MarvinCMLReader {
 
           marvinDataSgroup->unitsDisplayed = molTree.get<std::string>(
               "<xmlattr>.unitsDisplayed", "Unit not displayed");
+          if (marvinDataSgroup->unitsDisplayed == "") {
+            marvinDataSgroup->unitsDisplayed = "Unit not displayed";
+          }
           std::string unitsDisplayed =
               boost::algorithm::to_lower_copy(marvinDataSgroup->unitsDisplayed);
+
           if (unitsDisplayed != "unit displayed" &&
               unitsDisplayed != "unit not displayed") {
             throw FileParseException(

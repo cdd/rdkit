@@ -2492,3 +2492,24 @@ TEST_CASE("Dative  bond in cxsmiles double double def", "[bug][cxsmiles]") {
     }
   }
 }
+
+TEST_CASE("Fieldname not found in SuperatomSgroup in CXSmiles",
+          "[bug][cxsmiles]") {
+  SECTION("basics") {
+    SmilesParserParams smilesParserParams;
+    smilesParserParams.sanitize = true;
+    smilesParserParams.allowCXSMILES = true;
+
+    std::unique_ptr<RWMol> smilesMol(
+        SmilesToMol("CC |SgD:0:::|", smilesParserParams));
+    reapplyMolBlockWedging(*smilesMol);
+    {
+      SmilesWriteParams ps;
+      ps.canonical = true;
+
+      std::string smilesOut = MolToCXSmiles(*smilesMol, ps);
+
+      CHECK(smilesOut == "CC |SgD:0::::::|");
+    }
+  }
+}

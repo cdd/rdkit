@@ -688,6 +688,24 @@ bool parse_linknodes(Iterator &first, Iterator last, RDKit::RWMol &mol,
 }
 
 template <typename Iterator>
+void parse_data_sgroup_attr(Iterator &first, Iterator last,
+                            SubstanceGroup &sgroup, bool keepSGroup,
+                            std::string fieldName, bool fieldIsArray = false) {
+  if (first != last && *first != '|') {
+    std::string data = read_text_to(first, last, ":");
+    ++first;
+    if (!data.empty() && keepSGroup) {
+      if (fieldIsArray) {
+        std::vector<std::string> dataFields = {data};
+        sgroup.setProp(fieldName, dataFields);
+      } else {
+        sgroup.setProp(fieldName, data);
+      }
+    }
+  }
+}
+
+template <typename Iterator>
 bool parse_data_sgroup(Iterator &first, Iterator last, RDKit::RWMol &mol,
                        unsigned int startAtomIdx, unsigned int nSGroups) {
   // these look like: |SgD:2,1:FIELD:info::::|
@@ -716,40 +734,22 @@ bool parse_data_sgroup(Iterator &first, Iterator last, RDKit::RWMol &mol,
     }
   }
   ++first;
-  std::string name = read_text_to(first, last, ":");
-  ++first;
-  if (keepSGroup && !name.empty()) {
-    sgroup.setProp("FIELDNAME", name);
-  }
+
+  parse_data_sgroup_attr(first, last, sgroup, keepSGroup, "FIELDNAME");
+
   // FIX:
   if (keepSGroup) {
     sgroup.setProp("FIELDDISP", "    0.0000    0.0000    DR    ALL  0       0");
   }
 
-  std::string data = read_text_to(first, last, ":");
-  ++first;
-  if (!data.empty() && keepSGroup) {
-    std::vector<std::string> dataFields = {data};
-    sgroup.setProp("DATAFIELDS", dataFields);
-  }
+  parse_data_sgroup_attr(first, last, sgroup, keepSGroup, "DATAFIELDS", true);
 
-  std::string oper = read_text_to(first, last, ":");
-  ++first;
-  if (!oper.empty() && keepSGroup) {
-    sgroup.setProp("QUERYOP", oper);
-  }
-  std::string unit = read_text_to(first, last, ":");
-  ++first;
-  if (!unit.empty() && keepSGroup) {
-    sgroup.setProp("FIELDINFO", unit);
-  }
-  std::string tag = read_text_to(first, last, ":");
-  ++first;
-  if (!tag.empty() && keepSGroup) {
-    // not actually part of what ends up in the output, but
-    // it is part of CXSMARTS
-    sgroup.setProp("FIELDTAG", tag);
-  }
+  parse_data_sgroup_attr(first, last, sgroup, keepSGroup, "QUERYOP");
+
+  parse_data_sgroup_attr(first, last, sgroup, keepSGroup, "FIELDINFO");
+
+  parse_data_sgroup_attr(first, last, sgroup, keepSGroup, "FIELDTAG");
+
   if (first < last && *first == '(') {
     // FIX
     std::string coords = read_text_to(first, last, ")");

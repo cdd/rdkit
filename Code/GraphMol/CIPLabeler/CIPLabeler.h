@@ -13,6 +13,7 @@
 #include <boost/dynamic_bitset.hpp>
 
 #include <RDGeneral/export.h>
+#include <GraphMol/ChemReactions/Reaction.h>
 
 namespace RDKit {
 
@@ -39,6 +40,21 @@ class RDKIT_CIPLABELER_EXPORT MaxIterationsExceeded
       : std::runtime_error(
             "Max Iterations Exceeded in CIP label calculation"){};
 };
+
+const unsigned int ValidateStereoChemChiral = 1 << 0;
+const unsigned int ValidateStereoChemCisTrans = 1 << 1;
+const unsigned int ValidateStereoChemAtropisomers = 1 << 2;
+
+/*
+  this function validates the chirality and bond stereochemistry based on CIP
+  calculations. Any stereochemistry not validated is removed
+*/
+
+RDKIT_CIPLABELER_EXPORT bool validateStereochem(ROMol &mol,
+                                                unsigned int flags = 0);
+
+RDKIT_CIPLABELER_EXPORT bool validateStereochem(const ChemicalReaction &rxn,
+                                                unsigned int flags);
 
 /**
  * Calculate Stereochemical labels based on an accurate implementation
@@ -80,8 +96,13 @@ RDKIT_CIPLABELER_EXPORT void assignCIPLabels(
  */
 RDKIT_CIPLABELER_EXPORT void assignCIPLabels(
     ROMol &mol, const boost::dynamic_bitset<> &atoms,
-    const boost::dynamic_bitset<> &bonds, 
+    const boost::dynamic_bitset<> &bonds,
     unsigned int maxRecursiveIterations = 0);
+
+/*
+  this function validates the chirality and bond stereochemistry based on CIP
+  calculations. Any stereochemistry not validated is removed
+*/
 
 }  // namespace CIPLabeler
 }  // namespace RDKit

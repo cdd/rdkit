@@ -533,7 +533,11 @@ void initBondInfo(ROMol &mol, bool flagPossible, bool cleanIt,
           throw ValueErrorException("bad StereoInfo.specified type");
       }
     } else if (cleanIt) {
-      bond->setStereo(Bond::BondStereo::STEREONONE);
+      auto currentStereo = bond->getStereo();
+      if (currentStereo != Bond::BondStereo::STEREOATROPCW &&
+          currentStereo != Bond::BondStereo::STEREOATROPCCW) {
+        bond->setStereo(Bond::BondStereo::STEREONONE);
+      }
     }
   }
 }

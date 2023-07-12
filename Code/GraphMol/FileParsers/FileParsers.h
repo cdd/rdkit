@@ -59,9 +59,9 @@ typedef std::vector<RWMOL_SPTR> RWMOL_SPTR_VECT;
  *   \param explicit3dChiralityOnly - in 3D mode, only chrial atoms that had a
  *                     wedge or hash bond in the original input will be detected
  * correctness of the contents.
- * \param explicit3dChiralityOnly - if set to true,
- * only chiral centers with wedge /hash bonds are set from a 3D conformer
- *
+ *    \param explicit3dChiralityOnly - if set to true,
+ *                    only chiral centers with wedge /hash bonds are set from a
+ *                    3D conformer
  */
 RDKIT_FILEPARSERS_EXPORT RWMol *MolDataStreamToMol(
     std::istream *inStream, unsigned int &line, bool sanitize = true,
@@ -86,6 +86,7 @@ RDKIT_FILEPARSERS_EXPORT RWMol *MolDataStreamToMol(
  *   \param explicit3dChiralityOnly - in 3D mode, only chiral atoms that had a
  *                     wedge or hash bond in the original input will be detected
  *                     (default=false)
+ *
  */
 RDKIT_FILEPARSERS_EXPORT RWMol *MolBlockToMol(
     const std::string &molBlock, bool sanitize = true, bool removeHs = true,
@@ -102,7 +103,6 @@ RDKIT_FILEPARSERS_EXPORT RWMol *MolBlockToMol(
  *   \param explicit3dChiralityOnly - if set to true, only chiral centers with
  wedge /hash bonds are set from a 3D conformer
 
- * correctness of the contents.
  */
 RDKIT_FILEPARSERS_EXPORT RWMol *MolFileToMol(
     const std::string &fName, bool sanitize = true, bool removeHs = true,

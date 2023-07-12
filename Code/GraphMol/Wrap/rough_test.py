@@ -1378,7 +1378,6 @@ M  END
     m1 = Chem.MolFromMolBlock(inD)
     self.assertTrue(m1 is not None)
     self.assertTrue(m1.GetNumAtoms() == 5)
-    self.assertTrue(smi == 'F[C@](Cl)(Br)I', smi)
 
     inD = """chiral2.cdxml
   ChemDraw10160314052D

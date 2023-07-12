@@ -1,7 +1,7 @@
 import unittest
-
-from rdkit import Chem
-
+import os
+from rdkit import Chem, DataStructs, RDConfig, __version__, rdBase
+from rdkit.Chem import AllChem
 
 class TestCase(unittest.TestCase):
 
@@ -42,7 +42,14 @@ class TestCase(unittest.TestCase):
     self.assertFalse(atom5.HasProp("_CIPCode"))
 
   def testLabelBondsList(self):
-    mol = Chem.MolFromSmiles(r"C\C=C\C=C/C")
+
+    ps = Chem.SmilesParserParams()
+    ps.allowCXSMILES = True
+    ps.parseName = False
+    ps.sanitize = True
+    ps.removeHs = False
+    ps.explicit3dChirality = False
+    mol = Chem.MolFromSmiles(r"C\C=C\C=C/C", ps)
     self.assertIsNotNone(mol)
 
     bond1 = mol.GetBondWithIdx(1)
@@ -60,7 +67,15 @@ class TestCase(unittest.TestCase):
     self.assertEqual(bond3.GetProp("_CIPCode"), "Z")
 
   def doOneAtropIomerMandP(self,  inputSmiles , expected):
-    mol = Chem.MolFromSmiles(inputSmiles)
+
+    ps = Chem.SmilesParserParams()
+    ps.allowCXSMILES = True
+    ps.parseName = False
+    ps.sanitize = True
+    ps.removeHs = False
+    ps.explicit3dChirality = False
+
+    mol = Chem.MolFromSmiles(inputSmiles, ps)
 
     self.assertIsNotNone(mol)
     Chem.rdCIPLabeler.AssignCIPLabels(mol)
@@ -84,6 +99,255 @@ class TestCase(unittest.TestCase):
 
     mol = "N1(n2c(C)ccc2Br)C(=O)[C@H](C)[C@H](C)C1=O |(-11.1517,1.8306,;-11.1517,3.3708,;-12.4855,4.1411,;-13.8193,3.371,;-12.4855,5.6813,;-9.8177,5.6813,;-9.8177,4.1411,;-8.4839,3.371,;-12.3975,0.9252,;-13.8622,1.4011,;-11.9217,-0.5394,;-12.8269,-1.7852,;-10.3817,-0.5394,;-9.4765,-1.7852,;-9.9059,0.9252,;-8.4413,1.4011,),wU:0.8,10.11,12.13|"
     self.doOneAtropIomerMandP(mol, "0p:")
+
+  def testValidationMrvRxn(self):
+    Chem.SetUseLegacyStereoPerception(False)
+
+    mrvBlock = ""
+    fileN = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'CIPLabeler', 'Wrap', 'test_data',
+                         'DoubleBondRxn.mrv')
+    with open(fileN) as f:
+      mrvBlock = f.read()
+    rxn = AllChem.ReactionFromMrvBlock(mrvBlock, True,
+               True, False)
+    
+    smi = AllChem.ReactionToSmiles(rxn)
+    self.assertEqual(smi,"C/C=C1/COC(C)OC1>>C/C=C1\COC(C)OC1")
+    
+    rxn = AllChem.ReactionFromMrvFile(fileN, True,
+               True,  False)
+    smi = AllChem.ReactionToSmiles(rxn)
+    self.assertEqual(smi,"C/C=C1/COC(C)OC1>>C/C=C1\COC(C)OC1")
+
+    rxn = AllChem.ReactionFromMrvBlock(mrvBlock, True,
+               True, False)
+    AllChem.validateStereochemRxn(rxn, AllChem.ValidateStereoChemCisTrans)
+    
+    smi = AllChem.ReactionToSmiles(rxn)
+    self.assertEqual(smi,"CC=C1COC(C)OC1>>CC=C1COC(C)OC1")
+
+    rxn = AllChem.ReactionFromMrvFile(fileN, True,
+               True,  False)
+    AllChem.validateStereochemRxn(rxn, AllChem.ValidateStereoChemCisTrans)
+
+    smi = AllChem.ReactionToSmiles(rxn)
+    self.assertEqual(smi,"CC=C1COC(C)OC1>>CC=C1COC(C)OC1")
+
+    Chem.SetUseLegacyStereoPerception(False)
+
+  def testValidationMrvRxn2(self):
+    Chem.SetUseLegacyStereoPerception(False)
+
+    mrvBlock = ""
+    fileN = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'CIPLabeler', 'Wrap', 'test_data',
+                         'DoubleBondRxn2.mrv')
+
+    mrvBlock = ""
+    with open(fileN) as f:
+      mrvBlock = f.read()
+    rxn = AllChem.ReactionFromMrvBlock(mrvBlock, True,
+               True,  0)
+    
+    smi = AllChem.ReactionToSmiles(rxn)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)/C1=C/c1cc(C)c(C)c(CCC)c1>>C=C1CC(C)(C(C)(C)C)CC(=C)/C1=C/c1cc(C)c(Cl)c(CCC)c1")
+
+    rxn = AllChem.ReactionFromMrvFile(fileN, True,
+               True, False)
+    AllChem.validateStereochemRxn(rxn, AllChem.ValidateStereoChemCisTrans)
+
+    smi = AllChem.ReactionToSmiles(rxn)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)C1=Cc1cc(C)c(C)c(CCC)c1>>C=C1CC(C)(C(C)(C)C)CC(=C)C1=Cc1cc(C)c(Cl)c(CCC)c1")
+
+    Chem.SetUseLegacyStereoPerception(True)
+
+  def testValidationMrvRxn3(self):
+    Chem.SetUseLegacyStereoPerception(False)
+
+    mrvBlock = ""
+    fileN = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'CIPLabeler', 'Wrap', 'test_data',
+                         'DoubleBondAndChiralRxn.mrv')
+    with open(fileN) as f:
+      mrvBlock = f.read()
+    rxn = AllChem.ReactionFromMrvBlock(mrvBlock, True,
+               True,  0)
+
+    smi = AllChem.ReactionToSmiles(rxn)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)/C1=C/c1cc(C)c(C)c(CCC)c1>>C=C1CC(C)(C(C)(C)C)CC(=C)/C1=C/c1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+
+    rxn = AllChem.ReactionFromMrvFile(fileN, True,
+               True,  False)
+    AllChem.validateStereochemRxn(rxn, AllChem.ValidateStereoChemCisTrans)
+
+    smi = AllChem.ReactionToSmiles(rxn)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)C1=Cc1cc(C)c(C)c(CCC)c1>>C=C1CC(C)(C(C)(C)C)CC(=C)C1=Cc1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+
+    Chem.SetUseLegacyStereoPerception(True)
+
+  def testValidationRxn(self):
+    Chem.SetUseLegacyStereoPerception(False)
+
+    rxnBlock = ""
+    fileN = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'CIPLabeler', 'Wrap', 'test_data',
+                         'DoubleBondAndChiralRxn.rxn')
+    with open(fileN) as f:
+      rxnBlock = f.read()
+
+    rxn = AllChem.ReactionFromRxnBlock(rxnBlock, True,
+               True,  False,  False, 0)
+    smi = AllChem.ReactionToSmiles(rxn)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)/C1=C/c1cc(C)c(C)c(CCC)c1>>C=C1CC(C)(C(C)(C)C)CC(=C)/C1=C/c1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+  
+    rxn = AllChem.ReactionFromRxnFile(fileN, True,
+               True,  False,  False)
+
+    smi = AllChem.ReactionToSmiles(rxn)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)/C1=C/c1cc(C)c(C)c(CCC)c1>>C=C1CC(C)(C(C)(C)C)CC(=C)/C1=C/c1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+
+    rxn = AllChem.ReactionFromRxnBlock(rxnBlock, True,
+               True,  False,  False)
+    AllChem.validateStereochemRxn(rxn, AllChem.ValidateStereoChemCisTrans)
+
+
+    smi = AllChem.ReactionToSmiles(rxn)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)C1=Cc1cc(C)c(C)c(CCC)c1>>C=C1CC(C)(C(C)(C)C)CC(=C)C1=Cc1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+
+    rxn = AllChem.ReactionFromRxnFile(fileN, True,
+               True,  False, False)
+    AllChem.validateStereochemRxn(rxn, AllChem.ValidateStereoChemCisTrans)
+
+    smi = AllChem.ReactionToSmiles(rxn)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)C1=Cc1cc(C)c(C)c(CCC)c1>>C=C1CC(C)(C(C)(C)C)CC(=C)C1=Cc1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+
+    Chem.SetUseLegacyStereoPerception(True)
+
+
+  def testValidationSmiles(self):
+    Chem.SetUseLegacyStereoPerception(False)
+
+    smi = "C=C1CC(C)(C(C)(C)C)CC(=C)/C1=C/c1cc(C)c(Cl)c(C[C@H](C)Cl)c1"
+    ps = Chem.SmilesParserParams()
+    ps.allowCXSMILES = True
+    ps.parseName = False
+    ps.sanitize = True
+    ps.removeHs = False
+    ps.explicit3dChirality = False
+    mol = Chem.MolFromSmiles(smi, ps)
+    self.assertIsNotNone(mol)
+
+    of = Chem.SmilesWriteParams()
+    outSmi =       Chem.MolToCXSmiles(mol, of, Chem.CXSmilesFields.CX_ALL),
+
+    self.assertEqual(outSmi[0],"C=C1CC(C)(C(C)(C)C)CC(=C)/C1=C/c1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+
+    mol = Chem.MolFromSmiles(smi, ps)
+    AllChem.validateStereochem(mol, AllChem.ValidateStereoChemCisTrans)
+    self.assertIsNotNone(mol)
+
+    of = Chem.SmilesWriteParams()
+    outSmi =       Chem.MolToCXSmiles(mol, of, Chem.CXSmilesFields.CX_ALL),
+
+    self.assertEqual(outSmi[0],"C=C1CC(C)(C(C)(C)C)CC(=C)C1=Cc1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+
+    Chem.SetUseLegacyStereoPerception(True)
+
+  def testValidationMol(self):
+    Chem.SetUseLegacyStereoPerception(False)
+    molBlock = ""
+    fileN = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'CIPLabeler', 'Wrap', 'test_data',
+                         'DoubleBond2000.mol')
+    with open(fileN) as f:
+      molBlock = f.read()
+    mol =Chem.MolFromMolBlock(molBlock, True,
+               True, False, False)
+    
+    smi = Chem.MolToSmiles(mol)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)/C1=C/c1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+    
+    rxn = Chem.MolFromMolFile(fileN, True,
+               True,  False, False)
+    
+    smi = Chem.MolToSmiles(rxn)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)/C1=C/c1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+
+    rxn = Chem.MolFromMolBlock(molBlock, True,
+               True, False, False)
+    AllChem.validateStereochem(rxn, AllChem.ValidateStereoChemCisTrans)
+    
+    smi = Chem.MolToSmiles(rxn)
+
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)C1=Cc1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+
+    rxn = Chem.MolFromMolFile(fileN, True,
+               True,  False, False)
+    AllChem.validateStereochem(rxn, AllChem.ValidateStereoChemCisTrans)
+    smi = Chem.MolToSmiles(rxn)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)C1=Cc1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+
+    # nowthe V3000 version
+
+    fileN = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'CIPLabeler', 'Wrap', 'test_data',
+                         'DoubleBond3000.mol')
+    with open(fileN) as f:
+      molBlock = f.read()
+    mol =Chem.MolFromMolBlock(molBlock, True,
+               True, False, False)
+    
+    smi = Chem.MolToSmiles(mol)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)/C1=C/c1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+    
+    mol = Chem.MolFromMolFile(fileN, True,
+               True,  False, False)
+    smi = Chem.MolToSmiles(mol)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)/C1=C/c1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+
+    mol = Chem.MolFromMolBlock(molBlock, True,
+               True, False, False)
+    AllChem.validateStereochem(mol, AllChem.ValidateStereoChemCisTrans)
+    
+    smi = Chem.MolToSmiles(mol)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)C1=Cc1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+
+    mol = Chem.MolFromMolFile(fileN, True,
+               True,  False, False)
+    AllChem.validateStereochem(mol, AllChem.ValidateStereoChemCisTrans)
+    smi = Chem.MolToSmiles(rxn)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)C1=Cc1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+
+    Chem.SetUseLegacyStereoPerception(False)
+
+  def testValidationMrv(self):
+    Chem.SetUseLegacyStereoPerception(False)
+    mrvBlock = ""
+    fileN = os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol', 'CIPLabeler', 'Wrap', 'test_data',
+                         'DoubleBond.mrv')
+    with open(fileN) as f:
+      mrvBlock = f.read()
+    mol =Chem.MolFromMrvBlock(mrvBlock, True,
+               True, False)
+    
+    smi = Chem.MolToSmiles(mol)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)/C1=C/c1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+    
+    mol = Chem.MolFromMrvFile(fileN, True,
+               True,  False)
+    smi = Chem.MolToSmiles(mol)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)/C1=C/c1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+
+    mol = Chem.MolFromMrvBlock(mrvBlock, True,
+               True, False)
+    AllChem.validateStereochem(mol, AllChem.ValidateStereoChemCisTrans)
+    
+    smi = Chem.MolToSmiles(mol)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)C1=Cc1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+
+    mol = Chem.MolFromMrvFile(fileN, True,
+               True,  False)
+    AllChem.validateStereochem(mol, AllChem.ValidateStereoChemCisTrans)
+
+    smi = Chem.MolToSmiles(mol)
+    self.assertEqual(smi,"C=C1CC(C)(C(C)(C)C)CC(=C)C1=Cc1cc(C)c(Cl)c(C[C@H](C)Cl)c1")
+
+    Chem.SetUseLegacyStereoPerception(False)
 
 if __name__ == '__main__':
   unittest.main()

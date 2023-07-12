@@ -28,6 +28,7 @@
 #include <RDGeneral/RDLog.h>
 #include <GraphMol/GenericGroups/GenericGroups.h>
 #include <GraphMol/QueryOps.h>
+#include <GraphMol/CIPLabeler/CIPLabeler.h>
 
 #include <fstream>
 #include <RDGeneral/FileParseException.h>

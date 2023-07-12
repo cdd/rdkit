@@ -127,16 +127,19 @@ RDKIT_CHEMREACTIONS_EXPORT ROMol *ChemicalReactionToRxnMol(
 //! Parse a text block in MDL rxn format into a ChemicalReaction
 RDKIT_CHEMREACTIONS_EXPORT ChemicalReaction *RxnBlockToChemicalReaction(
     const std::string &rxnBlock, bool sanitize = false, bool removeHs = false,
-    bool strictParsing = true);
+    bool strictParsing = true, bool explicit3dChiralityOnly = false,
+    unsigned int validateStereoFlags = 0);
 //! Parse a file in MDL rxn format into a ChemicalReaction
 RDKIT_CHEMREACTIONS_EXPORT ChemicalReaction *RxnFileToChemicalReaction(
     const std::string &fileName, bool sanitize = false, bool removeHs = false,
-    bool strictParsing = true);
+    bool strictParsing = true, bool explicit3dChiralityOnly = false,
+    unsigned int validateStereoFlags = 0);
 //! Parse a text stream in MDL rxn format into a ChemicalReaction
 RDKIT_CHEMREACTIONS_EXPORT ChemicalReaction *RxnDataStreamToChemicalReaction(
     std::istream &rxnStream, unsigned int &line, bool sanitize = false,
     bool removeHs = false, bool strictParsing = true,
-    bool explicit3dChiralityOnly = false);
+    bool explicit3dChiralityOnly = false, unsigned int validateStereoFlags = 0);
+
 //! returns an rxn block for a reaction
 /*!
    \param rxn            chemical reaction

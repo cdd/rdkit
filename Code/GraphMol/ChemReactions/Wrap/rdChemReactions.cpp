@@ -43,6 +43,7 @@
 #include <GraphMol/MarvinParse/MarvinParser.h>
 #include <GraphMol/Depictor/DepictUtils.h>
 #include <GraphMol/FilterCatalog/FunctionalGroupHierarchy.h>
+#include <GraphMol/CIPLabeler/CIPLabeler.h>
 
 #include <RDBoost/Wrap.h>
 
@@ -313,11 +314,14 @@ ChemicalReaction *ReactionFromSmarts(const char *smarts, python::dict replDict,
 }
 
 ChemicalReaction *ReactionFromMrvFile(const char *rxnFilename, bool sanitize,
-                                      bool removeHs) {
+                                      bool removeHs,
+                                      bool explicit3dChiralOnly) {
   ChemicalReaction *newR = nullptr;
   try {
-    newR = MrvRxnFileParser(rxnFilename, sanitize, removeHs);
-  } catch (RDKit::BadFileException &e) {
+    newR =
+        MrvRxnFileParser(rxnFilename, sanitize, removeHs, explicit3dChiralOnly);
+
+    } catch (RDKit::BadFileException &e) {
     PyErr_SetString(PyExc_IOError, e.what());
     throw python::error_already_set();
   } catch (RDKit::FileParseException &e) {
@@ -328,11 +332,13 @@ ChemicalReaction *ReactionFromMrvFile(const char *rxnFilename, bool sanitize,
 }
 
 ChemicalReaction *ReactionFromMrvBlock(python::object imolBlock, bool sanitize,
-                                       bool removeHs) {
-  std::istringstream inStream(pyObjectToString(imolBlock));
+                                       bool removeHs,
+                                       bool explicit3dChiralOnly) {
   ChemicalReaction *newR = nullptr;
   try {
-    newR = MrvRxnDataStreamParser(inStream, sanitize, removeHs);
+    newR = MrvRxnStringParser(pyObjectToString(imolBlock), sanitize, removeHs,
+                              explicit3dChiralOnly);
+
   } catch (RDKit::FileParseException &e) {
     BOOST_LOG(rdWarningLog) << e.what() << std::endl;
   } catch (...) {
@@ -827,25 +833,31 @@ of the replacements argument.",
   python::def(
       "ReactionFromRxnFile", RDKit::RxnFileToChemicalReaction,
       (python::arg("filename"), python::arg("sanitize") = false,
-       python::arg("removeHs") = false, python::arg("strictParsing") = true),
+       python::arg("removeHs") = false, python::arg("strictParsing") = true,
+       python::arg("explicit3dChiralityOnly") = false,
+       python::arg("validateStereoFlags") = 0),
       "construct a ChemicalReaction from an MDL rxn file",
       python::return_value_policy<python::manage_new_object>());
   python::def(
       "ReactionFromRxnBlock", RDKit::RxnBlockToChemicalReaction,
       (python::arg("rxnblock"), python::arg("sanitize") = false,
-       python::arg("removeHs") = false, python::arg("strictParsing") = true),
+       python::arg("removeHs") = false, python::arg("strictParsing") = true,
+       python::arg("explicit3dChiralityOnly") = false,
+       python::arg("validateStereoFlags") = 0),
       "construct a ChemicalReaction from a string in MDL rxn format",
       python::return_value_policy<python::manage_new_object>());
 
   python::def("ReactionFromMrvFile", RDKit::ReactionFromMrvFile,
               (python::arg("filename"), python::arg("sanitize") = false,
-               python::arg("removeHs") = false),
+               python::arg("removeHs") = false,
+               python::arg("explicit3dChiralOnly") = false),
               "construct a ChemicalReaction from an Marvin (mrv) rxn file",
               python::return_value_policy<python::manage_new_object>());
   python::def(
       "ReactionFromMrvBlock", RDKit::ReactionFromMrvBlock,
       (python::arg("rxnblock"), python::arg("sanitize") = false,
-       python::arg("removeHs") = false),
+       python::arg("removeHs") = false,
+       python::arg("explicit3dChiralOnly") = false),
       "construct a ChemicalReaction from a string in Marvin (mrv) format",
       python::return_value_policy<python::manage_new_object>());
 
@@ -856,7 +868,7 @@ of the replacements argument.",
 
   python::def(
       "ReactionToMrvBlock", RDKit::ChemicalReactionToMrvBlock,
-      (python::arg("reaction")),
+      (python::arg("reaction"), (python::arg("prettyPrint") = false)),
       "construct a string in Marvin (MRV) rxn format for a ChemicalReaction");
 
   python::def(

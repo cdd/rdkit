@@ -744,7 +744,8 @@ class MarvinCMLReader {
           std::ostringstream out;
           out << std::fixed << std::setw(10) << std::setprecision(4)
               << subMolPtr->x << std::fixed << std::setw(10)
-              << std::setprecision(4) << subMolPtr->y << "DRU   ALL  0       0";
+              << std::setprecision(4) << subMolPtr->y
+              << "    DRU   ALL  0       0";
 
           sgroup.setProp("FIELDDISP", out.str());  // really not used by RDKIT
 

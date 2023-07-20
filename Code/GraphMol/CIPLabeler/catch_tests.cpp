@@ -755,22 +755,24 @@ TEST_CASE("AssignMandP", "[accurateCIP]") {
 
 void testStereoValidationFromMol(std::string molBlock,
                                  std::string expectedSmiles,
-                                 unsigned int validationFlags,
-                                 bool legacyFlag) {
+                                 unsigned int validationFlags, bool legacyFlag,
+                                 bool canonicalFlag = false) {
   RDKit::Chirality::setUseLegacyStereoPerception(legacyFlag);
 
-  std::unique_ptr<RWMol> mol(MolBlockToMol(molBlock, true, false));
+  std::unique_ptr<RWMol> mol(MolBlockToMol(molBlock, true, false, false, true));
   REQUIRE(mol);
+
   CHECK(CIPLabeler::validateStereochem(*mol, validationFlags));
 
   RDKit::SmilesWriteParams smilesWriteParams;
   smilesWriteParams.doIsomericSmiles = true;
   smilesWriteParams.doKekule = false;
-  smilesWriteParams.canonical = false;
+  smilesWriteParams.canonical = canonicalFlag;
 
   unsigned int flags = 0 |
                        RDKit::SmilesWrite::CXSmilesFields::CX_MOLFILE_VALUES |
                        RDKit::SmilesWrite::CXSmilesFields::CX_ATOM_PROPS |
+                       RDKit::SmilesWrite::CXSmilesFields::CX_BOND_CFG |
                        RDKit::SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO |
                        RDKit::SmilesWrite::CXSmilesFields::CX_SGROUPS |
                        RDKit::SmilesWrite::CXSmilesFields::CX_POLYMER;
@@ -855,6 +857,64 @@ M  V30 END CTAB
 M  END
   )";
 
+std::string validateStereoMolBlockDoubleBondNoStereo2 = R"(
+  Mrv0541 07011416342D          
+
+ 21 22  0  0  0  0            999 V2000
+   -1.9814    1.4834    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    2.9581   -2.7980    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    3.3658   -2.0787    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+   -2.8189    1.5764    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+   -1.5800    0.7796    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+   -2.9760    2.3967    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    2.1333   -2.7836    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    2.9581   -1.3592    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    1.7256   -2.0690    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    0.4882   -1.3401    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+   -0.8471    2.4140    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    1.7304   -0.6351    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    0.9007   -0.6351    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    0.4834    0.0700    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    2.1333   -1.3497    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+   -3.3658    0.9831    0.0000 Br  0  0  0  0  0  0  0  0  0  0  0  0
+   -1.9814    0.0525    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0
+   -0.7598    0.7854    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0
+   -0.3410    0.0700    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0
+   -1.6556    2.2396    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0
+   -2.2722    2.7980    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0
+ 20  1  1  0  0  0  0
+  4  1  2  0  0  0  0
+  5  1  1  0  0  0  0
+  2  7  2  0  0  0  0
+  3  2  1  0  0  0  0
+  3  8  2  0  0  0  0
+  6  4  1  0  0  0  0
+ 16  4  1  0  0  0  0
+ 18  5  1  0  0  0  0
+ 17  5  2  0  0  0  0
+ 21  6  2  0  0  0  0
+  7  9  1  0  0  0  0
+  8 15  1  0  0  0  0
+  9 15  2  0  0  0  0
+ 10 13  1  0  0  0  0
+ 11 20  1  0  0  0  0
+ 13 12  2  0  0  0  0
+ 15 12  1  0  0  0  0
+ 14 13  1  0  0  0  0
+ 19 14  2  0  0  0  0
+ 19 18  1  0  0  0  0
+ 21 20  1  0  0  0  0
+M  END
+> <Compound Name>
+VM-0411129
+
+> <CDD Number>
+CDD-2839271
+
+$$$$
+
+)";
+
 TEST_CASE("ValidateStereo", "[accurateCIP]") {
   SECTION("SprioChiralLost") {
     // this one uses legacy stereo perception and gets the answer wrong -misses
@@ -886,5 +946,32 @@ TEST_CASE("ValidateStereo", "[accurateCIP]") {
     testStereoValidationFromMol(validateStereoMolBlockDoubleBondNoStereo,
                                 "C1(=CC)COC(C)OC1", ValidateStereoChemCisTrans,
                                 false);
+  }
+
+  SECTION("DoubleBondMarkedStereo2") {
+    // using the new stereo perception:
+    // this one does not do the validation of the double bond stereo and gets
+    // the wrong answer the double bond is mark as stereo is NOT
+    testStereoValidationFromMol(validateStereoMolBlockDoubleBondNoStereo2,
+                                "CC(/C=N/NC(=O)c1c(Br)cnn1C)=C\\c1ccccc1", 0,
+                                true, true);
+  }
+
+  // using the new stereo perception:
+  // but does not validate and gets the wrong answer
+
+  SECTION("DoubleBondotMarkedStereo2") {
+    testStereoValidationFromMol(validateStereoMolBlockDoubleBondNoStereo2,
+                                "CC(=C\\c1ccccc1)/C=N/NC(=O)c1c(Br)cnn1C", 0,
+                                false, true);
+
+    // using the new stereo perception:
+    // this one uses the stereo validation and gets the answer right
+
+    SECTION("DoubleBondotMarkedStereo2") {
+      testStereoValidationFromMol(validateStereoMolBlockDoubleBondNoStereo2,
+                                  "CC(/C=N/NC(=O)c1c(Br)cnn1C)=C\\c1ccccc1",
+                                  ValidateStereoChemCisTrans, false, true);
+    }
   }
 }

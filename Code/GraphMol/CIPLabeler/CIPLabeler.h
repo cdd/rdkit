@@ -50,11 +50,13 @@ const unsigned int ValidateStereoChemAtropisomers = 1 << 2;
   calculations. Any stereochemistry not validated is removed
 */
 
-RDKIT_CIPLABELER_EXPORT bool validateStereochem(ROMol &mol,
-                                                unsigned int flags = 0);
+RDKIT_CIPLABELER_EXPORT bool validateStereochem(
+    ROMol &mol, unsigned int flags = 0,
+    unsigned int maxRecursiveIterations = 1000000);
 
-RDKIT_CIPLABELER_EXPORT bool validateStereochem(const ChemicalReaction &rxn,
-                                                unsigned int flags);
+RDKIT_CIPLABELER_EXPORT bool validateStereochem(
+    const ChemicalReaction &rxn, unsigned int flags,
+    unsigned int maxRecursiveIterations = 1000000);
 
 /**
  * Calculate Stereochemical labels based on an accurate implementation

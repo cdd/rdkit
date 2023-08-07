@@ -915,85 +915,9 @@ $$$$
 
 )";
 
-std::string validateStereoError1 = R"(
-  -ISIS-  -- StrEd -- 
-
- 29 32  0  0  0  0  0  0  0  0999 V2000
-   -1.2050   -4.7172    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-   -0.8959   -3.7660    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0
-    0.0823   -3.5582    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-    0.7514   -4.3013    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-    1.7296   -4.0934    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-    2.0385   -3.1425    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-    1.3694   -2.3993    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-    1.6785   -1.4481    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-    1.0094   -0.7050    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-    0.0312   -0.9129    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-   -0.9470   -1.1209    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0
-    1.3183    0.2461    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-    2.2694    0.5550    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0
-    2.2694    1.5549    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0
-    1.3183    1.8641    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-    1.0094    2.8151    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0
-    1.6785    3.5582    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-    1.3694    4.5093    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-    0.3912    4.7172    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0
-   -0.2777    3.9739    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-    0.0312    3.0230    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-    0.7305    1.0550    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0
-   -0.2694    1.0550    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-   -0.7694    1.9210    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-   -1.7695    1.9210    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-   -2.2694    1.0550    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-   -1.7695    0.1889    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-   -0.7694    0.1889    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-    0.3912   -2.6071    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-  1  2  1  0  0  0  0
-  2  3  1  0  0  0  0
-  3  4  1  0  0  0  0
-  4  5  2  0  0  0  0
-  5  6  1  0  0  0  0
-  6  7  2  0  0  0  0
-  7  8  1  0  0  0  0
-  8  9  2  0  0  0  0
-  9 10  1  0  0  0  0
- 10 11  3  0  0  0  0
-  9 12  1  0  0  0  0
- 12 13  2  0  0  0  0
- 13 14  1  0  0  0  0
- 14 15  2  0  0  0  0
- 15 16  1  0  0  0  0
- 16 17  1  0  0  0  0
- 17 18  1  0  0  0  0
- 18 19  1  0  0  0  0
- 19 20  1  0  0  0  0
- 20 21  1  0  0  0  0
- 16 21  1  0  0  0  0
- 15 22  1  0  0  0  0
- 12 22  1  0  0  0  0
- 22 23  1  0  0  0  0
- 23 24  1  0  0  0  0
- 24 25  2  0  0  0  0
- 25 26  1  0  0  0  0
- 26 27  2  0  0  0  0
- 27 28  1  0  0  0  0
- 23 28  2  0  0  0  0
-  7 29  1  0  0  0  0
-  3 29  2  0  0  0  0
-M  END
-> <Compound Name>
-Z362114294
-
-> <CDD Number>
-CDD-3164311
-
-$$$$
-
-)";
-
 TEST_CASE("ValidateStereo", "[accurateCIP]") {
   SECTION("SprioChiralLost") {
-    // this one uses legacy stereo perception and gets the answer wrong-misses
+    // this one uses legacy stereo perception and gets the answer wrong -misses
     // the chiral center at the spriro junction
     testStereoValidationFromMol(validateStereoMolBlockSpiro,
                                 "C1C[C@H](Cl)CCC12CC[C@@H](C)CC2",
@@ -1018,16 +942,16 @@ TEST_CASE("ValidateStereo", "[accurateCIP]") {
   // using the new stereo perception:
   // this one uses the stereo validation and gets the answer right
 
-  SECTION("DoubleBondNotMarkedStereo") {
+  SECTION("DoubleBondotMarkedStereo") {
     testStereoValidationFromMol(validateStereoMolBlockDoubleBondNoStereo,
                                 "C1(=CC)COC(C)OC1", ValidateStereoChemCisTrans,
                                 false);
   }
 
-  SECTION("DoubleBondStereoOldCorrect") {
-    // using the old stereo perception:
-    // this one does the validation of the double bond stereo and gets
-    // the right  answer
+  SECTION("DoubleBondMarkedStereo2") {
+    // using the new stereo perception:
+    // this one does not do the validation of the double bond stereo and gets
+    // the wrong answer the double bond is mark as stereo is NOT
     testStereoValidationFromMol(validateStereoMolBlockDoubleBondNoStereo2,
                                 "CC(/C=N/NC(=O)c1c(Br)cnn1C)=C\\c1ccccc1", 0,
                                 true, true);
@@ -1036,7 +960,7 @@ TEST_CASE("ValidateStereo", "[accurateCIP]") {
   // using the new stereo perception:
   // but does not validate and gets the wrong answer
 
-  SECTION("DoubleBondotNewNotValidated") {
+  SECTION("DoubleBondotMarkedStereo2") {
     testStereoValidationFromMol(validateStereoMolBlockDoubleBondNoStereo2,
                                 "CC(=C\\c1ccccc1)/C=N/NC(=O)c1c(Br)cnn1C", 0,
                                 false, true);
@@ -1044,27 +968,10 @@ TEST_CASE("ValidateStereo", "[accurateCIP]") {
     // using the new stereo perception:
     // this one uses the stereo validation and gets the answer right
 
-    SECTION("DoubleBondotNewValidated") {
+    SECTION("DoubleBondotMarkedStereo2") {
       testStereoValidationFromMol(validateStereoMolBlockDoubleBondNoStereo2,
                                   "CC(/C=N/NC(=O)c1c(Br)cnn1C)=C\\c1ccccc1",
                                   ValidateStereoChemCisTrans, false, true);
-    }
-
-    SECTION("DoubleBondOldCorrect2") {
-      testStereoValidationFromMol(
-          validateStereoError1,
-          "COc1cccc(/C=C(\\C#N)c2nnc(N3CCOCC3)n2-c2ccccc2)c1", 0, true, true);
-    }
-    SECTION("DoubleBondNewNotValidated2") {
-      testStereoValidationFromMol(
-          validateStereoError1,
-          "COc1cccc(/C=C(\\C#N)c2nnc(N3CCOCC3)n2-c2ccccc2)c1", 0, false, true);
-    }
-    SECTION("DoubleBondNewValidated2") {
-      testStereoValidationFromMol(
-          validateStereoError1,
-          "COc1cccc(/C=C(\\C#N)c2nnc(N3CCOCC3)n2-c2ccccc2)c1",
-          ValidateStereoChemCisTrans, false, true);
     }
   }
 }

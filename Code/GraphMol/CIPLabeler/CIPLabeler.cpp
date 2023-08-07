@@ -293,7 +293,7 @@ bool validateStereochem(ROMol &mol, unsigned int flags,
               for (auto nbrIdx = begNbrs; nbrIdx != endNbrs; ++nbrIdx) {
                 if (*nbrIdx != (*bond)->getBeginAtom()->getIdx() &&
                     *nbrIdx != (*bond)->getStereoAtoms()[1]) {
-                  (*bond)->getStereoAtoms()[1] = *nbrIdx;
+                  (*bond)->getStereoAtoms()[0] = *nbrIdx;
                   needsFlipStereoAtoms = false;
                   break;
                 }

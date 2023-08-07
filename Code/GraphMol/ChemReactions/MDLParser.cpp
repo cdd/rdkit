@@ -107,8 +107,8 @@ void ParseV2000RxnBlock(std::istream &inStream, unsigned int &line,
     }
     ROMol *react;
     try {
-      react = MolDataStreamToMol(inStream, line, sanitize, removeHs,
-                                 strictParsing, false);
+      react =
+          MolDataStreamToMol(inStream, line, sanitize, removeHs, strictParsing);
     } catch (FileParseException &e) {
       std::ostringstream errout;
       errout << "Cannot parse reactant " << i << ". The error was:\n\t"
@@ -131,8 +131,8 @@ void ParseV2000RxnBlock(std::istream &inStream, unsigned int &line,
     }
     ROMol *prod;
     try {
-      prod = MolDataStreamToMol(inStream, line, sanitize, removeHs,
-                                strictParsing, false);
+      prod =
+          MolDataStreamToMol(inStream, line, sanitize, removeHs, strictParsing);
     } catch (FileParseException &e) {
       std::ostringstream errout;
       errout << "Cannot parse product " << i << ". The error was:\n\t"
@@ -156,7 +156,7 @@ void ParseV2000RxnBlock(std::istream &inStream, unsigned int &line,
     }
     ROMol *agent;
     try {
-      agent = MolDataStreamToMol(inStream, line, false, true, true, false);
+      agent = MolDataStreamToMol(inStream, line, false);
     } catch (FileParseException &e) {
       std::ostringstream errout;
       errout << "Cannot parse agent " << i << ". The error was:\n\t"
@@ -290,8 +290,6 @@ void ParseV3000RxnBlock(std::istream &inStream, unsigned int &line,
       FileParserUtils::ParseV3000CTAB(&inStream, line, agent, conf,
                                       chiralityPossible, natoms, nbonds, true,
                                       false);
-      FileParserUtils::finishMolProcessing(agent, chiralityPossible, sanitize,
-                                           removeHs, explicit3dChiralityOnly);
     } catch (FileParseException &e) {
       std::ostringstream errout;
       errout << "Cannot parse agent " << i << ". The error was:\n\t"
@@ -315,8 +313,7 @@ void ParseV3000RxnBlock(std::istream &inStream, unsigned int &line,
 //! Parse a text stream in MDL rxn format into a ChemicalReaction
 ChemicalReaction *RxnDataStreamToChemicalReaction(
     std::istream &inStream, unsigned int &line, bool sanitize, bool removeHs,
-    bool strictParsing, bool explicit3dChiralityOnly,
-    unsigned int stereoValidationFlags) {
+    bool strictParsing, bool explicit3dChiralityOnly) {
   std::string tempStr;
 
   // header line
@@ -372,20 +369,18 @@ ChemicalReaction *RxnDataStreamToChemicalReaction(
   return res;
 };
 
-ChemicalReaction *RxnBlockToChemicalReaction(
-    const std::string &rxnBlock, bool sanitize, bool removeHs,
-    bool strictParsing, bool explicit3dChiralityOnly,
-    unsigned int stereoValidationFlags) {
+ChemicalReaction *RxnBlockToChemicalReaction(const std::string &rxnBlock,
+                                             bool sanitize, bool removeHs,
+                                             bool strictParsing) {
   std::istringstream inStream(rxnBlock);
   unsigned int line = 0;
   return RxnDataStreamToChemicalReaction(inStream, line, sanitize, removeHs,
-                                         strictParsing, explicit3dChiralityOnly,
-                                         stereoValidationFlags);
+                                         strictParsing);
 };
 
-ChemicalReaction *RxnFileToChemicalReaction(
-    const std::string &fName, bool sanitize, bool removeHs, bool strictParsing,
-    bool explicit3dChiralityOnly, unsigned int stereoValidationFlags) {
+ChemicalReaction *RxnFileToChemicalReaction(const std::string &fName,
+                                            bool sanitize, bool removeHs,
+                                            bool strictParsing) {
   std::ifstream inStream(fName.c_str());
   if (!inStream) {
     return nullptr;
@@ -393,9 +388,8 @@ ChemicalReaction *RxnFileToChemicalReaction(
   ChemicalReaction *res = nullptr;
   if (!inStream.eof()) {
     unsigned int line = 0;
-    res = RxnDataStreamToChemicalReaction(
-        inStream, line, sanitize, removeHs, strictParsing,
-        explicit3dChiralityOnly, stereoValidationFlags);
+    res = RxnDataStreamToChemicalReaction(inStream, line, sanitize, removeHs,
+                                          strictParsing);
   }
   return res;
 };

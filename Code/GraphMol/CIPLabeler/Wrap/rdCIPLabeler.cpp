@@ -17,12 +17,11 @@
 #include <GraphMol/CIPLabeler/CIPLabeler.h>
 #include <GraphMol/FileParsers/FileParsers.h>
 
+
 namespace python = boost::python;
 using RDKit::CIPLabeler::assignCIPLabels;
-using RDKit::CIPLabeler::validateStereochem;
 
-void rdMaxIterationsExceededTranslator(
-    RDKit::CIPLabeler::MaxIterationsExceeded const &x) {
+void rdMaxIterationsExceededTranslator(RDKit::CIPLabeler::MaxIterationsExceeded const &x) {
   std::ostringstream ss;
   ss << x.what();
   PyErr_SetString(PyExc_RuntimeError, ss.str().c_str());
@@ -41,17 +40,7 @@ void assignCIPLabelsWrapHelper(RDKit::ROMol &mol,
     bonds.set();
   }
 
-  assignCIPLabels(mol, atoms, bonds, maxRecursiveIterations);
-}
-
-void validateStereochemWrapHelper(RDKit::ROMol &mol,
-                                  unsigned int validateFlags) {
-  validateStereochem(mol, validateFlags);
-}
-
-void validateStereochemWrapHelperRxn(RDKit::ChemicalReaction &rxn,
-                                     unsigned int validateFlags) {
-  validateStereochem(rxn, validateFlags);
+  assignCIPLabels(mol, atoms, bonds,maxRecursiveIterations);
 }
 
 BOOST_PYTHON_MODULE(rdCIPLabeler) {
@@ -65,9 +54,8 @@ BOOST_PYTHON_MODULE(rdCIPLabeler) {
       "Stereochemistry:\nProposals for Revised Rules and a Guide for Machine "
       "Implementation.\nJ. Chem. Inf. Model. 2018, 58, 1755-1765.\n";
 
-  python::register_exception_translator<
-      RDKit::CIPLabeler::MaxIterationsExceeded>(
-      &rdMaxIterationsExceededTranslator);
+   python::register_exception_translator<RDKit::CIPLabeler::MaxIterationsExceeded>(
+       &rdMaxIterationsExceededTranslator);      
 
   std::string docString =
       "New implementation of Stereo assignment using a true CIP ranking.\n"
@@ -85,37 +73,9 @@ BOOST_PYTHON_MODULE(rdCIPLabeler) {
 
   python::def(
       "AssignCIPLabels", assignCIPLabelsWrapHelper,
-      (python::arg("mol"), python::arg("atomsToLabel") = python::object(),
+      (python::arg("mol"), 
+       python::arg("atomsToLabel") = python::object(),
        python::arg("bondsToLabel") = python::object(),
        python::arg("maxRecursiveIterations") = 0),
       docString.c_str());
-
-  boost::python::scope().attr("ValidateStereoChemChiral") =
-      RDKit::CIPLabeler::ValidateStereoChemChiral;
-  boost::python::scope().attr("ValidateStereoChemCisTrans") =
-      RDKit::CIPLabeler::ValidateStereoChemCisTrans;
-  boost::python::scope().attr("ValidateStereoChemAtropisomers") =
-      RDKit::CIPLabeler::ValidateStereoChemAtropisomers;
-
-  docString =
-      "Validation of stereo information in a molecule using CIP calculations.\n"
-      "On return:  The molecule contains only validated stereo centers, bonds and atropisomer bonds\n"
-      "Errors:  If the CIP labels cannot be generated, this procedure returns false\nARGUMENTS:\n\n"
-      " - mol: the molecule\n"
-      " - validationFlags: bitwise combination of ValidateStereoChemChiral, ValidateStereoChemCisTrans, ValidateStereoChemAtropisomers\n";
-
-  python::def("validateStereochem", validateStereochemWrapHelper,
-              (python::arg("mol"), python::arg("validationFlags") = 0),
-              docString.c_str());
-
-  docString =
-      "Validation of stereo information in a reaction using CIP calculations.\n"
-      "On return:  The reaction contains only validated stereo centers, bonds and atropisomer bonds\n"
-      "Errors:  If the CIP labels cannot be generated, this procedure returns false\nARGUMENTS:\n\n"
-      " - mol: the molecule\n"
-      " - validationFlags: bitwise combination of ValidateStereoChemChiral, ValidateStereoChemCisTrans, ValidateStereoChemAtropisomers\n";
-
-  python::def("validateStereochemRxn", validateStereochemWrapHelperRxn,
-              (python::arg("rxn"), python::arg("validationFlags") = 0),
-              docString.c_str());
 }

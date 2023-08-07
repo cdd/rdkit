@@ -35,7 +35,6 @@
 #include <GraphMol/Conformer.h>
 #include <GraphMol/MolOps.h>
 #include <GraphMol/Atropisomers.h>
-#include <GraphMol/CIPLabeler/CIPLabeler.h>
 
 #include <GraphMol/RDKitQueries.h>
 #include <GraphMol/StereoGroup.h>
@@ -108,7 +107,6 @@ class MarvinCMLReader {
     if (molFlag) {
       mol = (RWMol *)parseMolecule(molOrRxn, sanitize, removeHs,
                                    explicit3dChiralOnly);
-
       isReaction = false;
       return (void *)mol;
     }
@@ -140,7 +138,6 @@ class MarvinCMLReader {
 
     rxn = parseReaction(molOrRxn, tree.get_child("cml.MDocument"), sanitize,
                         removeHs, explicit3dChiralOnly = false);
-
     isReaction = true;
     return (void *)rxn;
   }

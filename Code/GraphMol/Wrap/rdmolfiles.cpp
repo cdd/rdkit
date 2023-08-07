@@ -12,7 +12,6 @@
 #include <RDGeneral/BoostStartInclude.h>
 #include <RDBoost/python.h>
 #include <boost/dynamic_bitset.hpp>
-#include <boost/algorithm/string.hpp>
 #include <RDGeneral/BoostStartInclude.h>
 
 #include <RDGeneral/types.h>
@@ -29,8 +28,6 @@
 #include <GraphMol/FileParsers/SequenceWriters.h>
 #include <GraphMol/FileParsers/PNGParser.h>
 #include <GraphMol/MarvinParse/MarvinParser.h>
-#include <GraphMol/CIPLabeler/CIPLabeler.h>
-
 #include <RDGeneral/BadFileException.h>
 #include <RDGeneral/FileParseException.h>
 
@@ -38,7 +35,6 @@
 #include <RDGeneral/Exceptions.h>
 #include <RDGeneral/BadFileException.h>
 #include <GraphMol/SanitException.h>
-#include <string.h>
 
 namespace python = boost::python;
 using namespace RDKit;
@@ -129,9 +125,8 @@ ROMol *MolFromTPLBlock(python::object itplBlock, bool sanitize = true,
   return static_cast<ROMol *>(newM);
 }
 
-ROMol *MolFromMolFileHelper(const char *molFilename, bool sanitize,
-                            bool removeHs, bool strictParsing,
-                            bool explicit3dChiralityOnly) {
+ROMol *MolFromMolFile(const char *molFilename, bool sanitize, bool removeHs,
+                      bool strictParsing, bool explicit3dChiralityOnly) {
   RWMol *newM = nullptr;
   try {
     newM = MolFileToMol(molFilename, sanitize, removeHs, strictParsing,
@@ -788,7 +783,7 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
 
   docString =
       "Construct a molecule from a Mol file.\n\n\
-      ARGUMENTS:\n\
+  ARGUMENTS:\n\
 \n\
     - fileName: name of the file to read\n\
 \n\
@@ -809,9 +804,8 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
 \n RETURNS :\n\
 \n a Mol object, None on failure.\n\
 \n ";
-
   python::def(
-      "MolFromMolFile", RDKit::MolFromMolFileHelper,
+      "MolFromMolFile", RDKit::MolFromMolFile,
       (python::arg("molFileName"), python::arg("sanitize") = true,
        python::arg("removeHs") = true, python::arg("strictParsing") = true,
        python::arg("explicit3dChiralOnly") = false),
@@ -838,7 +832,7 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
     - explicit3dChiralOnly: (optional) if this is true, chirality is only perceived\n\
       from 3D coordinates on centers and atropisomer bonds where a wedge/hash is present.\n\
       Defaults to false.\n\
-\n\
+\n RETURNS :\n\
 \n a Mol object, None on failure.\n\
 \n ";
   python::def(

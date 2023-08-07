@@ -53,10 +53,10 @@ endif(BISON_EXECUTABLE)
 
 rdkit_library(SmilesParse
               SmilesParse.cpp SmilesParseOps.cpp
-              SmilesWrite.cpp SmartsWrite.cpp CXSmilesOps.cpp 
+              SmilesWrite.cpp SmartsWrite.cpp CXSmilesOps.cpp
               ${BISON_OUTPUT_FILES}
               ${FLEX_OUTPUT_FILES}
-              LINK_LIBRARIES GraphMol RDGeneral CIPLabeler)
+              LINK_LIBRARIES GraphMol RDGeneral)
 target_compile_definitions(SmilesParse PRIVATE RDKIT_SMILESPARSE_BUILD)
 
 rdkit_headers(primes.h

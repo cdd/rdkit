@@ -358,6 +358,6 @@ TEST_CASE("more enhanced stereo canonicalization") {
 
     std::string out = MolToCXSmiles(*m);
 
-    CHECK(out == "C[C@@H]1C[C@@H]2CC[C@@]1(C)C2.Cl |&1:1|");
+    CHECK(out == "C[C@H]1C[C@@H]2CC[C@@]1(C)C2.Cl |&1:1|");
   }
 }

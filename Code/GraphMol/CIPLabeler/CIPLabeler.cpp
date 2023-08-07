@@ -18,7 +18,6 @@
 #include "configs/Sp2Bond.h"
 #include "configs/Tetrahedral.h"
 #include "configs/AtropisomerBond.h"
-#include <boost/algorithm/string.hpp>
 
 #include "rules/Rules.h"
 #include "rules/Rule1a.h"
@@ -30,7 +29,6 @@
 #include "rules/Rule4c.h"
 #include "rules/Rule5New.h"
 #include "rules/Rule6.h"
-#include <GraphMol/Chirality.h>
 
 namespace RDKit {
 namespace CIPLabeler {
@@ -204,8 +202,7 @@ void assignCIPLabels(ROMol &mol, unsigned int maxRecursiveIterations) {
   assignCIPLabels(mol, atoms, bonds, maxRecursiveIterations);
 }
 
-bool validateStereochem(ROMol &mol, unsigned int flags,
-                        unsigned int maxRecursiveIterations) {
+bool validateStereochem(ROMol &mol, unsigned int flags) {
   if (flags == 0) {
     return true;
   }
@@ -214,7 +211,7 @@ bool validateStereochem(ROMol &mol, unsigned int flags,
 
   bool gotCIPCodes = false;
   try {
-    RDKit::CIPLabeler::assignCIPLabels(mol, maxRecursiveIterations);
+    RDKit::CIPLabeler::assignCIPLabels(mol, 1000000);
     gotCIPCodes = true;
   } catch (MaxIterationsExceeded &e) {
     BOOST_LOG(rdWarningLog) << e.what() << std::endl;
@@ -237,80 +234,22 @@ bool validateStereochem(ROMol &mol, unsigned int flags,
   if ((flags & CIPLabeler::ValidateStereoChemCisTrans) > 0 ||
       (flags & CIPLabeler::ValidateStereoChemAtropisomers) > 0) {
     for (auto bond = mol.beginBonds(); bond != mol.endBonds(); ++bond) {
-      auto bondStereo = (*bond)->getStereo();
-      if (bondStereo == RDKit::Bond::STEREONONE ||
-          bondStereo == RDKit::Bond::STEREOANY) {
-        continue;
-      }
       if ((flags & CIPLabeler::ValidateStereoChemCisTrans) > 0 &&
-          (*bond)->getBondType() == RDKit::Bond::DOUBLE) {
-        if (!(*bond)->hasProp(common_properties::_CIPCode)) {
-          (*bond)->setStereo(RDKit::Bond::STEREONONE);
-          (*bond)->getStereoAtoms().clear();
-        } else {
-          bondStereo = Chirality::translateEZLabelToCisTrans(bondStereo);
-          auto cipCode = boost::algorithm::to_upper_copy(
-              (*bond)->getProp<std::string>(common_properties::_CIPCode));
-          // Check for cipCode mismatch with bondStereo
+          (*bond)->getBondType() == RDKit::Bond::DOUBLE &&
+          ((*bond)->getStereo() == RDKit::Bond::STEREOCIS ||
+           (*bond)->getStereo() == RDKit::Bond::STEREOTRANS ||
+           (*bond)->getStereo() == RDKit::Bond::STEREOE ||
+           (*bond)->getStereo() == RDKit::Bond::STEREOZ) &&
+          !(*bond)->hasProp(common_properties::_CIPCode)) {
+        (*bond)->setStereo(RDKit::Bond::STEREONONE);
+        (*bond)->getStereoAtoms().clear();
+      }
 
-          bool needsFlipStereoAtoms = false;
-          if (bondStereo == RDKit::Bond::STEREOTRANS && (cipCode == "Z")) {
-            (*bond)->setStereo(RDKit::Bond::STEREOCIS);
-            needsFlipStereoAtoms = true;
-          } else if (bondStereo == RDKit::Bond::STEREOCIS && (cipCode == "E")) {
-            (*bond)->setStereo(RDKit::Bond::STEREOTRANS);
-            needsFlipStereoAtoms = true;
-          }
-
-          if (needsFlipStereoAtoms) {
-            // at least one end must have two substituents.  Find that end and
-            // use the other atom
-
-            if ((*bond)->getBeginAtom()->getDegree() == 3) {
-              ROMol::ADJ_ITER begNbrs, endNbrs;
-              boost::tie(begNbrs, endNbrs) =
-                  mol.getAtomNeighbors((*bond)->getBeginAtom());
-              for (auto nbrIdx = begNbrs; nbrIdx != endNbrs; ++nbrIdx) {
-                if (*nbrIdx != (*bond)->getEndAtom()->getIdx() &&
-                    *nbrIdx != (*bond)->getStereoAtoms()[0]) {
-                  (*bond)->getStereoAtoms()[0] = *nbrIdx;
-                  needsFlipStereoAtoms = false;
-                  break;
-                }
-              }
-            }
-          }
-
-          // if it still needs to be flipped, try the other end
-
-          if (needsFlipStereoAtoms) {
-            // try flipping the other end
-
-            if ((*bond)->getEndAtom()->getDegree() == 3) {
-              ROMol::ADJ_ITER begNbrs, endNbrs;
-              boost::tie(begNbrs, endNbrs) =
-                  mol.getAtomNeighbors((*bond)->getEndAtom());
-              for (auto nbrIdx = begNbrs; nbrIdx != endNbrs; ++nbrIdx) {
-                if (*nbrIdx != (*bond)->getBeginAtom()->getIdx() &&
-                    *nbrIdx != (*bond)->getStereoAtoms()[1]) {
-                  (*bond)->getStereoAtoms()[0] = *nbrIdx;
-                  needsFlipStereoAtoms = false;
-                  break;
-                }
-              }
-            }
-          }
-
-          if (needsFlipStereoAtoms) {
-            // if we still need to flip, we have a problem (should not happen)
-            return false;
-          }
-        }
-      } else if ((flags & CIPLabeler::ValidateStereoChemAtropisomers) > 0 &&
-                 (*bond)->getBondType() == RDKit::Bond::SINGLE &&
-                 (bondStereo == RDKit::Bond::STEREOATROPCCW ||
-                  bondStereo == RDKit::Bond::STEREOATROPCW) &&
-                 !(*bond)->hasProp(common_properties::_CIPCode)) {
+      else if ((flags & CIPLabeler::ValidateStereoChemAtropisomers) > 0 &&
+               (*bond)->getBondType() == RDKit::Bond::SINGLE &&
+               ((*bond)->getStereo() == RDKit::Bond::STEREOATROPCCW ||
+                (*bond)->getStereo() == RDKit::Bond::STEREOATROPCW) &&
+               !(*bond)->hasProp(common_properties::_CIPCode)) {
         (*bond)->setStereo(RDKit::Bond::STEREONONE);
         (*bond)->getStereoAtoms().clear();
       }
@@ -319,28 +258,27 @@ bool validateStereochem(ROMol &mol, unsigned int flags,
   return true;
 }
 
-bool validateStereochem(const ChemicalReaction &rxn, unsigned int flags,
-                        unsigned int maxRecursiveIterations) {
+bool validateStereochem(const ChemicalReaction &rxn, unsigned int flags) {
   if (flags == 0) {
     return true;
   }
 
   for (auto reactant : rxn.getReactants()) {
-    if (!CIPLabeler::validateStereochem(*reactant, flags,
-                                        maxRecursiveIterations)) {
+    if (!CIPLabeler::validateStereochem(
+            *reactant, CIPLabeler::ValidateStereoChemCisTrans)) {
       return false;
     }
   }
   for (auto agent : rxn.getAgents()) {
-    if (!CIPLabeler::validateStereochem(*agent, flags,
-                                        maxRecursiveIterations)) {
+    if (!CIPLabeler::validateStereochem(
+            *agent, CIPLabeler::ValidateStereoChemCisTrans)) {
       return false;
     }
   }
 
   for (auto product : rxn.getProducts()) {
-    if (!CIPLabeler::validateStereochem(*product, flags,
-                                        maxRecursiveIterations)) {
+    if (!CIPLabeler::validateStereochem(
+            *product, CIPLabeler::ValidateStereoChemCisTrans)) {
       return false;
     }
   }

@@ -711,14 +711,30 @@ std::vector<ROMOL_SPTR> getMolFrags(const ROMol &mol, bool sanitizeFrags,
         auto re = res[frag];
         std::vector<StereoGroup> fragsgs;
         for (auto &sg : mol.getStereoGroups()) {
-          std::vector<Atom *> sgats;
+          RDKit::ROMol::ATOM_PTR_VECT sgats;
+          RDKit::ROMol::BOND_PTR_VECT sgbds;
           for (auto sga : sg.getAtoms()) {
-            if ((*mapping)[sga->getIdx()] == frag) {
+            if ((*mapping)[sga->getIdx()] == static_cast<int>(frag)) {
               sgats.push_back(re->getAtomWithIdx(ids[sga->getIdx()]));
             }
           }
-          if (!sgats.empty()) {
-            fragsgs.push_back(StereoGroup(sg.getGroupType(), sgats));
+          for (auto sgb : sg.getBonds()) {
+            if ((*mapping)[sgb->getBeginAtom()->getIdx()] ==
+                static_cast<int>(frag)) {
+              // find the bond in the new fragment molecule
+              auto fragBeginIdx = ids[sgb->getBeginAtom()->getIdx()];
+              auto fragEndIdx = ids[sgb->getEndAtom()->getIdx()];
+              Bond *fragBond =
+                  re->getBondBetweenAtoms(fragBeginIdx, fragEndIdx);
+              if (!fragBond) {
+                throw ValueErrorException("expected bond not found");
+              }
+              sgbds.push_back(fragBond);
+            }
+          }
+
+          if (!sgats.empty() || !sgbds.empty()) {
+            fragsgs.push_back(StereoGroup(sg.getGroupType(), sgats, sgbds));
           }
         }
         if (!fragsgs.empty()) {

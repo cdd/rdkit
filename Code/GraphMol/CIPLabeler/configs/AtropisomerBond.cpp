@@ -19,7 +19,9 @@ namespace RDKit {
 namespace CIPLabeler {
 AtropisomerBond::AtropisomerBond(const CIPMol &mol, Bond *bond, Atom *startAtom,
                                  Atom *endAtom, Bond::BondStereo cfg)
-    : Configuration(mol, {startAtom, endAtom}), dp_bond{bond}, d_cfg{cfg} {
+    : Configuration(mol, {startAtom, endAtom}, true),
+      dp_bond{bond},
+      d_cfg{cfg} {
   CHECK_INVARIANT(startAtom && endAtom, "bad foci")
   CHECK_INVARIANT(d_cfg == Bond::STEREOATROPCW || d_cfg == Bond::STEREOATROPCCW,
                   "bad config")

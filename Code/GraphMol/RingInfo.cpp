@@ -287,15 +287,17 @@ unsigned int RingInfo::addRingFamily(const INT_VECT &atomIndices,
 }
 #endif
 
-void RingInfo::initialize() {
+void RingInfo::initialize(RDKit::FIND_RING_TYPE ringType) {
   PRECONDITION(!df_init, "already initialized");
   df_init = true;
+  df_find_type_type = ringType;
 };
 void RingInfo::reset() {
   if (!df_init) {
     return;
   }
   df_init = false;
+  df_find_type_type = RDKit::FIND_RING_TYPE_OTHER_OR_UNKNOWN;
   d_atomMembers.clear();
   d_bondMembers.clear();
   d_atomRings.clear();

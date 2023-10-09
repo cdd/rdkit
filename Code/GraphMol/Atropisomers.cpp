@@ -401,7 +401,9 @@ void DetectAtropisomerChirality(ROMol &mol, const Conformer *conf) {
   PRECONDITION(&(conf->getOwningMol()) == &mol,
                "conformer does not belong to molecule");
 
-  if (!mol.getRingInfo()->isInitialized()) {
+  auto ringInfo = mol.getRingInfo();
+  if (!ringInfo->isInitialized() ||
+      ringInfo->getRingType() != FIND_RING_TYPE_SSSR) {
     MolOps::symmetrizeSSSR(mol);
   }
 

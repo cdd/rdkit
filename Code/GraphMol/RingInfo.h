@@ -28,6 +28,12 @@ namespace RDKit {
 /*!
 
  */
+typedef enum {
+  FIND_RING_TYPE_FAST,
+  FIND_RING_TYPE_SSSR,
+  FIND_RING_TYPE_OTHER_OR_UNKNOWN
+} FIND_RING_TYPE;
+
 class RDKIT_GRAPHMOL_EXPORT RingInfo {
   friend class MolPickler;
 
@@ -45,8 +51,9 @@ class RDKIT_GRAPHMOL_EXPORT RingInfo {
   //! checks to see if we've been properly initialized
   bool isInitialized() const { return df_init; }
   //! does initialization
-  void initialize();
-
+  void initialize(
+      RDKit::FIND_RING_TYPE ringType = FIND_RING_TYPE_OTHER_OR_UNKNOWN);
+  RDKit::FIND_RING_TYPE getRingType() { return df_find_type_type; };
   //! blows out all current data and de-initializes
   void reset();
 
@@ -303,6 +310,7 @@ class RDKIT_GRAPHMOL_EXPORT RingInfo {
   void preallocate(unsigned int numAtoms, unsigned int numBonds);
   void initFusedRings();
   bool df_init{false};
+  FIND_RING_TYPE df_find_type_type{FIND_RING_TYPE_OTHER_OR_UNKNOWN};
   DataType d_atomMembers, d_bondMembers;
   VECT_INT_VECT d_atomRings, d_bondRings;
   VECT_INT_VECT d_atomRingFamilies, d_bondRingFamilies;

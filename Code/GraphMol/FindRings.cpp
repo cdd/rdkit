@@ -861,7 +861,7 @@ int findSSSR(const ROMol &mol, VECT_INT_VECT &res, bool includeDativeBonds) {
   if (mol.getRingInfo()->isInitialized()) {
     mol.getRingInfo()->reset();
   }
-  mol.getRingInfo()->initialize();
+  mol.getRingInfo()->initialize(FIND_RING_TYPE_SSSR);
   RINGINVAR_SET invars;
 
   unsigned int nats = mol.getNumAtoms();
@@ -1261,7 +1261,7 @@ void fastFindRings(const ROMol &mol) {
     mol.getRingInfo()->reset();
   }
 
-  mol.getRingInfo()->initialize();
+  mol.getRingInfo()->initialize(FIND_RING_TYPE_FAST);
 
   VECT_INT_VECT res;
   res.resize(0);

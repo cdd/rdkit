@@ -85,7 +85,9 @@ void MolDraw2D::drawMolecule(const ROMol &mol, const std::string &legend,
   // we need ring info for drawing, so copy the molecule
   // in order to add it
   ROMol lmol(mol);
-  if (!lmol.getRingInfo()->isInitialized()) {
+  auto ringInfo = mol.getRingInfo();
+  if (!ringInfo->isInitialized() ||
+      ringInfo->getRingType() != FIND_RING_TYPE_SSSR) {
     MolOps::symmetrizeSSSR(lmol);
   }
   drawMols_.emplace_back(new MolDraw2D_detail::DrawMol(

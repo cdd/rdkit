@@ -3152,9 +3152,13 @@ void setDoubleBondNeighborDirections(ROMol &mol, const Conformer *conf) {
   // NOTE that we are explicitly excluding double bonds in rings
   // with this test.
   bool resetRings = false;
-  if (!mol.getRingInfo()->isInitialized()) {
+  auto ringInfo = mol.getRingInfo();
+  if (!ringInfo->isInitialized() ||
+      (ringInfo->getRingType() != FIND_RING_TYPE_FAST &&
+       ringInfo->getRingType() != FIND_RING_TYPE_SSSR)) {
     resetRings = true;
-    MolOps::symmetrizeSSSR(mol);
+    // MolOps::symmetrizeSSSR(mol);
+    MolOps::fastFindRings(mol);
   }
 
   for (auto bond : mol.bonds()) {

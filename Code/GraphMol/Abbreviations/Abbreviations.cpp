@@ -225,7 +225,11 @@ void condenseMolAbbreviations(
       findApplicableAbbreviationMatches(mol, abbrevs, maxCoverage);
   applyMatches(mol, applicable);
   if (sanitize) {
-    MolOps::symmetrizeSSSR(mol);
+    auto ringInfo = mol.getRingInfo();
+    if (!ringInfo->isInitialized() ||
+        ringInfo->getRingType() != FIND_RING_TYPE_SSSR) {
+      MolOps::symmetrizeSSSR(mol);
+    }
   }
 };
 

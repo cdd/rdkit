@@ -166,7 +166,8 @@ void SubSearcher(const Query &in_query, const Bits &bits,
       continue;
     }
     if (needs_rings &&
-        (!mol->getRingInfo() || !mol->getRingInfo()->isInitialized())) {
+        (!mol->getRingInfo() || !mol->getRingInfo()->isInitialized() ||
+         !mol->getRingInfo()->getRingType() != FIND_RING_TYPE_SSSR)) {
       MolOps::symmetrizeSSSR(*mol);
     }
 

@@ -592,9 +592,12 @@ RWMOL_SPTR RGroupDecomposition::outputCoreMolecule(
     }
   }
 
-  if (!coreWithMatches->getRingInfo()->isInitialized()) {
+  auto ringInfo = coreWithMatches->getRingInfo();
+  if (!ringInfo->isInitialized() ||
+      ringInfo->getRingType() != FIND_RING_TYPE_SSSR) {
     MolOps::symmetrizeSSSR(*coreWithMatches);
   }
+
 #ifdef VERBOSE
   std::cerr << "output core mol3 " << MolToSmiles(*coreWithMatches)
             << std::endl;

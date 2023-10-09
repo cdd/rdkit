@@ -16,7 +16,6 @@ rdkit_library(GraphMol
         new_canon.cpp SubstanceGroup.cpp FindStereo.cpp MonomerInfo.cpp
               NontetrahedralStereo.cpp Atropisomers.cpp MolFileStereochem.cpp
               WedgeBonds.cpp
-              GenericGroups/GenericGroups.cpp
         SHARED
               LINK_LIBRARIES RDGeometryLib RDGeneral ${RDKit_SERIALIZATION_LIBS} )
 target_compile_definitions(GraphMol PRIVATE RDKIT_GRAPHMOL_BUILD)
@@ -35,7 +34,7 @@ rdkit_headers(Atom.h
         Canon.h
         Chirality.h
         Conformer.h
-              MolFileStereochem.h  
+        MolFileStereochem.h  
         details.h
         GraphMol.h
         MolOps.h

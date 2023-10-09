@@ -35,6 +35,7 @@
 #include <RDGeneral/Exceptions.h>
 #include <RDGeneral/BadFileException.h>
 #include <GraphMol/SanitException.h>
+#include <string.h>
 
 namespace python = boost::python;
 using namespace RDKit;
@@ -125,8 +126,8 @@ ROMol *MolFromTPLBlock(python::object itplBlock, bool sanitize = true,
   return static_cast<ROMol *>(newM);
 }
 
-ROMol *MolFromMolFile(const char *molFilename, bool sanitize, bool removeHs,
-                      bool strictParsing) {
+ROMol *MolFromMolFileHelper(const char *molFilename, bool sanitize,
+                            bool removeHs, bool strictParsing) {
   RWMol *newM = nullptr;
   try {
     newM = MolFileToMol(molFilename, sanitize, removeHs, strictParsing);
@@ -798,7 +799,7 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
     a Mol object, None on failure.\n\
 \n";
   python::def(
-      "MolFromMolFile", RDKit::MolFromMolFile,
+      "MolFromMolFile", RDKit::MolFromMolFileHelper,
       (python::arg("molFileName"), python::arg("sanitize") = true,
        python::arg("removeHs") = true, python::arg("strictParsing") = true),
       docString.c_str(),
@@ -995,62 +996,6 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
                python::arg("cleanupSubstructures") = true),
               docString.c_str(),
               python::return_value_policy<python::manage_new_object>());
-
-  docString =
-      "Construct a molecule from a Mol file.\n\n\
-  ARGUMENTS:\n\
-\n\
-    - fileName: name of the file to read\n\
-\n\
-    - sanitize: (optional) toggles sanitization of the molecule.\n\
-      Defaults to true.\n\
-\n\
-    - removeHs: (optional) toggles removing hydrogens from the molecule.\n\
-      This only make sense when sanitization is done.\n\
-      Defaults to true.\n\
-\n\
-    - strictParsing: (optional) if this is false, the parser is more lax about.\n\
-      correctness of the content.\n\
-      Defaults to true.\n\
-\n\
-  RETURNS:\n\
-\n\
-    a Mol object, None on failure.\n\
-\n";
-  python::def(
-      "MolFromMolFile", RDKit::MolFromMolFile,
-      (python::arg("molFileName"), python::arg("sanitize") = true,
-       python::arg("removeHs") = true, python::arg("strictParsing") = true),
-      docString.c_str(),
-      python::return_value_policy<python::manage_new_object>());
-
-  docString =
-      "Construct a molecule from a Mol block.\n\n\
-  ARGUMENTS:\n\
-\n\
-    - molBlock: string containing the Mol block\n\
-\n\
-    - sanitize: (optional) toggles sanitization of the molecule.\n\
-      Defaults to True.\n\
-\n\
-    - removeHs: (optional) toggles removing hydrogens from the molecule.\n\
-      This only make sense when sanitization is done.\n\
-      Defaults to true.\n\
-\n\
-    - strictParsing: (optional) if this is false, the parser is more lax about.\n\
-      correctness of the content.\n\
-      Defaults to true.\n\
-\n\
-  RETURNS:\n\
-\n\
-    a Mol object, None on failure.\n\
-\n";
-  python::def(
-      "MolFromMolBlock", RDKit::MolFromMolBlock,
-      (python::arg("molBlock"), python::arg("sanitize") = true,
-       python::arg("removeHs") = true, python::arg("strictParsing") = true),
-      docString.c_str(),
-      python::return_value_policy<python::manage_new_object>());
 
   docString =
       "Returns a Mol block for a molecule\n\
@@ -1526,16 +1471,28 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
       .value("CX_SGROUPS", RDKit::SmilesWrite::CXSmilesFields::CX_SGROUPS)
       .value("CX_POLYMER", RDKit::SmilesWrite::CXSmilesFields::CX_POLYMER)
       .value("CX_BOND_CFG", RDKit::SmilesWrite::CXSmilesFields::CX_BOND_CFG)
+      .value("CX_BOND_ATROPISOMER",
+             RDKit::SmilesWrite::CXSmilesFields::CX_BOND_ATROPISOMER)
       .value("CX_ALL", RDKit::SmilesWrite::CXSmilesFields::CX_ALL)
       .value("CX_ALL_BUT_COORDS",
              RDKit::SmilesWrite::CXSmilesFields::CX_ALL_BUT_COORDS);
 
+  python::enum_<RDKit::RestoreBondDirOption>("RestoreBondDirOption")
+      .value("RestoreBondDirOptionClear",
+             RDKit::RestoreBondDirOption::RestoreBondDirOptionClear)
+      .value("RestoreBondDirOptionFalse",
+             RDKit::RestoreBondDirOption::RestoreBondDirOptionFalse)
+      .value("RestoreBondDirOptionTrue",
+             RDKit::RestoreBondDirOption::RestoreBondDirOptionTrue);
+
   python::def(
       "MolToCXSmiles",
-      (std::string(*)(const ROMol &, const SmilesWriteParams &,
-                      std::uint32_t))RDKit::MolToCXSmiles,
+      (std::string(*)(const ROMol &, const SmilesWriteParams &, std::uint32_t,
+                      RestoreBondDirOption))RDKit::MolToCXSmiles,
       (python::arg("mol"), python::arg("params"),
-       python::arg("flags") = RDKit::SmilesWrite::CXSmilesFields::CX_ALL),
+       python::arg("flags") = RDKit::SmilesWrite::CXSmilesFields::CX_ALL,
+       python::arg("restoreBondDirs") =
+           RDKit::RestoreBondDirOption::RestoreBondDirOptionFalse),
       "Returns the CXSMILES string for a molecule");
 
   docString =

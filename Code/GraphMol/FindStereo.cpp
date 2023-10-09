@@ -140,10 +140,6 @@ StereoInfo getStereoInfo(const Bond *bond) {
     bool seenSquiggleBond = false;
     const auto &mol = bond->getOwningMol();
 
-    if (beginAtom->getDegree() == 1 || endAtom->getDegree() == 1) {
-      seenSquiggleBond = true;
-    }
-
     auto explore_bond_end = [&mol, &bond, &sinfo,
                              &seenSquiggleBond](const Atom *atom) {
       for (const auto nbr : mol.atomBonds(atom)) {
@@ -224,6 +220,52 @@ StereoInfo getStereoInfo(const Bond *bond) {
         default:
           UNDER_CONSTRUCTION("unrecognized bond stereo type");
       }
+    } else {
+      sinfo.specified = Chirality::StereoSpecified::Unspecified;
+    }
+  } else if (bond->getBondType() == Bond::BondType::SINGLE &&
+             (bond->getStereo() == Bond::BondStereo::STEREOATROPCCW ||
+              bond->getStereo() == Bond::BondStereo::STEREOATROPCW)) {
+    if (beginAtom->getDegree() < 2 || endAtom->getDegree() < 2 ||
+        beginAtom->getDegree() > 3 || endAtom->getDegree() > 3) {
+      throw ValueErrorException("invalid atom degree in getStereoInfo(bond)");
+    }
+
+    sinfo.type = StereoType::Bond_Atropisomer;
+    sinfo.centeredOn = bond->getIdx();
+    sinfo.controllingAtoms.reserve(4);
+
+    const auto &mol = bond->getOwningMol();
+    for (const auto nbr : mol.atomBonds(beginAtom)) {
+      if (nbr->getIdx() != bond->getIdx()) {
+        sinfo.controllingAtoms.push_back(
+            nbr->getOtherAtomIdx(beginAtom->getIdx()));
+      }
+    }
+    if (beginAtom->getDegree() == 2) {
+      sinfo.controllingAtoms.push_back(StereoInfo::NOATOM);
+    }
+    for (const auto nbr : mol.atomBonds(endAtom)) {
+      if (nbr->getIdx() != bond->getIdx()) {
+        sinfo.controllingAtoms.push_back(
+            nbr->getOtherAtomIdx(endAtom->getIdx()));
+      }
+    }
+    if (endAtom->getDegree() == 2) {
+      sinfo.controllingAtoms.push_back(StereoInfo::NOATOM);
+    }
+
+    Bond::BondStereo stereo = bond->getStereo();
+    sinfo.specified = Chirality::StereoSpecified::Specified;
+    switch (stereo) {
+      case Bond::BondStereo::STEREOATROPCW:
+        sinfo.descriptor = Chirality::StereoDescriptor::Bond_AtropCW;
+        break;
+      case Bond::BondStereo::STEREOATROPCCW:
+        sinfo.descriptor = Chirality::StereoDescriptor::Bond_AtropCCW;
+        break;
+      default:
+        UNDER_CONSTRUCTION("unrecognized bond stereo type");
     }
   } else {
     UNDER_CONSTRUCTION("unsupported bond type in getStereoInfo()");
@@ -463,10 +505,10 @@ void initAtomInfo(ROMol &mol, bool flagPossible, bool cleanIt,
                   boost::dynamic_bitset<> &possibleAtoms) {
   bool allowNontetrahedralStereo = getAllowNontetrahedralChirality();
   for (const auto atom : mol.atoms()) {
-    if (atom->getImplicitValence() == -1) {
-      atom->calcExplicitValence(false);
-      atom->calcImplicitValence(false);
+    if (atom->needsUpdatePropertyCache()) {
+      atom->updatePropertyCache(false);
     }
+
     auto aidx = atom->getIdx();
     atomSymbols[aidx] = getAtomCompareSymbol(*atom);
     if (detail::isAtomPotentialStereoAtom(atom, allowNontetrahedralStereo)) {
@@ -538,8 +580,21 @@ void initBondInfo(ROMol &mol, bool flagPossible, bool cleanIt,
         default:
           throw ValueErrorException("bad StereoInfo.specified type");
       }
-    } else if (cleanIt) {
-      bond->setStereo(Bond::BondStereo::STEREONONE);
+    } else {
+      auto currentStereo = bond->getStereo();
+      if (currentStereo != Bond::BondStereo::STEREOATROPCW &&
+          currentStereo != Bond::BondStereo::STEREOATROPCCW) {
+        if (cleanIt) {
+          bond->setStereo(Bond::BondStereo::STEREONONE);
+        }
+      } else {
+        knownBonds.set(bidx);
+        if (currentStereo == Bond::BondStereo::STEREOATROPCW) {
+          bondSymbols[bidx] += "_atropcw";
+        } else if (currentStereo == Bond::BondStereo::STEREOATROPCCW) {
+          bondSymbols[bidx] += "_atropccw";
+        }
+      }
     }
   }
 }
@@ -783,7 +838,7 @@ bool updateBonds(ROMol &mol, const std::vector<unsigned int> &aranks,
         // have a single implicit H on that side. Since the H is implicit,
         // there is no way to know whether it is cis or trans.
         ASSERT_INVARIANT(
-            sinfo.specified == StereoSpecified::Unknown,
+            sinfo.specified != StereoSpecified::Specified,
             "stereo bond without neighbors can only be unspecified");
         fixedBonds.set(bidx);
       }
@@ -1112,7 +1167,7 @@ std::vector<StereoInfo> runCleanup(ROMol &mol, bool flagPossible,
     }
 
     for (const auto atom : mol.atoms()) {
-      atom->setProp<unsigned int>(common_properties::_CanonicalAtomRank,
+      atom->setProp<unsigned int>(common_properties::_ChiralAtomRank,
                                   aranks[atom->getIdx()]);
     }
   }
@@ -1124,7 +1179,7 @@ std::vector<StereoInfo> runCleanup(ROMol &mol, bool flagPossible,
   return res;
 }
 
-void runCleanup(ROMol &mol) { runCleanup(mol, true, true); }
+void removeBadStereo(ROMol &mol) { runCleanup(mol, true, true); }
 
 //}  // namespace
 

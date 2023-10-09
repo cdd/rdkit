@@ -67,15 +67,6 @@ void convertToBonds(const VECT_INT_VECT &res, VECT_INT_VECT &brings,
 
 }  // end of namespace RingUtils
 
-namespace RDKit {
-namespace {
-bool bondIsDative(const RDKit::Bond &bond) {
-  auto bt = bond.getBondType();
-  return bt == Bond::BondType::DATIVE || bt == Bond::BondType::DATIVEL ||
-         bt == Bond::BondType::DATIVER || bt == Bond::BondType::DATIVEONE;
-}
-}  // namespace
-}  // namespace RDKit
 namespace FindRings {
 using namespace RDKit;
 
@@ -887,7 +878,8 @@ int findSSSR(const ROMol &mol, VECT_INT_VECT &res, bool includeDativeBonds) {
   while (firstB != lastB) {
     const Bond *bond = mol[*firstB];
     if (bond->getBondType() == Bond::ZERO ||
-        (!includeDativeBonds && bondIsDative(*bond))) {
+        (!includeDativeBonds && bond->isDative())) {
+      //(!includeDativeBonds && bondIsDative(*bond))) {
       activeBonds[bond->getIdx()] = 0;
     }
     ++firstB;
@@ -905,7 +897,7 @@ int findSSSR(const ROMol &mol, VECT_INT_VECT &res, bool includeDativeBonds) {
     atomDegreesWithZeroOrderBonds[i] = deg;
     for (const auto bond : mol.atomBonds(atom)) {
       if (bond->getBondType() == Bond::ZERO ||
-          (!includeDativeBonds && bondIsDative(*bond))) {
+          (!includeDativeBonds && bond->isDative())) {
         atomDegrees[i]--;
       }
     }
@@ -1004,8 +996,8 @@ int findSSSR(const ROMol &mol, VECT_INT_VECT &res, bool includeDativeBonds) {
       }  // end of degree two nodes
       else if (nAtomsDone <
                curFrag.size()) {  // now deal with higher degree nodes
-        // this is brutal - we have no degree 2 nodes - find the first possible
-        // degree 3 node
+        // this is brutal - we have no degree 2 nodes - find the first
+        // possible degree 3 node
         int cand = -1;
         for (INT_VECT_CI aidi = curFrag.begin(); aidi != curFrag.end();
              aidi++) {

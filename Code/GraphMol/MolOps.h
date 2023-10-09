@@ -455,6 +455,7 @@ typedef enum {
   SANITIZE_CLEANUPCHIRALITY = 0x100,
   SANITIZE_ADJUSTHS = 0x200,
   SANITIZE_CLEANUP_ORGANOMETALLICS = 0x400,
+  SANITIZE_CLEANUPATROPISOMERS = 0x800,
   SANITIZE_ALL = 0xFFFFFFF
 } SanitizeFlags;
 
@@ -922,15 +923,14 @@ RDKIT_GRAPHMOL_EXPORT std::list<int> getShortestPath(const ROMol &mol, int aid1,
 
 //! removes bogus chirality markers (those on non-sp3 centers):
 RDKIT_GRAPHMOL_EXPORT void cleanupChirality(RWMol &mol);
-RDKIT_GRAPHMOL_EXPORT void cleanupTetrahedralChirality(
-    RWMol &mol, const std::vector<Atom::HybridizationType> &hybridizations);
 
 //! removes bogus chirality markers (those on non-sp3 centers):
+RDKIT_GRAPHMOL_EXPORT void cleanupAtropisomers(RWMol &mol);
+RDKIT_GRAPHMOL_EXPORT void cleanupAtropisomers(
+    RWMol &mol, std::vector<Atom::HybridizationType> &hybridizations);
 
 RDKIT_GRAPHMOL_EXPORT void getHybridizations(
     const RWMol &mol, std::vector<Atom::HybridizationType> &hybridizations);
-
-RDKIT_GRAPHMOL_EXPORT void cleanupBadStereo(RWMol &mol);
 
 //! \brief Uses a conformer to assign ChiralTypes to a molecule's atoms
 /*!
@@ -985,7 +985,14 @@ RDKIT_GRAPHMOL_EXPORT void setDoubleBondNeighborDirections(
     ROMol &mol, const Conformer *conf = nullptr);
 //! removes directions from single bonds. Wiggly bonds will have the property
 //! _UnknownStereo set on them
-RDKIT_GRAPHMOL_EXPORT void clearSingleBondDirFlags(ROMol &mol);
+RDKIT_GRAPHMOL_EXPORT void clearSingleBondDirFlags(ROMol &mol,
+                                                   bool onlyWedgeFlags = false);
+
+//! removes directions from all bonds. Wiggly bonds and cross bonds will have
+//! the property _UnknownStereo set on them
+RDKIT_GRAPHMOL_EXPORT void clearAllBondDirFlags(ROMol &mol);
+RDKIT_GRAPHMOL_EXPORT void clearDirFlags(ROMol &mol,
+                                         bool onlyWedgeFlags = false);
 
 //! Assign CIS/TRANS bond stereochemistry tags based on neighboring
 //! directions
@@ -1104,7 +1111,11 @@ RDKIT_GRAPHMOL_EXPORT ROMol *dativeBondsToHaptic(const ROMol &mol);
 //! \overload modifies molecule in place.
 RDKIT_GRAPHMOL_EXPORT void dativeBondsToHaptic(RWMol &mol);
 
-int GetDoubleBondDirFlag(const Bond *bond);
+// this function returns the true for a double bond if  it should be shown
+// as a crossed double bond.   It does NOT return true even if the bond is
+// of unknown stereochemistry if any adjacent bond is a sqiggle bond.
+
+RDKIT_GRAPHMOL_EXPORT bool shouldBeACrossedBond(const Bond *bond);
 
 namespace details {
 //! not recommended for use in other code

@@ -40,6 +40,9 @@
 #include <GraphMol/SmilesParse/SmartsWrite.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
 #include <GraphMol/MolOps.h>
+#include <GraphMol/Chirality.h>
+#include <GraphMol/MolFileStereochem.h>
+
 #include <sstream>
 
 namespace {
@@ -147,11 +150,19 @@ std::string ChemicalReactionToV3KRxnBlock(const ChemicalReaction &rxn,
   res << "M  V30 BEGIN REACTANT\n";
   for (const auto &rt : boost::make_iterator_range(
            rxn.beginReactantTemplates(), rxn.endReactantTemplates())) {
+    // to write the mol block, we need ring information:
+    if (!rt->getRingInfo()->isInitialized()) {
+      MolOps::findSSSR(*rt);
+    }
     write_template(res, *rt);
   }
   if (!separateAgents) {
     for (const auto &rt : boost::make_iterator_range(rxn.beginAgentTemplates(),
                                                      rxn.endAgentTemplates())) {
+      // to write the mol block, we need ring information:
+      if (!rt->getRingInfo()->isInitialized()) {
+        MolOps::findSSSR(*rt);
+      }
       write_template(res, *rt);
     }
   }
@@ -159,6 +170,10 @@ std::string ChemicalReactionToV3KRxnBlock(const ChemicalReaction &rxn,
   res << "M  V30 BEGIN PRODUCT\n";
   for (const auto &rt : boost::make_iterator_range(rxn.beginProductTemplates(),
                                                    rxn.endProductTemplates())) {
+    // to write the mol block, we need ring information:
+    if (!rt->getRingInfo()->isInitialized()) {
+      MolOps::findSSSR(*rt);
+    }
     write_template(res, *rt);
   }
   res << "M  V30 END PRODUCT\n";
@@ -166,6 +181,8 @@ std::string ChemicalReactionToV3KRxnBlock(const ChemicalReaction &rxn,
     res << "M  V30 BEGIN AGENT\n";
     for (const auto &rt : boost::make_iterator_range(rxn.beginAgentTemplates(),
                                                      rxn.endAgentTemplates())) {
+      // to write the mol block, we need ring information:
+      MolOps::findSSSR(*rt);
       write_template(res, *rt);
     }
     res << "M  V30 END AGENT\n";

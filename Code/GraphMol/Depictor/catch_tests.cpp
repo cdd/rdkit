@@ -15,6 +15,7 @@
 #include "RDDepictor.h"
 #include "DepictUtils.h"
 #include <GraphMol/SmilesParse/SmilesParse.h>
+#include <GraphMol/SmilesParse/SmilesWrite.h>
 #include <GraphMol/FileParsers/FileParsers.h>
 
 using namespace RDKit;
@@ -318,4 +319,16 @@ M  END)CTAB"_ctab;
       *phenantridine, *biphenyl, -1, nullptr, false, false, true);
     CHECK(match.size() == 14);
   }
+}
+
+TEST_CASE("trans bonds in large rings") {
+  // In large rings, we need to retain a trans geometry for double bonds.
+  // This simulates the case where we write to SDF and read again.
+  auto mol = "C1=C/CCCCCCCCCCCCC/1"_smiles;
+  RDDepict::compute2DCoords(*mol);
+  // simulate writing to SDF and reading again:
+  RDKit::MolOps::removeStereochemistry(*mol);
+  mol->getConformer().set3D(true);
+  RDKit::MolOps::assignStereochemistryFrom3D(*mol);
+  CHECK(RDKit::MolToSmiles(*mol) == "C1=C/CCCCCCCCCCCCC/1");
 }

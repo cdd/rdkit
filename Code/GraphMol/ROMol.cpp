@@ -114,8 +114,12 @@ void ROMol::initFromOther(const ROMol &other, bool quickCopy, int confId) {
     for (auto &&otherAtom : otherGroup.getAtoms()) {
       atoms.push_back(getAtomWithIdx(otherAtom->getIdx()));
     }
+    std::vector<Bond *> bonds;
+    for (auto &&otherBond : otherGroup.getBonds()) {
+      bonds.push_back(getBondWithIdx(otherBond->getIdx()));
+    }
     d_stereo_groups.emplace_back(otherGroup.getGroupType(), std::move(atoms),
-                                 otherGroup.getReadId());
+                                 std::move(bonds), otherGroup.getReadId());
     d_stereo_groups.back().setWriteId(otherGroup.getWriteId());
   }
 
@@ -541,6 +545,20 @@ ROMol::HeteroatomIterator ROMol::endHeteros() {
 }
 ROMol::ConstHeteroatomIterator ROMol::endHeteros() const {
   return ConstHeteroatomIterator(this, getNumAtoms());
+}
+
+bool ROMol::hasQuery() const {
+  for (auto atom : atoms()) {
+    if (atom->hasQuery()) {
+      return true;
+    }
+  }
+  for (auto bond : bonds()) {
+    if (bond->hasQuery()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 ROMol::QueryAtomIterator ROMol::beginQueryAtoms(QueryAtom const *what) {

@@ -45,7 +45,7 @@ rdkit_library(FileParsers
               CDXMLParser.cpp
               Mol2FileParser.cpp MolFileParser.cpp
               MolSGroupParsing.cpp MolSGroupWriting.cpp
-              MolFileStereochem.cpp MolFileWriter.cpp
+               MolFileWriter.cpp
               ForwardSDMolSupplier.cpp SDMolSupplier.cpp SDWriter.cpp
               SmilesMolSupplier.cpp SmilesWriter.cpp
               TDTMolSupplier.cpp TDTWriter.cpp
@@ -59,13 +59,13 @@ rdkit_library(FileParsers
               MultithreadedMolSupplier.cpp
               MultithreadedSmilesMolSupplier.cpp
               MultithreadedSDMolSupplier.cpp
-              LINK_LIBRARIES GenericGroups Depictor SmilesParse ChemTransforms GraphMol ${RDK_MAEPARSER_LIBS} ${regex_lib} ${link_iostreams} ${zlib_lib})
+              LINK_LIBRARIES GenericGroups Depictor SmilesParse ChemTransforms GraphMol CIPLabeler ${RDK_MAEPARSER_LIBS} ${regex_lib} ${link_iostreams} ${zlib_lib})
 target_compile_definitions(FileParsers PRIVATE RDKIT_FILEPARSERS_BUILD)
 
 rdkit_headers(CDXMLParser.h
               FileParsers.h
               FileParserUtils.h
-              MolFileStereochem.h
+            
               MolSupplier.h
               MolWriters.h
               SequenceParsers.h SequenceWriters.h
@@ -79,7 +79,11 @@ rdkit_headers(CDXMLParser.h
 rdkit_test(fileParsersTest1 test1.cpp
            LINK_LIBRARIES FileParsers SubstructMatch)
 
+rdkit_test(testAtropisomers testAtropisomers.cpp
+           LINK_LIBRARIES FileParsers SubstructMatch )
 
+rdkit_catch_test(testSquiggleDoubleBonds testSquiggleDoubleBonds.cpp
+           LINK_LIBRARIES FileParsers SubstructMatch )
 
 rdkit_test(testMolSupplier testMolSupplier.cpp
            LINK_LIBRARIES  FileParsers RDStreams)
@@ -94,7 +98,7 @@ endif(RDK_TEST_MULTITHREADED)
 
 rdkit_test(testMolWriter testMolWriter.cpp LINK_LIBRARIES FileParsers)
 
-rdkit_test(testTplParser testTpls.cpp LINK_LIBRARIES FileParsers)
+rdkit_test(testTplParser testTpls.cpp LINK_LIBRARIES FileParsers GraphMol )
 
 rdkit_test(testMol2ToMol testMol2ToMol.cpp LINK_LIBRARIES FileParsers)
 
@@ -116,5 +120,5 @@ rdkit_catch_test(cdxmlParserCatchTest cdxml_parser_catch.cpp
            LINK_LIBRARIES FileParsers)
 
 rdkit_catch_test(molfileStereoCatchTest molfile_stereo_catch.cpp
-           LINK_LIBRARIES CIPLabeler FileParsers Subgraphs)
+           LINK_LIBRARIES FileParsers Subgraphs)
 

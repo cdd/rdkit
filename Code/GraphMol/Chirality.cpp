@@ -14,6 +14,7 @@
 #include <GraphMol/RDKitBase.h>
 #include <RDGeneral/Ranking.h>
 #include <GraphMol/new_canon.h>
+#include <GraphMol/Atropisomers.h>
 #include <RDGeneral/Invariant.h>
 #include <RDGeneral/RDLog.h>
 #include <RDGeneral/Ranking.h>
@@ -888,6 +889,19 @@ void setUseLegacyStereoPerception(bool val) {
 bool getUseLegacyStereoPerception() {
   return getValFromEnvironment(useLegacyStereoEnvVar,
                                useLegacyStereoDefaultVal);
+}
+
+void setPerceive3DChiralExplicitOnly(bool val) {
+  if (val) {
+    setenv(perceive3DChiralExplicitOnlyEnvVar, "1", 1);
+  } else {
+    setenv(perceive3DChiralExplicitOnlyEnvVar, "0", 1);
+  }
+}
+
+bool getPerceive3DChiralExplicitOnly() {
+  return getValFromEnvironment(perceive3DChiralExplicitOnlyEnvVar,
+                               perceive3DChiralExplicitOnlyDefaultVal);
 }
 
 namespace detail {
@@ -1842,7 +1856,11 @@ void assignLegacyCIPLabels(ROMol &mol, bool flagPossibleStereoCenters) {
 void assignBondCisTrans(ROMol &mol, const StereoInfo &sinfo) {
   if (sinfo.type != StereoType::Bond_Double ||
       sinfo.specified != StereoSpecified::Unspecified ||
-      sinfo.controllingAtoms.size() != 4) {
+      sinfo.controllingAtoms.size() != 4 ||
+      ((sinfo.controllingAtoms[0] == StereoInfo::NOATOM &&
+        sinfo.controllingAtoms[1] == StereoInfo::NOATOM) ||
+       (sinfo.controllingAtoms[2] == StereoInfo::NOATOM &&
+        sinfo.controllingAtoms[3] == StereoInfo::NOATOM))) {
     return;
   }
 
@@ -2041,6 +2059,7 @@ void cleanupStereoGroups(ROMol &mol) {
   std::vector<StereoGroup> newsgs;
   for (auto sg : mol.getStereoGroups()) {
     std::vector<Atom *> okatoms;
+    std::vector<Bond *> okbonds;
     bool keep = true;
     for (const auto atom : sg.getAtoms()) {
       if (atom->getChiralTag() == Atom::ChiralType::CHI_UNSPECIFIED) {
@@ -2049,12 +2068,20 @@ void cleanupStereoGroups(ROMol &mol) {
         okatoms.push_back(atom);
       }
     }
+    for (const auto bond : sg.getBonds()) {
+      if (bond->getStereo() != Bond::BondStereo::STEREOATROPCCW &&
+          bond->getStereo() != Bond::BondStereo::STEREOATROPCW) {
+        keep = false;
+      } else {
+        okbonds.push_back(bond);
+      }
+    }
 
     if (keep) {
       newsgs.push_back(sg);
     } else if (!okatoms.empty()) {
       newsgs.emplace_back(sg.getGroupType(), std::move(okatoms),
-                          sg.getReadId());
+                          std::move(okbonds), sg.getReadId());
     }
   }
   mol.setStereoGroups(std::move(newsgs));
@@ -2632,29 +2659,24 @@ void cleanupChirality(RWMol &mol) {
   }
 }
 
-void cleanupTetrahedralChirality(
-    RWMol &mol, const std::vector<Atom::HybridizationType> &hybridizations) {
-  unsigned int perm;
-  for (auto atom : mol.atoms()) {
-    switch (atom->getChiralTag()) {
-      case Atom::CHI_TETRAHEDRAL_CW:
-      case Atom::CHI_TETRAHEDRAL_CCW:
-        if (hybridizations[atom->getIdx()] != Atom::SP3) {
-          atom->setChiralTag(Atom::CHI_UNSPECIFIED);
-        }
-        break;
+void cleanupAtropisomers(RWMol &mol) {
+  std::vector<Atom::HybridizationType> hybs;
+  MolOps::getHybridizations(mol, hybs);
 
-      case Atom::CHI_TETRAHEDRAL:
-        if (hybridizations[atom->getIdx()] != Atom::SP3) {
-          atom->setChiralTag(Atom::CHI_UNSPECIFIED);
-        } else {
-          perm = 0;
-          atom->getPropIfPresent(common_properties::_chiralPermutation, perm);
-          if (perm > 2) {
-            perm = 0;
-            atom->setProp(common_properties::_chiralPermutation, perm);
-          }
+  cleanupAtropisomers(mol, hybs);
+}
+
+void cleanupAtropisomers(RWMol &mol,
+                         std::vector<Atom::HybridizationType> &hybs) {
+  for (auto bond : mol.bonds()) {
+    switch (bond->getStereo()) {
+      case Bond::BondStereo::STEREOATROPCW:
+      case Bond::BondStereo::STEREOATROPCCW:
+        if (hybs[bond->getBeginAtom()->getIdx()] != Atom::SP2 ||
+            hybs[bond->getEndAtom()->getIdx()] != Atom::SP2) {
+          bond->setStereo(Bond::BondStereo::STEREONONE);
         }
+
         break;
 
       default:
@@ -2950,7 +2972,33 @@ void assignChiralTypesFrom3D(ROMol &mol, int confId, bool replaceExistingTags) {
   }
 
   auto allowNontetrahedralStereo = Chirality::getAllowNontetrahedralChirality();
+  auto perceive3DChiralExplicitOnly =
+      Chirality::getPerceive3DChiralExplicitOnly();
+
+  boost::dynamic_bitset<> atomsToUse;
+  if (perceive3DChiralExplicitOnly && mol.getNumAtoms() > 0) {
+    atomsToUse.resize(mol.getNumAtoms(), 0);
+    for (auto bond : mol.bonds()) {
+      auto bondDir = bond->getBondDir();
+      if (bondDir == Bond::BondDir::BEGINWEDGE ||
+          bondDir == Bond::BondDir::BEGINDASH) {
+        atomsToUse[bond->getBeginAtom()->getIdx()] = 1;
+      }
+    }
+
+    for (auto atom : mol.atoms()) {
+      if (atom->getChiralTag() != Atom::ChiralType::CHI_UNSPECIFIED) {
+        atomsToUse[atom->getIdx()] = 1;
+      }
+    }
+  }
+
   for (auto atom : mol.atoms()) {
+    // see if only the explicitly wedged atoms are to be used
+    if (perceive3DChiralExplicitOnly && !atomsToUse[atom->getIdx()]) {
+      continue;
+    }
+
     // if we aren't replacing existing tags and the atom is already tagged,
     // punt:
     if (!replaceExistingTags && atom->getChiralTag() != Atom::CHI_UNSPECIFIED) {
@@ -3212,12 +3260,34 @@ void detectBondStereochemistry(ROMol &mol, int confId) {
   }
 }
 
-void clearSingleBondDirFlags(ROMol &mol) {
+void clearSingleBondDirFlags(ROMol &mol, bool onlyWedgeFlags) {
   for (auto bond : mol.bonds()) {
     if (bond->getBondType() == Bond::SINGLE) {
       if (bond->getBondDir() == Bond::UNKNOWN) {
         bond->setProp(common_properties::_UnknownStereo, 1);
       }
+
+      if (!onlyWedgeFlags ||
+          (bond->getBondDir() != Bond::BondDir::ENDDOWNRIGHT &&
+           bond->getBondDir() != Bond::BondDir::ENDUPRIGHT)) {
+        bond->setBondDir(Bond::NONE);
+      }
+    }
+  }
+}
+
+void clearAllBondDirFlags(ROMol &mol) { clearDirFlags(mol, false); }
+
+void clearDirFlags(ROMol &mol, bool onlyWedgeTypeBondDirs) {
+  for (auto bond : mol.bonds()) {
+    if (bond->getBondDir() == Bond::UNKNOWN ||
+        bond->getBondDir() == Bond::BondDir::EITHERDOUBLE) {
+      bond->setProp(common_properties::_UnknownStereo, 1);
+    }
+
+    if (onlyWedgeTypeBondDirs == false ||
+        (bond->getBondDir() != Bond::BondDir::ENDDOWNRIGHT &&
+         bond->getBondDir() != Bond::BondDir::ENDUPRIGHT)) {
       bond->setBondDir(Bond::NONE);
     }
   }

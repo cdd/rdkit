@@ -452,15 +452,6 @@ void assignRadicals(RWMol &mol) {
   }
 }
 
-void cleanupBadStereo(RWMol &mol) {
-  // remove chiral designations  that cannot be
-  // true because of hybridization
-
-  std::vector<Atom::HybridizationType> hybs;
-  MolOps::getHybridizations(mol, hybs);
-  MolOps::cleanupTetrahedralChirality(mol, hybs);
-}
-
 void getHybridizations(
     const RWMol &mol,
     std::vector<Atom::HybridizationType> &hydridizationValues) {
@@ -570,6 +561,11 @@ void sanitizeMol(RWMol &mol, unsigned int &operationThatFailed,
     cleanupChirality(mol);
   }
 
+  operationThatFailed = SANITIZE_CLEANUPATROPISOMERS;
+  if (sanitizeOps & operationThatFailed) {
+    cleanupAtropisomers(mol);
+  }
+
   // adjust Hydrogen counts:
   operationThatFailed = SANITIZE_ADJUSTHS;
   if (sanitizeOps & operationThatFailed) {
@@ -654,6 +650,7 @@ std::vector<ROMOL_SPTR> getMolFrags(const ROMol &mol, bool sanitizeFrags,
     }
   } else {
     std::vector<int> ids(mol.getNumAtoms(), -1);
+    std::vector<int> bondIds(mol.getNumBonds(), -1);
     boost::dynamic_bitset<> copiedAtoms(mol.getNumAtoms(), 0);
     boost::dynamic_bitset<> copiedBonds(mol.getNumBonds(), 0);
     res.reserve(nFrags);
@@ -696,7 +693,7 @@ std::vector<ROMOL_SPTR> getMolFrags(const ROMol &mol, bool sanitizeFrags,
           int ori_ridx = abs(rnbr) - 1;
           int ridx = ids[ori_ridx] + 1;
           if (rnbr < 0) {
-            ridx *= (-1);
+            ridx *= -1;
           }
           ringStereoAtomsCopied.push_back(ridx);
         }
@@ -724,7 +721,8 @@ std::vector<ROMOL_SPTR> getMolFrags(const ROMol &mol, bool sanitizeFrags,
       for (int stereoAtom : stereoAtoms) {
         nBond->getStereoAtoms().push_back(ids[stereoAtom]);
       }
-      tmp->addBond(nBond, true);
+      bondIds[bond->getIdx()] =
+          tmp->addBond(nBond, true) - 1;  // addBond returns the number of bonds
     }
 
     // copy RingInfo
@@ -792,13 +790,21 @@ std::vector<ROMOL_SPTR> getMolFrags(const ROMol &mol, bool sanitizeFrags,
         std::vector<StereoGroup> fragsgs;
         for (auto &sg : mol.getStereoGroups()) {
           std::vector<Atom *> sgats;
+          std::vector<Bond *> sgbds;
           for (auto sga : sg.getAtoms()) {
             if ((*mapping)[sga->getIdx()] == static_cast<int>(frag)) {
               sgats.push_back(re->getAtomWithIdx(ids[sga->getIdx()]));
             }
           }
+          for (auto sgb : sg.getBonds()) {
+            if ((*mapping)[sgb->getBeginAtom()->getIdx()] ==
+                static_cast<int>(frag)) {
+              sgbds.push_back(re->getBondWithIdx(bondIds[sgb->getIdx()]));
+            }
+          }
           if (!sgats.empty()) {
-            fragsgs.emplace_back(sg.getGroupType(), sgats, sg.getReadId());
+            fragsgs.emplace_back(sg.getGroupType(), sgats, sgbds,
+                                 sg.getReadId());
           }
         }
         if (!fragsgs.empty()) {
@@ -1040,13 +1046,13 @@ bool checkNeighbors(const Bond *bond, const Atom *atom) {
       int rank;
       if (RDKit::Chirality::getUseLegacyStereoPerception()) {
         if (!otherAtom->getPropIfPresent(common_properties::_CIPRank, rank)) {
-          rank = (-1);
+          rank = -1;
         }
       } else  // NOT legacy stereo
       {
-        if (!otherAtom->getPropIfPresent(common_properties::_CanonicalAtomRank,
+        if (!otherAtom->getPropIfPresent(common_properties::_ChiralAtomRank,
                                          rank)) {
-          rank = (-1);
+          rank = -1;
         }
       }
       if (rank >= 0) {
@@ -1063,7 +1069,7 @@ bool checkNeighbors(const Bond *bond, const Atom *atom) {
 }
 }  // namespace
 
-int GetDoubleBondDirFlag(const Bond *bond) {
+bool shouldBeACrossedBond(const Bond *bond) {
   PRECONDITION(bond, "");
 
   // double bond stereochemistry -
@@ -1084,50 +1090,51 @@ int GetDoubleBondDirFlag(const Bond *bond) {
     for (auto nbrBond : bond->getOwningMol().atomBonds(bond->getBeginAtom())) {
       if (nbrBond->getBondDir() == Bond::UNKNOWN &&
           nbrBond->getBeginAtom()->getIdx() == bond->getBeginAtom()->getIdx()) {
-        return 0;
+        return false;
       }
     }
     for (auto nbrBond : bond->getOwningMol().atomBonds(bond->getEndAtom())) {
       if (nbrBond->getBondDir() == Bond::UNKNOWN &&
           nbrBond->getBeginAtom()->getIdx() == bond->getEndAtom()->getIdx()) {
-        return 0;
+        return false;
       }
     }
 
     return 3;  // crossed double bond
   }
   if (bond->getStereo() != Bond::BondStereo::STEREONONE) {
-    return 0;
+    return false;
   }
 
   // if it is in a ring it is not makred as stereo.
   // If either end is terminal, it is not stereo
 
   if (!Chirality::detail::isBondPotentialStereoBond(bond)) {
-    return 0;
+    return false;
   }
   // we don't know that it's explicitly unspecified (covered above with
   // the ==STEREOANY check)
 
   if (bond->getBondDir() == Bond::EITHERDOUBLE) {
-    return 3;  // crossed double bond
+    return true;  // crossed double bond
   }
 
-  if ((bond->getBeginAtom()->getTotalValence() -
-       bond->getBeginAtom()->getTotalDegree()) == 1 &&
-      (bond->getEndAtom()->getTotalValence() -
-       bond->getEndAtom()->getTotalDegree()) == 1) {
+  const auto beginAtom = bond->getBeginAtom();
+  const auto endAtom = bond->getEndAtom();
+  if (beginAtom->getDegree() > 1 && endAtom->getDegree() > 1 &&
+      (beginAtom->getTotalValence() - beginAtom->getTotalDegree()) == 1 &&
+      (endAtom->getTotalValence() - endAtom->getTotalDegree()) == 1) {
     // we only do this if each atom only has one unsaturation
     // FIX: this is the fix for github #2649, but we will need to
     // change it once we start handling allenes properly
 
     if (checkNeighbors(bond, bond->getBeginAtom()) &&
         checkNeighbors(bond, bond->getEndAtom())) {
-      return 3;  // crossed double bond
+      return true;  // crossed double bond
     }
   }
 
-  return 0;  // NOT crossed double bond
+  return false;  // NOT crossed double bond
 }
 
 ROMol *hapticBondsToDative(const ROMol &mol) {

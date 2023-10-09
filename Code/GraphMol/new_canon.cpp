@@ -12,6 +12,7 @@
 #include "new_canon.h"
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/QueryOps.h>
+#include <GraphMol/Atropisomers.h>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -149,6 +150,11 @@ void compareRingAtomsConcerningNumNeighbors(Canon::canon_atom *atoms,
                                             const ROMol &mol) {
   PRECONDITION(atoms, "bad pointer");
   RingInfo *ringInfo = mol.getRingInfo();
+
+  auto visited = std::make_unique<char[]>(nAtoms);
+  auto lastLevelNbrs = std::make_unique<char[]>(nAtoms);
+  auto currentLevelNbrs = std::make_unique<char[]>(nAtoms);
+  auto revisitedNeighbors = std::make_unique<int[]>(nAtoms);
   for (unsigned idx = 0; idx < nAtoms; ++idx) {
     const Canon::canon_atom &a = atoms[idx];
     if (!ringInfo->isInitialized() ||
@@ -160,20 +166,13 @@ void compareRingAtomsConcerningNumNeighbors(Canon::canon_atom *atoms,
     unsigned currentRNIdx = 0;
     atoms[idx].neighborNum.reserve(1000);
     atoms[idx].revistedNeighbors.assign(1000, 0);
-    char *visited = (char *)malloc(nAtoms * sizeof(char));
-    CHECK_INVARIANT(visited, "allocation failed");
-    memset(visited, 0, nAtoms * sizeof(char));
+
+    memset(visited.get(), 0, nAtoms * sizeof(char));
+    memset(lastLevelNbrs.get(), 0, nAtoms * sizeof(char));
+    memset(currentLevelNbrs.get(), 0, nAtoms * sizeof(char));
+    memset(revisitedNeighbors.get(), 0, nAtoms * sizeof(int));
     unsigned count = 1;
     std::vector<int> nextLevelNbrs;
-    char *lastLevelNbrs = (char *)malloc(nAtoms * sizeof(char));
-    CHECK_INVARIANT(lastLevelNbrs, "allocation failed");
-    memset(lastLevelNbrs, 0, nAtoms * sizeof(char));
-    char *currentLevelNbrs = (char *)malloc(nAtoms * sizeof(char));
-    CHECK_INVARIANT(currentLevelNbrs, "allocation failed");
-    memset(currentLevelNbrs, 0, nAtoms * sizeof(char));
-    int *revisitedNeighbors = (int *)malloc(nAtoms * sizeof(int));
-    CHECK_INVARIANT(revisitedNeighbors, "allocation failed");
-    memset(revisitedNeighbors, 0, nAtoms * sizeof(int));
     while (!neighbors.empty()) {
       unsigned int numLevelNbrs = 0;
       nextLevelNbrs.resize(0);
@@ -208,13 +207,13 @@ void compareRingAtomsConcerningNumNeighbors(Canon::canon_atom *atoms,
           }
         }
       }
-      memset(lastLevelNbrs, 0, nAtoms * sizeof(char));
+      memset(lastLevelNbrs.get(), 0, nAtoms * sizeof(char));
       for (unsigned i = 0; i < nAtoms; ++i) {
         if (currentLevelNbrs[i]) {
           lastLevelNbrs[i] = 1;
         }
       }
-      memset(currentLevelNbrs, 0, nAtoms * sizeof(char));
+      memset(currentLevelNbrs.get(), 0, nAtoms * sizeof(char));
       std::vector<int> tmp;
       tmp.reserve(30);
       for (unsigned i = 0; i < nAtoms; ++i) {
@@ -232,7 +231,7 @@ void compareRingAtomsConcerningNumNeighbors(Canon::canon_atom *atoms,
         atoms[idx].revistedNeighbors[currentRNIdx] = i;
         currentRNIdx++;
       }
-      memset(revisitedNeighbors, 0, nAtoms * sizeof(int));
+      memset(revisitedNeighbors.get(), 0, nAtoms * sizeof(int));
 
       atoms[idx].neighborNum.push_back(numLevelNbrs);
       atoms[idx].neighborNum.push_back(-1);
@@ -242,11 +241,6 @@ void compareRingAtomsConcerningNumNeighbors(Canon::canon_atom *atoms,
       count++;
     }
     atoms[idx].revistedNeighbors.resize(currentRNIdx);
-
-    free(visited);
-    free(currentLevelNbrs);
-    free(lastLevelNbrs);
-    free(revisitedNeighbors);
   }
 }
 
@@ -260,18 +254,17 @@ void rankWithFunctor(T &ftor, bool breakTies, int *order, bool useSpecial,
   const ROMol &mol = *ftor.dp_mol;
   canon_atom *atoms = ftor.dp_atoms;
   unsigned int nAts = mol.getNumAtoms();
-  int *count = (int *)malloc(nAts * sizeof(int));
-  CHECK_INVARIANT(count, "allocation failed");
+
+  //  auto order = std::make_unique<int[]>(mol.getNumAtoms());
+
+  auto count = std::make_unique<int[]>(nAts);
+  auto next = std::make_unique<int[]>(nAts);
+  auto changed = std::make_unique<int[]>(nAts);
+  memset(changed.get(), 1, nAts * sizeof(int));
+  auto touched = std::make_unique<char[]>(nAts);
+  memset(touched.get(), 0, nAts * sizeof(char));
   int activeset;
-  int *next = (int *)malloc(nAts * sizeof(int));
-  CHECK_INVARIANT(next, "allocation failed");
-  int *changed = (int *)malloc(nAts * sizeof(int));
-  CHECK_INVARIANT(changed, "allocation failed");
-  char *touched = (char *)malloc(nAts * sizeof(char));
-  CHECK_INVARIANT(touched, "allocation failed");
-  memset(touched, 0, nAts * sizeof(char));
-  memset(changed, 1, nAts * sizeof(int));
-  CreateSinglePartition(nAts, order, count, atoms);
+  CreateSinglePartition(nAts, order, count.get(), atoms);
 // ActivatePartitions(nAts,order,count,activeset,next,changed);
 // RefinePartitions(mol,atoms,ftor,false,order,count,activeset,next,changed,touched);
 #ifdef VERBOSE_CANON
@@ -283,7 +276,8 @@ void rankWithFunctor(T &ftor, bool breakTies, int *order, bool useSpecial,
   }
 #endif
   ftor.df_useNbrs = true;
-  ActivatePartitions(nAts, order, count, activeset, next, changed);
+  ActivatePartitions(nAts, order, count.get(), activeset, next.get(),
+                     changed.get());
 #ifdef VERBOSE_CANON
   std::cerr << "1a--------" << std::endl;
   for (unsigned int i = 0; i < mol.getNumAtoms(); ++i) {
@@ -292,8 +286,8 @@ void rankWithFunctor(T &ftor, bool breakTies, int *order, bool useSpecial,
               << " count: " << count[order[i]] << std::endl;
   }
 #endif
-  RefinePartitions(mol, atoms, ftor, true, order, count, activeset, next,
-                   changed, touched);
+  RefinePartitions(mol, atoms, ftor, true, order, count.get(), activeset,
+                   next.get(), changed.get(), touched.get());
 #ifdef VERBOSE_CANON
   std::cerr << "2--------" << std::endl;
   for (unsigned int i = 0; i < mol.getNumAtoms(); ++i) {
@@ -311,9 +305,10 @@ void rankWithFunctor(T &ftor, bool breakTies, int *order, bool useSpecial,
   if (useChirality && ties) {
     SpecialChiralityAtomCompareFunctor scftor(atoms, mol, atomsInPlay,
                                               bondsInPlay);
-    ActivatePartitions(nAts, order, count, activeset, next, changed);
-    RefinePartitions(mol, atoms, scftor, true, order, count, activeset, next,
-                     changed, touched);
+    ActivatePartitions(nAts, order, count.get(), activeset, next.get(),
+                       changed.get());
+    RefinePartitions(mol, atoms, scftor, true, order, count.get(), activeset,
+                     next.get(), changed.get(), touched.get());
 #ifdef VERBOSE_CANON
     std::cerr << "2a--------" << std::endl;
     for (unsigned int i = 0; i < mol.getNumAtoms(); ++i) {
@@ -349,9 +344,10 @@ void rankWithFunctor(T &ftor, bool breakTies, int *order, bool useSpecial,
     SpecialSymmetryAtomCompareFunctor sftor(atoms, mol, atomsInPlay,
                                             bondsInPlay);
     compareRingAtomsConcerningNumNeighbors(atoms, nAts, mol);
-    ActivatePartitions(nAts, order, count, activeset, next, changed);
-    RefinePartitions(mol, atoms, sftor, true, order, count, activeset, next,
-                     changed, touched);
+    ActivatePartitions(nAts, order, count.get(), activeset, next.get(),
+                       changed.get());
+    RefinePartitions(mol, atoms, sftor, true, order, count.get(), activeset,
+                     next.get(), changed.get(), touched.get());
 #ifdef VERBOSE_CANON
     std::cerr << "2b--------" << std::endl;
     for (unsigned int i = 0; i < mol.getNumAtoms(); ++i) {
@@ -362,8 +358,8 @@ void rankWithFunctor(T &ftor, bool breakTies, int *order, bool useSpecial,
 #endif
   }
   if (breakTies) {
-    BreakTies(mol, atoms, ftor, true, order, count, activeset, next, changed,
-              touched);
+    BreakTies(mol, atoms, ftor, true, order, count.get(), activeset, next.get(),
+              changed.get(), touched.get());
 #ifdef VERBOSE_CANON
     std::cerr << "3--------" << std::endl;
     for (unsigned int i = 0; i < mol.getNumAtoms(); ++i) {
@@ -373,10 +369,6 @@ void rankWithFunctor(T &ftor, bool breakTies, int *order, bool useSpecial,
     }
 #endif
   }
-  free(count);
-  free(next);
-  free(touched);
-  free(changed);
 }
 }  // namespace detail
 namespace {
@@ -392,7 +384,7 @@ bool hasRingNbr(const ROMol &mol, const Atom *at) {
   return false;
 }
 
-void getNbrs(const ROMol &mol, const Atom *at, unsigned int *ids) {
+void getNbrs(const ROMol &mol, const Atom *at, int *ids) {
   PRECONDITION(at, "bad pointer");
   PRECONDITION(ids, "bad pointer");
   ROMol::ADJ_ITER beg, end;
@@ -441,6 +433,30 @@ bondholder makeBondHolder(const Bond *bond, unsigned int otherIdx,
         }
       }
     }
+
+    if (res.stype == Bond::BondStereo::STEREOATROPCCW ||
+        res.stype == Bond::BondStereo::STEREOATROPCW) {
+      Atom *atropAtoms[2];
+      std::vector<Bond *> atropBonds[2];  // one vector for each end - each one
+                                          // should end up with 1 ro 2 entries
+
+      CHECK_INVARIANT(GetAtropisomerAtomsAndBonds(bond, atropAtoms, atropBonds,
+                                                  bond->getOwningMol()),
+                      "Could not find atropisomer controlling atoms")
+
+      res.controllingAtoms[0] =
+          &atoms[atropBonds[0][0]->getOtherAtom(atropAtoms[0])->getIdx()];
+      res.controllingAtoms[2] =
+          &atoms[atropBonds[1][0]->getOtherAtom(atropAtoms[1])->getIdx()];
+      if (atropBonds[0].size() > 1) {
+        res.controllingAtoms[1] =
+            &atoms[atropBonds[0][1]->getOtherAtom(atropAtoms[0])->getIdx()];
+      }
+      if (atropBonds[1].size() > 1) {
+        res.controllingAtoms[3] =
+            &atoms[atropBonds[1][1]->getOtherAtom(atropAtoms[1])->getIdx()];
+      }
+    }
   }
   return res;
 }
@@ -474,8 +490,8 @@ void getChiralBonds(const ROMol &mol, const Atom *at,
     unsigned int stereo = 0;
     // FIX: Since the user can set the stereoatoms, the use of STEREOCIS and
     // STEREOTRANS here isn't actually canonical. In order for that to work we
-    // would need to be able to canonicalize the CIS/TRANS assignment, which is
-    // not currently being done
+    // would need to be able to canonicalize the CIS/TRANS assignment, which
+    // is not currently being done
     switch (bond->getStereo()) {
       case Bond::STEREOZ:
       case Bond::STEREOCIS:
@@ -530,8 +546,8 @@ void basicInitCanonAtom(const ROMol &mol, Canon::canon_atom &atom,
   atom.index = idx;
   atom.p_symbol = nullptr;
   atom.degree = atom.atom->getDegree();
-  atom.nbrIds = (unsigned int *)malloc(atom.degree * sizeof(unsigned int));
-  getNbrs(mol, atom.atom, atom.nbrIds);
+  atom.nbrIds = std::make_unique<int[]>(atom.degree);
+  getNbrs(mol, atom.atom, atom.nbrIds.get());
 }
 
 void advancedInitCanonAtom(const ROMol &mol, Canon::canon_atom &atom,
@@ -595,8 +611,7 @@ void initFragmentCanonAtoms(const ROMol &mol,
         atomsi.p_symbol = nullptr;
       }
       if (needsInit) {
-        atomsi.nbrIds =
-            (unsigned int *)calloc(atom->getDegree(), sizeof(unsigned int));
+        atomsi.nbrIds = std::make_unique<int[]>(atom->getDegree());
         advancedInitCanonAtom(mol, atomsi, i);
         atomsi.bonds.reserve(4);
       }
@@ -660,14 +675,6 @@ void initChiralCanonAtoms(const ROMol &mol,
   }
 }
 
-void freeCanonAtoms(std::vector<Canon::canon_atom> &atoms) {
-  for (auto &atom : atoms) {
-    if (atom.nbrIds) {
-      free(atom.nbrIds);
-      atom.nbrIds = nullptr;
-    }
-  }
-}
 }  // namespace detail
 void updateAtomNeighborIndex(canon_atom *atoms, std::vector<bondholder> &nbrs) {
   PRECONDITION(atoms, "bad pointer");
@@ -703,10 +710,10 @@ void updateAtomNeighborNumSwaps(
     if (isRingAtom && atoms[nbrIdx].atom->getChiralTag() != 0) {
       std::vector<int> ref, probe;
       for (unsigned i = 0; i < atoms[nbrIdx].degree; ++i) {
-        const auto nbrNbrId =
+        auto nbrNbrId =
             atoms[nbrIdx].nbrIds[i];  // id of the neighbor's neighbor
         ref.push_back(nbrNbrId);
-        if (atomIdx != nbrNbrId) {
+        if ((int)atomIdx != nbrNbrId) {
           if ((std::find(neighborsSeen.begin(), neighborsSeen.end(),
                          atoms[nbrNbrId].index) != neighborsSeen.end())) {
             tooManySimilarNbrs = true;
@@ -769,15 +776,12 @@ void rankMolAtoms(const ROMol &mol, std::vector<unsigned int> &res,
   ftor.df_useChirality = includeChirality;
   ftor.df_useChiralityRings = includeChirality;
 
-  int *order = (int *)malloc(mol.getNumAtoms() * sizeof(int));
-  PRECONDITION(order, "bad pointer");
-  detail::rankWithFunctor(ftor, breakTies, order, true, includeChirality);
+  auto order = std::make_unique<int[]>(mol.getNumAtoms());
+  detail::rankWithFunctor(ftor, breakTies, order.get(), true, includeChirality);
 
   for (unsigned int i = 0; i < mol.getNumAtoms(); ++i) {
     res[order[i]] = atoms[order[i]].index;
   }
-  free(order);
-  detail::freeCanonAtoms(atoms);
 
   if (clearRings) {
     mol.getRingInfo()->reset();
@@ -817,16 +821,14 @@ void rankFragmentAtoms(const ROMol &mol, std::vector<unsigned int> &res,
   ftor.df_useIsotopes = includeIsotopes;
   ftor.df_useChirality = includeChirality;
 
-  int *order = (int *)malloc(mol.getNumAtoms() * sizeof(int));
-  CHECK_INVARIANT(order, "bad pointer");
-  detail::rankWithFunctor(ftor, breakTies, order, true, includeChirality,
+  auto order = std::make_unique<int[]>(mol.getNumAtoms());
+  detail::rankWithFunctor(ftor, breakTies, order.get(), true, includeChirality,
                           &atomsInPlay, &bondsInPlay);
 
   for (unsigned int i = 0; i < mol.getNumAtoms(); ++i) {
     res[order[i]] = atoms[order[i]].index;
   }
-  free(order);
-  detail::freeCanonAtoms(atoms);
+
   if (clearRings) {
     mol.getRingInfo()->reset();
   }
@@ -848,15 +850,13 @@ void chiralRankMolAtoms(const ROMol &mol, std::vector<unsigned int> &res) {
   detail::initChiralCanonAtoms(mol, atoms);
   ChiralAtomCompareFunctor ftor(&atoms.front(), mol);
 
-  int *order = (int *)malloc(mol.getNumAtoms() * sizeof(int));
-  PRECONDITION(order, "bad pointer");
-  detail::rankWithFunctor(ftor, false, order);
+  auto order = std::make_unique<int[]>(mol.getNumAtoms());
+  detail::rankWithFunctor(ftor, false, order.get());
 
   for (unsigned int i = 0; i < mol.getNumAtoms(); ++i) {
     res[order[i]] = atoms[order[i]].index;
   }
-  free(order);
-  detail::freeCanonAtoms(atoms);
+
   if (clearRings) {
     mol.getRingInfo()->reset();
   }

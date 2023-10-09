@@ -14,6 +14,8 @@
 #include <GraphMol/Canon.h>
 #include <GraphMol/new_canon.h>
 #include <GraphMol/Chirality.h>
+#include <GraphMol/Atropisomers.h>
+#include <GraphMol/MolFileStereochem.h>
 #include <RDGeneral/BoostStartInclude.h>
 #include <boost/dynamic_bitset.hpp>
 #include <RDGeneral/utils.h>
@@ -669,22 +671,65 @@ std::string MolToSmiles(const ROMol &mol, const SmilesWriteParams &params) {
   return SmilesWrite::detail::MolToSmiles(mol, params, doingCXSmiles);
 }
 
-std::string MolToCXSmiles(const ROMol &mol, const SmilesWriteParams &params,
-                          std::uint32_t flags) {
+std::string MolToCXSmiles(const ROMol &romol, const SmilesWriteParams &params,
+                          std::uint32_t flags,
+                          RestoreBondDirOption restoreBondDirs) {
+  RWMol trwmol(romol);
+
+  for (auto doKekule : {false, true}) {
   bool doingCXSmiles = true;
-  auto res = SmilesWrite::detail::MolToSmiles(mol, params, doingCXSmiles);
-  if (!res.empty()) {
+    if (doKekule) {
+      MolOps::Kekulize(trwmol);
+    }
+
+    auto res = SmilesWrite::detail::MolToSmiles(trwmol, params, doingCXSmiles);
+    if (res.empty()) {
+      return res;
+    }
+    try {
+      if (restoreBondDirs == RestoreBondDirOptionTrue) {
+        reapplyMolBlockWedging(trwmol, true);
+      } else if (restoreBondDirs == RestoreBondDirOptionClear) {
+        for (auto bond : trwmol.bonds()) {
+          if (bond->getBondType() != Bond::BondType::SINGLE) {
+            continue;
+          }
+          if (bond->getBondDir() != Bond::BondDir::NONE) {
+            bond->setBondDir(Bond::BondDir::NONE);
+          }
+          unsigned int cfg;
+          if (bond->getPropIfPresent<unsigned int>(
+                  common_properties::_MolFileBondCfg, cfg)) {
+            bond->clearProp(common_properties::_MolFileBondCfg);
+          }
+        }
+      } else if (restoreBondDirs == RestoreBondDirOptionFalse) {
+        // do nothing
+      }
+
     if (!params.doIsomericSmiles) {
       flags &= ~(SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO |
                  SmilesWrite::CXSmilesFields::CX_BOND_CFG);
     }
 
-    auto cxext = SmilesWrite::getCXExtensions(mol, flags);
+      auto cxext = SmilesWrite::getCXExtensions(trwmol, flags);
     if (!cxext.empty()) {
       res += " " + cxext;
     }
+      return res;
+
+    } catch (RDKit::AromaticException &) {
+      // try after kekule'ing
+
+      if (doKekule) {
+        throw;
   }
-  return res;
+    } catch (...) {
+      throw;
+    }
+  }
+
+  TEST_ASSERT(false);  // should not get here
 }
 
 std::vector<std::string> MolToRandomSmilesVect(

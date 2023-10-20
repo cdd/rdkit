@@ -879,7 +879,6 @@ int findSSSR(const ROMol &mol, VECT_INT_VECT &res, bool includeDativeBonds) {
     const Bond *bond = mol[*firstB];
     if (bond->getBondType() == Bond::ZERO ||
         (!includeDativeBonds && bond->isDative())) {
-      //(!includeDativeBonds && bondIsDative(*bond))) {
       activeBonds[bond->getIdx()] = 0;
     }
     ++firstB;

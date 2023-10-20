@@ -202,16 +202,15 @@ inline std::string MolFragmentToSmiles(
 }
 
 enum RestoreBondDirOption {
-  RestoreBondDirOptionFalse = 0,  //<! Do not restore bond dirs
-  RestoreBondDirOptionTrue = 1,   //<!DO restore bond dirs
-  RestoreBondDirOptionClear = 2   //<! clear all bond dir information
+  RestoreBondDirOptionTrue = 0,  //<!DO restore bond dirs
+  RestoreBondDirOptionClear = 1  //<! clear all bond dir information
 };
 
 //! \brief returns canonical CXSMILES for a molecule
 RDKIT_SMILESPARSE_EXPORT std::string MolToCXSmiles(
     const ROMol &mol, const SmilesWriteParams &ps,
     std::uint32_t flags = SmilesWrite::CXSmilesFields::CX_ALL,
-    RestoreBondDirOption restoreBondDirs = RestoreBondDirOptionFalse);
+    RestoreBondDirOption restoreBondDirs = RestoreBondDirOptionClear);
 
 //! \brief returns canonical CXSMILES for a molecule
 /*!

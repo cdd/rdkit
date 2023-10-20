@@ -20,8 +20,7 @@ namespace RDKit {
 RDKIT_FILEPARSERS_EXPORT void DetectAtropisomerChirality(ROMol &mol,
                                                          const Conformer *conf);
 RDKIT_FILEPARSERS_EXPORT void WedgeBondsFromAtropisomers(
-    const ROMol &mol, const Conformer *conf, const INT_MAP_INT &wedgeBonds,
-    bool throwAromaticityException = false);
+    const ROMol &mol, const Conformer *conf, const INT_MAP_INT &wedgeBonds);
 
 RDKIT_FILEPARSERS_EXPORT bool doesMolHaveAtropisomers(const ROMol &mol);
 

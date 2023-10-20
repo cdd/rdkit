@@ -31,7 +31,8 @@ void WedgeBond(Bond *bond, unsigned int fromAtomIdx, const Conformer *conf) {
   PRECONDITION(conf, "no conformer");
   PRECONDITION(&conf->getOwningMol() == &bond->getOwningMol(),
                "bond and conformer do not belong to same molecule");
-  if (bond->getBondType() != Bond::SINGLE) {
+  if (bond->getBondType() != Bond::SINGLE &&
+      bond->getBondType() != Bond::AROMATIC) {
     return;
   }
   Bond::BondDir dir = DetermineBondWedgeState(bond, fromAtomIdx, conf);
@@ -584,7 +585,7 @@ void DetectBondStereoChemistry(ROMol &mol, const Conformer *conf) {
                "conformer does not belong to molecule");
   MolOps::detectBondStereochemistry(mol, conf->getId());
 }
-void reapplyMolBlockWedging(RWMol &mol, bool throwAromaticException) {
+void reapplyMolBlockWedging(RWMol &mol) {
   MolOps::clearDirFlags(mol, true);
   for (auto b : mol.bonds()) {
     int explicit_unknown_stereo = -1;
@@ -592,10 +593,9 @@ void reapplyMolBlockWedging(RWMol &mol, bool throwAromaticException) {
     if (b->getPropIfPresent<int>(common_properties::_UnknownStereo,
                                  explicit_unknown_stereo) &&
         explicit_unknown_stereo) {
-      if (b->getBondType() == Bond::SINGLE) {
+      if (b->getBondType() == Bond::SINGLE ||
+          b->getBondType() == Bond::AROMATIC) {
         b->setBondDir(Bond::UNKNOWN);
-      } else if (throwAromaticException && b->getBondType() == Bond::AROMATIC) {
-        throw AromaticException("Aromatic bond where a squigly was specified");
       }
       continue;
     }
@@ -604,8 +604,6 @@ void reapplyMolBlockWedging(RWMol &mol, bool throwAromaticException) {
         molFileBondStereo == 3) {
       if (b->getBondType() == Bond::DOUBLE) {
         b->setBondDir(Bond::BondDir::EITHERDOUBLE);
-      } else if (throwAromaticException && b->getBondType() == Bond::AROMATIC) {
-        throw AromaticException("Aromatic bond where a cross was specified");
       }
       continue;
     }
@@ -613,28 +611,23 @@ void reapplyMolBlockWedging(RWMol &mol, bool throwAromaticException) {
     int bond_dir = -1;
     if (b->getPropIfPresent<int>(common_properties::_MolFileBondStereo,
                                  bond_dir)) {
-      if (b->getBondType() == Bond::SINGLE) {
+      if (b->getBondType() == Bond::SINGLE ||
+          b->getBondType() == Bond::AROMATIC) {
         if (bond_dir == 1) {
           b->setBondDir(Bond::BEGINWEDGE);
         } else if (bond_dir == 6) {
           b->setBondDir(Bond::BEGINDASH);
         }
-      } else if (throwAromaticException && b->getBondType() == Bond::AROMATIC) {
-        throw AromaticException(
-            "Aromatic bond where a wedge/hash was specified");
       }
       continue;
     }
 
     int cfg = -1;
     if (b->getPropIfPresent<int>(common_properties::_MolFileBondCfg, cfg)) {
-      if (throwAromaticException && b->getBondType() == Bond::AROMATIC) {
-        throw AromaticException(
-            "Aromatic bond where a bond configuration was specified");
-      }
       switch (cfg) {
         case 1:
-          if (b->getBondType() == Bond::SINGLE) {
+          if (b->getBondType() == Bond::SINGLE ||
+              b->getBondType() == Bond::AROMATIC) {
             b->setBondDir(Bond::BEGINWEDGE);
           }
           break;
@@ -648,7 +641,8 @@ void reapplyMolBlockWedging(RWMol &mol, bool throwAromaticException) {
           }
           break;
         case 3:
-          if (b->getBondType() == Bond::SINGLE) {
+          if (b->getBondType() == Bond::SINGLE ||
+              b->getBondType() == Bond::AROMATIC) {
             b->setBondDir(Bond::BEGINDASH);
           }
           break;
@@ -718,7 +712,7 @@ void markUnspecifiedStereoAsUnknown(ROMol &mol, int confId) {
   }
 }
 
-// only valid for single bonds
+// only valid for single bonds or aromatic bonds
 int BondGetDirCode(const Bond::BondDir dir) {
   int res = 0;
   switch (dir) {

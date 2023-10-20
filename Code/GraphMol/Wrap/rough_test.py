@@ -1378,6 +1378,7 @@ M  END
     m1 = Chem.MolFromMolBlock(inD)
     self.assertTrue(m1 is not None)
     self.assertTrue(m1.GetNumAtoms() == 5)
+    smi = Chem.MolToSmiles(m1)
     self.assertTrue(smi == 'F[C@](Cl)(Br)I', smi)
 
     inD = """chiral2.cdxml
@@ -7338,7 +7339,7 @@ CAS<~>
 
     sys.stdout.flush()
     self.assertTrue(mBlock == isNotReapplied)
-    Chem.ReapplyMolBlockWedging(m, False)
+    Chem.ReapplyMolBlockWedging(m)
     
     mBlock = Chem.MolToMolBlock(m, False, -1, True, True, True)
     sys.stdout.flush()
@@ -7359,7 +7360,7 @@ CAS<~>
     
     ps = Chem.SmilesWriteParams()
     ps.canonical = True
-    smi = Chem.MolToCXSmiles(m, ps, flags, Chem.RestoreBondDirOption.RestoreBondDirOptionFalse)
+    smi = Chem.MolToCXSmiles(m, ps, flags, Chem.RestoreBondDirOption.RestoreBondDirOptionTrue)
     self.assertTrue(smi == 'CC1=C(n2cccc2[C@H](C)Cl)C(C)CCC1 |(2.679,0.4142,;1.3509,1.181,;0.0229,0.4141,;0.0229,-1.1195,;1.2645,-2.0302,;0.7901,-3.4813,;-0.7446,-3.4813,;-1.219,-2.0302,;-2.679,-1.5609,;-3.0039,-0.0556,;-3.8202,-2.595,;-1.3054,1.1809,;-2.6335,0.4141,;-1.3054,2.7145,;0.0229,3.4813,;1.3509,2.7146,),wD:2.11,wU:8.10,&1:8|')
 
     flags = Chem.CXSmilesFields.CX_COORDS | \
@@ -7369,7 +7370,7 @@ CAS<~>
                         Chem.CXSmilesFields.CX_ENHANCEDSTEREO
     
     
-    smi = Chem.MolToCXSmiles(m, ps, flags, Chem.RestoreBondDirOption.RestoreBondDirOptionFalse)
+    smi = Chem.MolToCXSmiles(m, ps, flags, Chem.RestoreBondDirOption.RestoreBondDirOptionTrue)
     self.assertTrue(smi == 'CC1=C(n2cccc2[C@H](C)Cl)C(C)CCC1 |(2.679,0.4142,;1.3509,1.181,;0.0229,0.4141,;0.0229,-1.1195,;1.2645,-2.0302,;0.7901,-3.4813,;-0.7446,-3.4813,;-1.219,-2.0302,;-2.679,-1.5609,;-3.0039,-0.0556,;-3.8202,-2.595,;-1.3054,1.1809,;-2.6335,0.4141,;-1.3054,2.7145,;0.0229,3.4813,;1.3509,2.7146,),wD:2.11,&1:8|')
 
     flags = Chem.CXSmilesFields.CX_COORDS | \
@@ -7378,7 +7379,7 @@ CAS<~>
                         Chem.CXSmilesFields.CX_ENHANCEDSTEREO
     
     
-    smi = Chem.MolToCXSmiles(m, ps, flags, Chem.RestoreBondDirOption.RestoreBondDirOptionFalse)
+    smi = Chem.MolToCXSmiles(m, ps, flags, Chem.RestoreBondDirOption.RestoreBondDirOptionTrue)
     self.assertTrue(smi == 'CC1=C(n2cccc2[C@H](C)Cl)C(C)CCC1 |(2.679,0.4142,;1.3509,1.181,;0.0229,0.4141,;0.0229,-1.1195,;1.2645,-2.0302,;0.7901,-3.4813,;-0.7446,-3.4813,;-1.219,-2.0302,;-2.679,-1.5609,;-3.0039,-0.0556,;-3.8202,-2.595,;-1.3054,1.1809,;-2.6335,0.4141,;-1.3054,2.7145,;0.0229,3.4813,;1.3509,2.7146,),&1:8|')
 
 

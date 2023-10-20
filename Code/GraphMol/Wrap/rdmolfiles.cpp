@@ -1506,8 +1506,6 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
   python::enum_<RDKit::RestoreBondDirOption>("RestoreBondDirOption")
       .value("RestoreBondDirOptionClear",
              RDKit::RestoreBondDirOption::RestoreBondDirOptionClear)
-      .value("RestoreBondDirOptionFalse",
-             RDKit::RestoreBondDirOption::RestoreBondDirOptionFalse)
       .value("RestoreBondDirOptionTrue",
              RDKit::RestoreBondDirOption::RestoreBondDirOptionTrue);
 
@@ -1518,7 +1516,7 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
       (python::arg("mol"), python::arg("params"),
        python::arg("flags") = RDKit::SmilesWrite::CXSmilesFields::CX_ALL,
        python::arg("restoreBondDirs") =
-           RDKit::RestoreBondDirOption::RestoreBondDirOptionFalse),
+           RDKit::RestoreBondDirOption::RestoreBondDirOptionClear),
       "Returns the CXSMILES string for a molecule");
 
   docString =

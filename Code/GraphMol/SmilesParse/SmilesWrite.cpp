@@ -657,57 +657,34 @@ std::string MolToCXSmiles(const ROMol &romol, const SmilesWriteParams &params,
                           RestoreBondDirOption restoreBondDirs) {
   RWMol trwmol(romol);
 
-  for (int pass = 0; pass < 2; ++pass) {
-    auto res = MolToSmiles(trwmol, params);
-    if (res.empty()) {
-      return res;
-    }
-    bool caughtAromaticError = false;
-    try {
-      if (restoreBondDirs == RestoreBondDirOptionTrue) {
-        reapplyMolBlockWedging(trwmol, true);
-      } else if (restoreBondDirs == RestoreBondDirOptionClear) {
-        for (auto bond : trwmol.bonds()) {
-          if (bond->getBondType() != Bond::BondType::SINGLE) {
-            continue;
-          }
-          if (bond->getBondDir() != Bond::BondDir::NONE) {
-            bond->setBondDir(Bond::BondDir::NONE);
-          }
-          unsigned int cfg;
-          if (bond->getPropIfPresent<unsigned int>(
-                  common_properties::_MolFileBondCfg, cfg)) {
-            bond->clearProp(common_properties::_MolFileBondCfg);
-          }
-        }
-      } else if (restoreBondDirs == RestoreBondDirOptionFalse) {
-        // do nothing
+  auto res = MolToSmiles(trwmol, params);
+  if (res.empty()) {
+    return res;
+  }
+  if (restoreBondDirs == RestoreBondDirOptionTrue) {
+    reapplyMolBlockWedging(trwmol);
+  } else if (restoreBondDirs == RestoreBondDirOptionClear) {
+    for (auto bond : trwmol.bonds()) {
+      if (bond->getBondType() != Bond::BondType::SINGLE &&
+          bond->getBondType() != Bond::BondType::AROMATIC) {
+        continue;
       }
-
-      auto cxext = SmilesWrite::getCXExtensions(trwmol, flags);
-      if (!cxext.empty()) {
-        res += " " + cxext;
+      if (bond->getBondDir() != Bond::BondDir::NONE) {
+        bond->setBondDir(Bond::BondDir::NONE);
       }
-      return res;
-
-    } catch (RDKit::AromaticException &) {
-      // try after kekule'ing
-
-      if (pass == 0) {
-        caughtAromaticError = true;
-      } else {
-        throw;
+      unsigned int cfg;
+      if (bond->getPropIfPresent<unsigned int>(
+              common_properties::_MolFileBondCfg, cfg)) {
+        bond->clearProp(common_properties::_MolFileBondCfg);
       }
-    } catch (...) {
-      throw;
-    }
-
-    if (caughtAromaticError) {
-      MolOps::Kekulize(trwmol);
-      // try again  - do not allow kekuling again that is what we are trying now
     }
   }
-  return "";  // should not get here
+
+  auto cxext = SmilesWrite::getCXExtensions(trwmol, flags);
+  if (!cxext.empty()) {
+    res += " " + cxext;
+  }
+  return res;
 }
 
 std::vector<std::string> MolToRandomSmilesVect(

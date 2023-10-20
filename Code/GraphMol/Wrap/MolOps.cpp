@@ -388,9 +388,9 @@ void addRecursiveQuery(ROMol &mol, const ROMol &query, unsigned int atomIdx,
   }
 }
 
-void reapplyWedging(ROMol &mol, bool throwAromaticyError) {
+void reapplyWedging(ROMol &mol) {
   auto &wmol = static_cast<RWMol &>(mol);
-  reapplyMolBlockWedging(wmol, throwAromaticyError);
+  reapplyMolBlockWedging(wmol);
 }
 
 MolOps::SanitizeFlags sanitizeMol(ROMol &mol, boost::uint64_t sanitizeOps,
@@ -2294,10 +2294,8 @@ ARGUMENTS:\n\
             - throwAromaticException: bool to indicate if an aromatic bond was found where a wedge bond should be\n\
 \n\
         \n";
-    python::def(
-        "ReapplyMolBlockWedging", reapplyWedging,
-        (python::arg("mol"), python::arg("throwAromaticException") = false),
-        docString.c_str());
+    python::def("ReapplyMolBlockWedging", reapplyWedging, (python::arg("mol")),
+                docString.c_str());
 
     docString =
         R"DOC(Constants used to set the thresholds for which single bonds can be made wavy.)DOC";

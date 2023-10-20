@@ -380,7 +380,6 @@ void getHybridizations(
     RWMol &mol, std::vector<Atom::HybridizationType> &hydridizationValues) {
   // see if the mol already has computed hybridizations:
 
-  auto atoms = mol.atoms();
   if (mol.getNumAtoms() == 0) {
     return;
   }

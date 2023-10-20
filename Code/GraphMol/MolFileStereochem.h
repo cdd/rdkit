@@ -96,26 +96,7 @@ void GetMolFileBondStereoInfo(const Bond *bond, const INT_MAP_INT &wedgeBonds,
  \param mol: molecule to have its wedges altered
  */
 
-RDKIT_FILEPARSERS_EXPORT void reapplyMolBlockWedging(
-    RWMol &mol, bool throwAromaticError = false);
-
-//! used when search for an wedged bond was found to be aromatic
-//! the cxsmiles uses this
-class RDKIT_RDGENERAL_EXPORT AromaticException : public std::runtime_error {
- public:
-  //! construct with an error message
-  explicit AromaticException(const char *msg)
-      : std::runtime_error("AromaticException"), _msg(msg) {}
-  //! construct with an error message
-  explicit AromaticException(const std::string msg)
-      : std::runtime_error("AromaticException"), _msg(msg) {}
-  //! get the error message
-  const char *what() const noexcept override { return _msg.c_str(); }
-  ~AromaticException() noexcept override = default;
-
- private:
-  std::string _msg;
-};
+RDKIT_FILEPARSERS_EXPORT void reapplyMolBlockWedging(RWMol &mol);
 
 }  // namespace RDKit
 #endif

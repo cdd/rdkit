@@ -2015,7 +2015,8 @@ std::string get_bond_config_block(const ROMol &mol,
     const auto bond = mol.getBondWithIdx(idx);
     unsigned int wedgeStartAtomIdx = bond->getBeginAtomIdx();
 
-    if (bond->getBondType() != Bond::BondType::SINGLE) {
+    if (bond->getBondType() != Bond::BondType::SINGLE &&
+        bond->getBondType() != Bond::BondType::AROMATIC) {
       continue;
     }
     // when figuring out what to output for the bond, favor the wedge state:
@@ -2326,7 +2327,7 @@ std::string getCXExtensions(const ROMol &mol, std::uint32_t flags) {
     INT_MAP_INT wedgeBonds = pickBondsToWedge(mol);
 
     if (mol.getNumConformers()) {
-      WedgeBondsFromAtropisomers(mol, &mol.getConformer(), wedgeBonds, true);
+      WedgeBondsFromAtropisomers(mol, &mol.getConformer(), wedgeBonds);
     }
 
     bool includeCoords = flags & SmilesWrite::CXSmilesFields::CX_COORDS &&
@@ -2345,7 +2346,7 @@ std::string getCXExtensions(const ROMol &mol, std::uint32_t flags) {
     INT_MAP_INT wedgeBonds;
 
     if (mol.getNumConformers()) {
-      WedgeBondsFromAtropisomers(mol, &mol.getConformer(), wedgeBonds, true);
+      WedgeBondsFromAtropisomers(mol, &mol.getConformer(), wedgeBonds);
     }
 
     bool includeCoords = flags & SmilesWrite::CXSmilesFields::CX_COORDS &&

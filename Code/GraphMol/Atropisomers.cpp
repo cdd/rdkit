@@ -408,7 +408,8 @@ void DetectAtropisomerChirality(ROMol &mol, const Conformer *conf) {
   std::set<Bond *> bondsToTry;
 
   for (auto bond : mol.bonds()) {
-    if (bond->getBondType() == Bond::SINGLE &&
+    if ((bond->getBondType() == Bond::SINGLE ||
+         bond->getBondType() == Bond::AROMATIC) &&
         (bond->getBondDir() == Bond::BondDir::BEGINDASH ||
          bond->getBondDir() == Bond::BondDir::BEGINWEDGE)) {
       for (const auto &nbrBond : mol.atomBonds(bond->getBeginAtom())) {
@@ -483,10 +484,8 @@ void getAllAtomIdsForStereoGroup(const ROMol &mol, const StereoGroup &group,
 
 bool WedgeBondFromAtropisomerOneBond2d(Bond *bond, const ROMol &mol,
                                        const Conformer *conf,
-                                       const INT_MAP_INT &wedgeBonds,
-                                       bool &aromaticBondWasFound) {
+                                       const INT_MAP_INT &wedgeBonds) {
   PRECONDITION(bond, "no bond");
-  aromaticBondWasFound = false;
 
   Atom *atoms[2];
   // std::vector<std::vector<Bond *>> bonds;
@@ -560,7 +559,8 @@ bool WedgeBondFromAtropisomerOneBond2d(Bond *bond, const ROMol &mol,
 
       if ((bondDir == Bond::BEGINWEDGE || bondDir == Bond::BEGINDASH) &&
           bonds[whichEnd][whichBond]->getBeginAtom() == atoms[whichEnd] &&
-          bonds[whichEnd][whichBond]->getBondType() == Bond::SINGLE) {
+          (bonds[whichEnd][whichBond]->getBondType() == Bond::SINGLE ||
+           bonds[whichEnd][whichBond]->getBondType() == Bond::AROMATIC)) {
         useBondsAtEnd[whichEnd].push_back(whichBond);
         foundBondDir = true;
       }
@@ -594,14 +594,10 @@ bool WedgeBondFromAtropisomerOneBond2d(Bond *bond, const ROMol &mol,
          ++whichBond) {
       auto bondToTry = bonds[whichEnd][whichBond];
 
-      if (bondToTry->getBondType() == Bond::BondType::AROMATIC) {
-        aromaticBondWasFound = true;
-        continue;
-      }
-
-      if (bondToTry->getBondType() != Bond::BondType::SINGLE ||
+      if ((bondToTry->getBondType() != Bond::BondType::SINGLE &&
+           bondToTry->getBondType() != Bond::BondType::AROMATIC) ||
           wedgeBonds.find(bondToTry->getIdx()) != wedgeBonds.end()) {
-        continue;  // must be a single bond and not already spoken
+        continue;  // must be a single OR aromatic bond and not already spoken
                    // for by a chiral center
       }
 
@@ -667,10 +663,8 @@ bool WedgeBondFromAtropisomerOneBond2d(Bond *bond, const ROMol &mol,
 
 bool WedgeBondFromAtropisomerOneBond3d(Bond *bond, const ROMol &mol,
                                        const Conformer *conf,
-                                       const INT_MAP_INT &wedgeBonds,
-                                       bool &aromaticBondWasFound) {
+                                       const INT_MAP_INT &wedgeBonds) {
   PRECONDITION(bond, "bad bond");
-  aromaticBondWasFound = false;
 
   Atom *atoms[2];
   // std::vector<std::vector<Bond *>> bonds;
@@ -707,7 +701,8 @@ bool WedgeBondFromAtropisomerOneBond3d(Bond *bond, const ROMol &mol,
 
       if ((bondDir == Bond::BEGINWEDGE || bondDir == Bond::BEGINDASH) &&
           bond->getBeginAtom() == atoms[whichEnd] &&
-          bond->getBondType() == Bond::SINGLE) {
+          (bond->getBondType() == Bond::SINGLE ||
+           bond->getBondType() == Bond::AROMATIC)) {
         useBonds.push_back(bond);
       }
     }
@@ -738,15 +733,8 @@ bool WedgeBondFromAtropisomerOneBond3d(Bond *bond, const ROMol &mol,
          ++whichBond) {
       auto bondToTry = bonds[whichEnd][whichBond];
 
-      // cannot use a bond that is not single, nor if it is already slated
-      // to be used for a chiral center
-
-      if (bondToTry->getBondType() == Bond::BondType::AROMATIC) {
-        aromaticBondWasFound = true;
-        continue;
-      }
-
-      if (bondToTry->getBondType() != Bond::BondType::SINGLE ||
+      if ((bondToTry->getBondType() != Bond::BondType::SINGLE &&
+           bondToTry->getBondType() != Bond::BondType::AROMATIC) ||
           wedgeBonds.find(bond->getIdx()) != wedgeBonds.end()) {
         continue;  // must be a single bond and not already spoken
                    // for by a chiral center
@@ -819,8 +807,7 @@ bool WedgeBondFromAtropisomerOneBond3d(Bond *bond, const ROMol &mol,
 }
 
 void WedgeBondsFromAtropisomers(const ROMol &mol, const Conformer *conf,
-                                const INT_MAP_INT &wedgeBonds,
-                                bool throwAromaticException) {
+                                const INT_MAP_INT &wedgeBonds) {
   PRECONDITION(conf, "no conformer");
   PRECONDITION(&(conf->getOwningMol()) == &mol,
                "conformer does not belong to molecule");
@@ -837,7 +824,8 @@ void WedgeBondsFromAtropisomers(const ROMol &mol, const Conformer *conf,
 
     auto bondStereo = bond->getStereo();
 
-    if (bond->getBondType() != Bond::SINGLE ||
+    if ((bond->getBondType() != Bond::SINGLE &&
+         bond->getBondType() != Bond::AROMATIC) ||
         (bondStereo != Bond::BondStereo::STEREOATROPCW &&
          bondStereo != Bond::BondStereo::STEREOATROPCCW) ||
         bond->getBeginAtom()->getTotalDegree() < 2 ||
@@ -847,19 +835,10 @@ void WedgeBondsFromAtropisomers(const ROMol &mol, const Conformer *conf,
       continue;
     }
 
-    bool aromaticBondWasFound = false;
-    bool wedgeBondSet = false;
     if (conf->is3D()) {
-      wedgeBondSet = WedgeBondFromAtropisomerOneBond3d(
-          bond, mol, conf, wedgeBonds, aromaticBondWasFound);
+      WedgeBondFromAtropisomerOneBond3d(bond, mol, conf, wedgeBonds);
     } else {
-      wedgeBondSet = WedgeBondFromAtropisomerOneBond2d(
-          bond, mol, conf, wedgeBonds, aromaticBondWasFound);
-    }
-
-    if (throwAromaticException && !wedgeBondSet && aromaticBondWasFound) {
-      throw AromaticException(
-          "Aromatic bond could be an atropisomer wedge/hash");
+      WedgeBondFromAtropisomerOneBond2d(bond, mol, conf, wedgeBonds);
     }
   }
 }

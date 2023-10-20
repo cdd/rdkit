@@ -946,9 +946,8 @@ void testMolFiles(const MolTest *molFileTest) {
           //| SmilesWrite::CXSmilesFields::CX_ALL
           ;
 
-      std::string smilesOut = MolToCXSmiles(*mol, ps, flags);
-      SmilesParserParams smilesParserParams;
-      smilesParserParams.sanitize = true;
+      std::string smilesOut =
+          MolToCXSmiles(*mol, ps, flags, RestoreBondDirOptionTrue);
 
       // code to create the expected files for new or changed tests
 

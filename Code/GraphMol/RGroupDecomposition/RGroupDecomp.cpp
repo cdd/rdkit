@@ -593,8 +593,7 @@ RWMOL_SPTR RGroupDecomposition::outputCoreMolecule(
   }
 
   auto ringInfo = coreWithMatches->getRingInfo();
-  if (!ringInfo->isInitialized() ||
-      ringInfo->getRingType() != FIND_RING_TYPE_SSSR) {
+  if (!ringInfo->isSymmSssr()) {
     MolOps::symmetrizeSSSR(*coreWithMatches);
   }
 

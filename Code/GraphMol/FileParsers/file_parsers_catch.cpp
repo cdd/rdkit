@@ -5027,7 +5027,7 @@ M  END
     invertMolBlockWedgingInfo(*m);
     reapplyMolBlockWedging(*m);
     CHECK(m->getBondWithIdx(2)->getBondDir() == Bond::BondDir::BEGINWEDGE);
-    clearMolBlockWedgingInfo(*m);
+    Chirality::clearMolBlockWedgingInfo(*m);
     reapplyMolBlockWedging(*m);
     CHECK(m->getBondWithIdx(2)->getBondDir() == Bond::BondDir::NONE);
   }

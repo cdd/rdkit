@@ -226,7 +226,10 @@ void CleanupMolecule() {
   // instead of calling sanitize mol, which would generate an error,
   // we'll perceive the rings, then take care of aromatic bonds
   // that aren't in a ring, then sanitize:
-  MolOps::findSSSR(*mol);
+
+  if (mol->getRingInfo()->isSssrOrBetter()) {
+    MolOps::findSSSR(*mol);
+  }
   for (ROMol::BondIterator bondIt = mol->beginBonds();
        bondIt != mol->endBonds(); ++bondIt) {
     if (((*bondIt)->getIsAromatic() ||

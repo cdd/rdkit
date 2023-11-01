@@ -35,7 +35,7 @@ using std::uint32_t;
 namespace RDKit {
 
 const int32_t MolPickler::versionMajor = 16;
-const int32_t MolPickler::versionMinor = 0;
+const int32_t MolPickler::versionMinor = 1;
 const int32_t MolPickler::versionPatch = 0;
 const int32_t MolPickler::endianId = 0xDEADBEEF;
 
@@ -1101,7 +1101,20 @@ void MolPickler::_pickle(const ROMol *mol, std::ostream &ss,
   // -------------------
   const RingInfo *ringInfo = mol->getRingInfo();
   if (ringInfo && ringInfo->isInitialized()) {
-    streamWrite(ss, BEGINSSSR);
+    switch (ringInfo->getRingType()) {
+      case RDKit::FIND_RING_TYPE::FIND_RING_TYPE_FAST:
+        streamWrite(ss, BEGINFASTFIND);
+        break;
+      case RDKit::FIND_RING_TYPE::FIND_RING_TYPE_SSSR:
+        streamWrite(ss, BEGINSSSR);
+        break;
+      case RDKit::FIND_RING_TYPE::FIND_RING_TYPE_SYMM_SSSR:
+        streamWrite(ss, BEGINSYMMSSSR);
+        break;
+      default:
+        streamWrite(ss, BEGINFINDOTHERORUNKNOWN);
+        break;
+    }
     _pickleSSSR<T>(ss, ringInfo, atomIdxMap);
   }
 
@@ -1278,8 +1291,24 @@ void MolPickler::_depickle(std::istream &ss, ROMol *mol, int version,
   //
   // -------------------
   streamRead(ss, tag, version);
+  bool ringFound = false;
+  FIND_RING_TYPE ringType =
+      RDKit::FIND_RING_TYPE::FIND_RING_TYPE_OTHER_OR_UNKNOWN;
   if (tag == BEGINSSSR) {
-    _addRingInfoFromPickle<T>(ss, mol, version, directMap);
+    ringFound = true;
+    ringType = FIND_RING_TYPE::FIND_RING_TYPE_SSSR;
+  } else if (tag == BEGINSYMMSSSR) {
+    ringFound = true;
+    ringType = FIND_RING_TYPE::FIND_RING_TYPE_SYMM_SSSR;
+  } else if (tag == BEGINFASTFIND) {
+    ringFound = true;
+    ringType = FIND_RING_TYPE::FIND_RING_TYPE_FAST;
+  } else if (tag == BEGINFINDOTHERORUNKNOWN) {
+    ringFound = true;
+    ringType = FIND_RING_TYPE::FIND_RING_TYPE_OTHER_OR_UNKNOWN;
+  }
+  if (ringFound) {
+    _addRingInfoFromPickle<T>(ss, mol, version, directMap, ringType);
     streamRead(ss, tag, version);
   }
 
@@ -2082,12 +2111,13 @@ void MolPickler::_pickleSSSR(std::ostream &ss, const RingInfo *ringInfo,
 
 template <typename T>
 void MolPickler::_addRingInfoFromPickle(std::istream &ss, ROMol *mol,
-                                        int version, bool directMap) {
+                                        int version, bool directMap,
+                                        FIND_RING_TYPE ringType) {
   PRECONDITION(mol, "empty molecule");
   RingInfo *ringInfo = mol->getRingInfo();
-  if (!ringInfo->isInitialized()) {
-    ringInfo->initialize();
-  }
+  // if (!ringInfo->isInitialized()) {
+  ringInfo->initialize(ringType);
+  //}
 
   std::uint32_t numRings;
   if (version >= 13002) {

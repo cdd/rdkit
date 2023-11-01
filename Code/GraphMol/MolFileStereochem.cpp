@@ -218,106 +218,16 @@ void DetectBondStereoChemistry(ROMol &mol, const Conformer *conf) {
                "conformer does not belong to molecule");
   MolOps::detectBondStereochemistry(mol, conf->getId());
 }
-void reapplyMolBlockWedging(RWMol &mol, bool throwAromaticException) {
-  MolOps::clearDirFlags(mol, true);
-  for (auto b : mol.bonds()) {
-    int explicit_unknown_stereo = -1;
-    int molFileBondStereo = -1;
-    if (b->getPropIfPresent<int>(common_properties::_UnknownStereo,
-                                 explicit_unknown_stereo) &&
-        explicit_unknown_stereo) {
-      if (b->getBondType() == Bond::SINGLE) {
-        b->setBondDir(Bond::UNKNOWN);
-      } else if (throwAromaticException && b->getBondType() == Bond::AROMATIC) {
-        throw AromaticException("Aromatic bond where a squigly was specified");
-      }
-      continue;
-    }
-    if (b->getPropIfPresent<int>(common_properties::_MolFileBondStereo,
-                                 molFileBondStereo) &&
-        molFileBondStereo == 3) {
-      if (b->getBondType() == Bond::DOUBLE) {
-        b->setBondDir(Bond::BondDir::EITHERDOUBLE);
-      } else if (throwAromaticException && b->getBondType() == Bond::AROMATIC) {
-        throw AromaticException("Aromatic bond where a cross was specified");
-      }
-      continue;
-    }
-
-    int bond_dir = -1;
-    if (b->getPropIfPresent<int>(common_properties::_MolFileBondStereo,
-                                 bond_dir)) {
-      if (b->getBondType() == Bond::SINGLE) {
-        if (bond_dir == 1) {
-          b->setBondDir(Bond::BEGINWEDGE);
-        } else if (bond_dir == 6) {
-          b->setBondDir(Bond::BEGINDASH);
-        }
-      } else if (throwAromaticException && b->getBondType() == Bond::AROMATIC) {
-        throw AromaticException(
-            "Aromatic bond where a wedge/hash was specified");
-      }
-      continue;
-    }
-
-    int cfg = -1;
-    if (b->getPropIfPresent<int>(common_properties::_MolFileBondCfg, cfg)) {
-      if (throwAromaticException && b->getBondType() == Bond::AROMATIC) {
-        throw AromaticException(
-            "Aromatic bond where a bond configuration was specified");
-      }
-      switch (cfg) {
-        case 1:
-          if (b->getBondType() == Bond::SINGLE) {
-            b->setBondDir(Bond::BEGINWEDGE);
-          }
-          break;
-        case 2:
-          if ((b->getBondType() == Bond::SINGLE ||
-               b->getBondType() == Bond::AROMATIC)) {
-            b->setBondDir(Bond::UNKNOWN);
-          } else if (b->getBondType() == Bond::DOUBLE) {
-            b->setBondDir(Bond::EITHERDOUBLE);
-            b->setStereo(Bond::STEREOANY);
-          }
-          break;
-        case 3:
-          if (b->getBondType() == Bond::SINGLE) {
-            b->setBondDir(Bond::BEGINDASH);
-          }
-          break;
-      }
-    }
-  }
+void reapplyMolBlockWedging(RWMol &mol) {
+  Chirality::reapplyMolBlockWedging(mol);
 }
 
-void clearMolBlockWedgingInfo(ROMol &mol) {
-  for (auto b : mol.bonds()) {
-    b->clearProp(common_properties::_MolFileBondStereo);
-    b->clearProp(common_properties::_MolFileBondCfg);
-  }
+void clearMolBlockWedgingInfo(RWMol &mol) {
+  Chirality::clearMolBlockWedgingInfo(mol);
 }
 
 void invertMolBlockWedgingInfo(ROMol &mol) {
-  for (auto b : mol.bonds()) {
-    int bond_dir = -1;
-    if (b->getPropIfPresent<int>(common_properties::_MolFileBondStereo,
-                                 bond_dir)) {
-      if (bond_dir == 1) {
-        b->setProp<int>(common_properties::_MolFileBondStereo, 6);
-      } else if (bond_dir == 6) {
-        b->setProp<int>(common_properties::_MolFileBondStereo, 1);
-      }
-    }
-    int cfg = -1;
-    if (b->getPropIfPresent<int>(common_properties::_MolFileBondCfg, cfg)) {
-      if (cfg == 1) {
-        b->setProp<int>(common_properties::_MolFileBondCfg, 3);
-      } else if (cfg == 3) {
-        b->setProp<int>(common_properties::_MolFileBondCfg, 1);
-      }
-    }
-  }
+  Chirality::invertMolBlockWedgingInfo(mol);
 }
 
 void markUnspecifiedStereoAsUnknown(ROMol &mol, int confId) {
@@ -354,7 +264,7 @@ void markUnspecifiedStereoAsUnknown(ROMol &mol, int confId) {
   }
 }
 
-// only valid for single bonds
+// only valid for single or aromatic  bonds
 int BondGetDirCode(const Bond::BondDir dir) {
   int res = 0;
   switch (dir) {
@@ -383,7 +293,7 @@ void GetMolFileBondStereoInfo(const Bond *bond, const INT_MAP_INT &wedgeBonds,
   dirCode = 0;
   reverse = false;
   Bond::BondDir dir = Bond::NONE;
-  if (bond->getBondType() == Bond::SINGLE) {
+  if (bond->canHaveDirection()) {
     // single bond stereo chemistry
     dir = DetermineBondWedgeState(bond, wedgeBonds, conf);
     dirCode = BondGetDirCode(dir);
@@ -400,7 +310,7 @@ void GetMolFileBondStereoInfo(const Bond *bond, const INT_MAP_INT &wedgeBonds,
       }
     }
   } else if (bond->getBondType() == Bond::DOUBLE) {
-    if (MolOps::shouldBeACrossedBond(bond)) {
+    if (Chirality::shouldBeACrossedBond(bond)) {
       dirCode = 3;
     }
   }

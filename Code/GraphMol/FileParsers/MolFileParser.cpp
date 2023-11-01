@@ -3290,8 +3290,16 @@ void finishMolProcessing(RWMol *res, bool chiralityPossible, bool sanitize,
     }
     MolOps::assignStereochemistry(*res, true, true, true);
   } else {
+    // The legacy code does its own removal of stereo info when 2 groups are the
+    // same - although it is not robust in determining when the groups are the
+    // same.
+    //   So calling Chirality::removeBadStereo is not needed in legacy mode.
+
     if (!Chirality::getUseLegacyStereoPerception()) {
-      MolOps::findSSSR(*res);
+      auto ri = res->getRingInfo();
+      if (!ri->isSymmSssr()) {
+        MolOps::symmetrizeSSSR(*res);
+      }
       Chirality::removeBadStereo(*res);
     }
     MolOps::detectBondStereochemistry(*res);
@@ -3521,9 +3529,9 @@ RWMol *MolDataStreamToMol(std::istream *inStream, unsigned int &line,
   }
 
   if (res) {
-      FileParserUtils::finishMolProcessing(res, chiralityPossible, sanitize,
-                                           removeHs);
-    }
+    FileParserUtils::finishMolProcessing(res, chiralityPossible, sanitize,
+                                         removeHs);
+  }
   return res;
 }
 

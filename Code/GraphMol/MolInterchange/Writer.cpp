@@ -418,8 +418,7 @@ void addMol(const T &imol, rj::Value &rjMol, rj::Document &doc,
             const JSONWriteParameters &params) {
   RWMol mol(imol);
   auto ringInfo = mol.getRingInfo();
-  if (!ringInfo->isInitialized() ||
-      ringInfo->getRingType() != FIND_RING_TYPE_SSSR) {
+  if (!ringInfo->isSymmSssr()) {
     MolOps::symmetrizeSSSR(mol);
   }
   if (mol.needsUpdatePropertyCache()) {

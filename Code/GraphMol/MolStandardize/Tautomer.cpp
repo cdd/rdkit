@@ -37,8 +37,7 @@ int scoreRings(const ROMol &mol) {
   int score = 0;
   auto ringInfo = mol.getRingInfo();
   std::unique_ptr<ROMol> cp;
-  if (!ringInfo->isInitialized() ||
-      ringInfo->getRingType() != FIND_RING_TYPE_SSSR) {
+  if (!ringInfo->isSymmSssr()) {
     cp.reset(new ROMol(mol));
     MolOps::symmetrizeSSSR(*cp);
     ringInfo = cp->getRingInfo();
@@ -285,8 +284,7 @@ TautomerEnumeratorResult TautomerEnumerator::enumerate(const ROMol &mol) const {
     taut->updatePropertyCache(false);
   }
   auto ringInfo = taut->getRingInfo();
-  if (!ringInfo->isInitialized() ||
-      ringInfo->getRingType() != FIND_RING_TYPE_SSSR) {
+  if (!ringInfo->isSymmSssr()) {
     MolOps::symmetrizeSSSR(*taut);
   }
 

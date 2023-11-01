@@ -167,7 +167,7 @@ class MrvTests {
       std::unique_ptr<RWMol> smilesMol(
           SmilesToMol(smilesTest->smiles, smilesParserParams));
 
-      reapplyMolBlockWedging(*smilesMol);
+      Chirality::reapplyMolBlockWedging(*smilesMol);
 
       TEST_ASSERT(smilesMol->getNumAtoms() == smilesTest->atomCount);
       TEST_ASSERT(smilesMol->getNumBonds() == smilesTest->bondCount);
@@ -241,7 +241,7 @@ class MrvTests {
       std::unique_ptr<RWMol> mol(GetMol(molTest));
 
       if (molTest->reapplyMolBlockWedging) {
-        reapplyMolBlockWedging(*mol);
+        Chirality::reapplyMolBlockWedging(*mol);
       }
 
       TEST_ASSERT(mol != nullptr);
@@ -451,7 +451,7 @@ class MrvTests {
 
       std::unique_ptr<RWMol> mol(GetMol(molTest));
 
-      reapplyMolBlockWedging(*mol);
+      Chirality::reapplyMolBlockWedging(*mol);
 
       TEST_ASSERT(mol != nullptr);
 
@@ -599,17 +599,8 @@ class MrvTests {
       std::unique_ptr<RWMol> mol(
           MolFileToMol(fName, molFileTest->sanitizeFlag, false, false));
 
-      bool caughtAromaticError = false;
       if (molFileTest->reapplyMolBlockWedging) {
-        try {
-          reapplyMolBlockWedging(*mol, true);
-        } catch (RDKit::AromaticException &) {
-          caughtAromaticError = true;
-        }
-        if (caughtAromaticError) {
-          MolOps::Kekulize(*mol);
-          reapplyMolBlockWedging(*mol, true);
-        }
+        Chirality::reapplyMolBlockWedging(*mol);
       }
 
       TEST_ASSERT(mol != nullptr);
@@ -664,9 +655,7 @@ class MrvTests {
                              SmilesWrite::CXSmilesFields::CX_BOND_CFG |
                              SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO |
                              SmilesWrite::CXSmilesFields::CX_SGROUPS |
-                             SmilesWrite::CXSmilesFields::CX_POLYMER
-
-            ;
+                             SmilesWrite::CXSmilesFields::CX_POLYMER;
 
         auto restoreDir = RestoreBondDirOptionTrue;
         if (!molFileTest->reapplyMolBlockWedging) {
@@ -772,7 +761,7 @@ class MrvTests {
     return;
   }
 
-  public:
+ public:
   void RunTests() {
     RDKit::Chirality::setUseLegacyStereoPerception(false);
     RDKit::Chirality::setPerceive3DChiralExplicitOnly(true);

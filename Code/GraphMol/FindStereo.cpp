@@ -1186,8 +1186,7 @@ void removeBadStereo(ROMol &mol) { runCleanup(mol, true, true); }
 std::vector<StereoInfo> findPotentialStereo(ROMol &mol, bool cleanIt,
                                             bool findPossible) {
   auto ringInfo = mol.getRingInfo();
-  if (!ringInfo->isInitialized() ||
-      ringInfo->getRingType() != FIND_RING_TYPE_SSSR) {
+  if (!ringInfo->isSymmSssr()) {
     MolOps::symmetrizeSSSR(mol);
   }
 

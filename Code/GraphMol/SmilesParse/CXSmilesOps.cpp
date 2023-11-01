@@ -1105,12 +1105,11 @@ bool parse_wedged_bonds(Iterator &first, Iterator last, RDKit::RWMol &mol,
       }
       bond->setProp(common_properties::_MolFileBondCfg, cfg);
       bond->setBondDir(state);
-      if (cfg == 2 && bond->getBondType() == Bond::BondType::SINGLE) {
+      if (cfg == 2 && bond->canHaveDirection()) {
         bond->getBeginAtom()->setChiralTag(Atom::ChiralType::CHI_UNSPECIFIED);
         mol.setProp(detail::_needsDetectBondStereo, 1);
       }
-      if ((cfg == 1 || cfg == 3) &&
-          bond->getBondType() == Bond::BondType::SINGLE) {
+      if ((cfg == 1 || cfg == 3) && bond->canHaveDirection()) {
         mol.setProp(detail::_needsDetectAtomStereo, 1);
       }
     }
@@ -2060,7 +2059,7 @@ std::string get_bond_config_block(const ROMol &mol,
     const auto bond = mol.getBondWithIdx(idx);
     unsigned int wedgeStartAtomIdx = bond->getBeginAtomIdx();
 
-    if (bond->getBondType() != Bond::BondType::SINGLE) {
+    if (!bond->canHaveDirection()) {
       continue;
     }
     // when figuring out what to output for the bond, favor the wedge state:
@@ -2095,7 +2094,7 @@ std::string get_bond_config_block(const ROMol &mol,
       }
     } else {  //  atropisomeronly is FALSE - check for a wedging caused by
               //  chiral atom
-    unsigned int cfg = 0;
+      unsigned int cfg = 0;
       if (bd == Bond::BondDir::NONE &&
           bond->getPropIfPresent(common_properties::_MolFileBondCfg, cfg)) {
         switch (cfg) {
@@ -2111,7 +2110,7 @@ std::string get_bond_config_block(const ROMol &mol,
 
           default:
             bd = Bond::BondDir::NONE;
-    }
+        }
       }
 
       if (bd == Bond::BondDir::NONE && coordsIncluded) {
@@ -2140,7 +2139,7 @@ std::string get_bond_config_block(const ROMol &mol,
 
     auto begAtomOrder =
         std::find(atomOrder.begin(), atomOrder.end(), wedgeStartAtomIdx) -
-                          atomOrder.begin();
+        atomOrder.begin();
 
     std::string wType = "";
     if (bd == Bond::BondDir::UNKNOWN) {
@@ -2157,11 +2156,11 @@ std::string get_bond_config_block(const ROMol &mol,
     if (wType != "") {
       if (wParts.find(wType) == wParts.end()) {
         wParts[wType] = std::vector<std::string>();
-        }
+      }
       wParts[wType].push_back(
           boost::str(boost::format("%d.%d") % begAtomOrder % i));
-        }
-      }
+    }
+  }
   std::string res = "";
 
   for (auto wPart : wParts) {
@@ -2371,7 +2370,7 @@ std::string getCXExtensions(const ROMol &mol, std::uint32_t flags) {
     INT_MAP_INT wedgeBonds = pickBondsToWedge(mol);
 
     if (mol.getNumConformers()) {
-      WedgeBondsFromAtropisomers(mol, &mol.getConformer(), wedgeBonds, true);
+      WedgeBondsFromAtropisomers(mol, &mol.getConformer(), wedgeBonds);
     }
 
     bool includeCoords = flags & SmilesWrite::CXSmilesFields::CX_COORDS &&
@@ -2390,7 +2389,7 @@ std::string getCXExtensions(const ROMol &mol, std::uint32_t flags) {
     INT_MAP_INT wedgeBonds;
 
     if (mol.getNumConformers()) {
-      WedgeBondsFromAtropisomers(mol, &mol.getConformer(), wedgeBonds, true);
+      WedgeBondsFromAtropisomers(mol, &mol.getConformer(), wedgeBonds);
     }
 
     bool includeCoords = flags & SmilesWrite::CXSmilesFields::CX_COORDS &&

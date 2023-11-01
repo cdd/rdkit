@@ -676,60 +676,40 @@ std::string MolToCXSmiles(const ROMol &romol, const SmilesWriteParams &params,
                           RestoreBondDirOption restoreBondDirs) {
   RWMol trwmol(romol);
 
-  for (auto doKekule : {false, true}) {
   bool doingCXSmiles = true;
-    if (doKekule) {
-      MolOps::Kekulize(trwmol);
-    }
 
-    auto res = SmilesWrite::detail::MolToSmiles(trwmol, params, doingCXSmiles);
-    if (res.empty()) {
-      return res;
-    }
-    try {
-      if (restoreBondDirs == RestoreBondDirOptionTrue) {
-        reapplyMolBlockWedging(trwmol, true);
-      } else if (restoreBondDirs == RestoreBondDirOptionClear) {
-        for (auto bond : trwmol.bonds()) {
-          if (bond->getBondType() != Bond::BondType::SINGLE) {
-            continue;
-          }
-          if (bond->getBondDir() != Bond::BondDir::NONE) {
-            bond->setBondDir(Bond::BondDir::NONE);
-          }
-          unsigned int cfg;
-          if (bond->getPropIfPresent<unsigned int>(
-                  common_properties::_MolFileBondCfg, cfg)) {
-            bond->clearProp(common_properties::_MolFileBondCfg);
-          }
-        }
-      } else if (restoreBondDirs == RestoreBondDirOptionFalse) {
-        // do nothing
+  auto res = SmilesWrite::detail::MolToSmiles(trwmol, params, doingCXSmiles);
+  if (res.empty()) {
+    return res;
+  }
+  if (restoreBondDirs == RestoreBondDirOptionTrue) {
+    reapplyMolBlockWedging(trwmol);
+  } else if (restoreBondDirs == RestoreBondDirOptionClear) {
+    for (auto bond : trwmol.bonds()) {
+      if (!bond->canHaveDirection()) {
+        continue;
       }
-
-    if (!params.doIsomericSmiles) {
-      flags &= ~(SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO |
-                 SmilesWrite::CXSmilesFields::CX_BOND_CFG);
-    }
-
-      auto cxext = SmilesWrite::getCXExtensions(trwmol, flags);
-    if (!cxext.empty()) {
-      res += " " + cxext;
-    }
-      return res;
-
-    } catch (RDKit::AromaticException &) {
-      // try after kekule'ing
-
-      if (doKekule) {
-        throw;
-  }
-    } catch (...) {
-      throw;
+      if (bond->getBondDir() != Bond::BondDir::NONE) {
+        bond->setBondDir(Bond::BondDir::NONE);
+      }
+      unsigned int cfg;
+      if (bond->getPropIfPresent<unsigned int>(
+              common_properties::_MolFileBondCfg, cfg)) {
+        bond->clearProp(common_properties::_MolFileBondCfg);
+      }
     }
   }
 
-  TEST_ASSERT(false);  // should not get here
+  if (!params.doIsomericSmiles) {
+    flags &= ~(SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO |
+               SmilesWrite::CXSmilesFields::CX_BOND_CFG);
+  }
+
+  auto cxext = SmilesWrite::getCXExtensions(trwmol, flags);
+  if (!cxext.empty()) {
+    res += " " + cxext;
+  }
+  return res;
 }
 
 std::vector<std::string> MolToRandomSmilesVect(

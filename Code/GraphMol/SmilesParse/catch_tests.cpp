@@ -2066,7 +2066,9 @@ TEST_CASE("wiggly and wedged bonds in CXSMILES") {
     auto mb = MolToV3KMolBlock(*m);
     CHECK(mb.find("CFG=2") != std::string::npos);
     // make sure we end up with the wiggly bond in the output CXSMILES:
-    auto cxsmi = MolToCXSmiles(*m);
+    auto cxsmi = MolToCXSmiles(*m, SmilesWriteParams(),
+                               SmilesWrite::CXSmilesFields::CX_ALL,
+                               RestoreBondDirOptionTrue);
     CHECK(cxsmi == "CC(O)F |w:1.2|");
     // but we can turn that off
     SmilesWriteParams ps;
@@ -2089,7 +2091,9 @@ TEST_CASE("wiggly and wedged bonds in CXSMILES") {
     auto mb = MolToV3KMolBlock(*m);
     CHECK(mb.find("CFG=2") != std::string::npos);
     // make sure we end up with the wiggly bond in the output CXSMILES:
-    auto cxsmi = MolToCXSmiles(*m);
+    auto cxsmi = MolToCXSmiles(*m, SmilesWriteParams(),
+                               SmilesWrite::CXSmilesFields::CX_ALL,
+                               RestoreBondDirOptionTrue);
     CHECK(cxsmi == "CC(O)F |w:1.2|");
   }
   SECTION("make sure order gets reversed when needed") {
@@ -2130,7 +2134,7 @@ TEST_CASE("wiggly and wedged bonds in CXSMILES") {
     MolOps::assignChiralTypesFromBondDirs(*m);
     CHECK(m->getAtomWithIdx(1)->getChiralTag() ==
           Atom::ChiralType::CHI_TETRAHEDRAL_CCW);
-    clearMolBlockWedgingInfo(*m);
+    Chirality::clearMolBlockWedgingInfo(*m);
     m->getAtomWithIdx(1)->setChiralTag(Atom::ChiralType::CHI_UNSPECIFIED);
     CHECK(!m->getBondWithIdx(0)->getPropIfPresent("_MolFileBondCfg", bondcfg));
     reapplyMolBlockWedging(*m);
@@ -2145,14 +2149,18 @@ TEST_CASE("wiggly and wedged bonds in CXSMILES") {
     {
       ROMol nm(*m);
       nm.getBondWithIdx(1)->setBondDir(Bond::BondDir::UNKNOWN);
-      auto cxsmi = MolToCXSmiles(nm);
+      auto cxsmi = MolToCXSmiles(nm, SmilesWriteParams(),
+                                 SmilesWrite::CXSmilesFields::CX_ALL,
+                                 RestoreBondDirOptionTrue);
       CHECK(cxsmi == "CC(O)Cl |w:1.0|");
     }
     {
       ROMol nm(*m);
       nm.getBondWithIdx(1)->setProp(common_properties::_MolFileBondCfg, 2);
-      auto cxsmi = MolToCXSmiles(nm);
-      CHECK(cxsmi == "CC(O)Cl |w:1.0|");
+      auto cxsmi = MolToCXSmiles(nm, SmilesWriteParams(),
+                                 SmilesWrite::CXSmilesFields::CX_ALL,
+                                 RestoreBondDirOptionClear);
+      CHECK(cxsmi == "CC(O)Cl");
     }
   }
 
@@ -2187,18 +2195,23 @@ M  END
     // change the bond dir. This also tests that the wedging overrides the
     // CFG property
     m->getBondWithIdx(2)->setBondDir(Bond::BondDir::BEGINDASH);
-    cxsmi = MolToCXSmiles(*m);
-    CHECK(cxsmi.find("wD:1.0") != std::string::npos);
+    cxsmi = MolToCXSmiles(*m, SmilesWriteParams(),
+                          SmilesWrite::CXSmilesFields::CX_ALL,
+                          RestoreBondDirOptionTrue);
+    CHECK(cxsmi.find("wU:1.0") != std::string::npos);
     cxsmi =
         MolToCXSmiles(*m, ps, SmilesWrite::CXSmilesFields::CX_ALL_BUT_COORDS);
-    CHECK(cxsmi.find("wD:1.0") == std::string::npos);
+    CHECK(cxsmi.find("wU:1.0") == std::string::npos);
     m->getBondWithIdx(2)->setBondDir(Bond::BondDir::UNKNOWN);
-    cxsmi = MolToCXSmiles(*m);
-    CHECK(cxsmi.find("w:1.0") != std::string::npos);
+    cxsmi = MolToCXSmiles(*m, SmilesWriteParams(),
+                          SmilesWrite::CXSmilesFields::CX_ALL,
+                          RestoreBondDirOptionTrue);
+    CHECK(cxsmi.find("wU:1.0") != std::string::npos);
     // wiggly bonds get written even if we don't output coords:
     cxsmi =
-        MolToCXSmiles(*m, ps, SmilesWrite::CXSmilesFields::CX_ALL_BUT_COORDS);
-    CHECK(cxsmi.find("w:1.0") != std::string::npos);
+        MolToCXSmiles(*m, ps, SmilesWrite::CXSmilesFields::CX_ALL_BUT_COORDS,
+                      RestoreBondDirOptionClear);
+    CHECK(cxsmi.find("w:1.0") == std::string::npos);
   }
 
   SECTION("double bond stereo") {
@@ -2439,7 +2452,7 @@ TEST_CASE("Atropisomer output in CXSMILES", "[SMILES]]") {
                          SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO;
 
     auto smi = MolToCXSmiles(*mol, ps, flags,
-                             RestoreBondDirOption::RestoreBondDirOptionFalse);
+                             RestoreBondDirOption::RestoreBondDirOptionTrue);
 
     CHECK(
         smi ==
@@ -2452,7 +2465,7 @@ TEST_CASE("Atropisomer output in CXSMILES", "[SMILES]]") {
             SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO;
 
     smi = MolToCXSmiles(*mol, ps, flags,
-                        RestoreBondDirOption::RestoreBondDirOptionFalse);
+                        RestoreBondDirOption::RestoreBondDirOptionTrue);
 
     CHECK(
         smi ==
@@ -2464,7 +2477,7 @@ TEST_CASE("Atropisomer output in CXSMILES", "[SMILES]]") {
             SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO;
 
     smi = MolToCXSmiles(*mol, ps, flags,
-                        RestoreBondDirOption::RestoreBondDirOptionFalse);
+                        RestoreBondDirOption::RestoreBondDirOptionTrue);
 
     CHECK(
         smi ==

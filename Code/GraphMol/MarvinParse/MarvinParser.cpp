@@ -943,7 +943,7 @@ class MarvinCMLReader {
 
 bool MrvDataStreamIsReaction(std::istream &inStream) {
   PRECONDITION(inStream, "no stream");
-
+  Utils::LocaleSwitcher ls;
   ptree tree;
 
   // Parse the XML into the property tree.
@@ -1049,6 +1049,8 @@ ChemicalReaction *MrvDataStreamToChemicalReaction(std::istream *inStream,
                                                   bool sanitize,
                                                   bool removeHs) {
   PRECONDITION(inStream, "no stream");
+
+  Utils::LocaleSwitcher ls;
 
   ptree tree;
 

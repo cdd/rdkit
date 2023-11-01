@@ -31,6 +31,7 @@ namespace RDKit {
 typedef enum {
   FIND_RING_TYPE_FAST,
   FIND_RING_TYPE_SSSR,
+  FIND_RING_TYPE_SYMM_SSSR,
   FIND_RING_TYPE_OTHER_OR_UNKNOWN
 } FIND_RING_TYPE;
 
@@ -53,9 +54,24 @@ class RDKIT_GRAPHMOL_EXPORT RingInfo {
   //! does initialization
   void initialize(
       RDKit::FIND_RING_TYPE ringType = FIND_RING_TYPE_OTHER_OR_UNKNOWN);
-  RDKit::FIND_RING_TYPE getRingType() { return df_find_type_type; };
+  RDKit::FIND_RING_TYPE getRingType() const { return df_find_type_type; };
   //! blows out all current data and de-initializes
   void reset();
+
+  bool isFindFastOrBetter() const {
+    return df_init && (df_find_type_type == FIND_RING_TYPE_FAST ||
+                       df_find_type_type == FIND_RING_TYPE_SSSR ||
+                       df_find_type_type == FIND_RING_TYPE_SYMM_SSSR);
+  }
+
+  bool isSssrOrBetter() const {
+    return df_init && (df_find_type_type == FIND_RING_TYPE_SSSR ||
+                       df_find_type_type == FIND_RING_TYPE_SYMM_SSSR);
+  }
+
+  bool isSymmSssr() const {
+    return df_init && df_find_type_type == FIND_RING_TYPE_SYMM_SSSR;
+  }
 
   //! adds a ring to our data
   /*!

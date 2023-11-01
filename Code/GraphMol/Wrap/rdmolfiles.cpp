@@ -156,6 +156,21 @@ ROMol *MolFromMolBlock(python::object imolBlock, bool sanitize, bool removeHs,
   return static_cast<ROMol *>(newM);
 }
 
+ROMol *MolFromMolFile(const char *molFilename, bool sanitize, bool removeHs,
+                      bool strictParsing) {
+  RWMol *newM = nullptr;
+  try {
+    newM = MolFileToMol(molFilename, sanitize, removeHs, strictParsing);
+  } catch (RDKit::BadFileException &e) {
+    PyErr_SetString(PyExc_IOError, e.what());
+    throw python::error_already_set();
+  } catch (RDKit::FileParseException &e) {
+    BOOST_LOG(rdWarningLog) << e.what() << std::endl;
+  } catch (...) {
+  }
+  return static_cast<ROMol *>(newM);
+}
+
 ROMol *MolFromMrvFile(const char *molFilename, bool sanitize, bool removeHs) {
   RWMol *newM = nullptr;
   try {
@@ -998,6 +1013,62 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
               python::return_value_policy<python::manage_new_object>());
 
   docString =
+      "Construct a molecule from a Mol file.\n\n\
+  ARGUMENTS:\n\
+\n\
+    - fileName: name of the file to read\n\
+\n\
+    - sanitize: (optional) toggles sanitization of the molecule.\n\
+      Defaults to true.\n\
+\n\
+    - removeHs: (optional) toggles removing hydrogens from the molecule.\n\
+      This only make sense when sanitization is done.\n\
+      Defaults to true.\n\
+\n\
+    - strictParsing: (optional) if this is false, the parser is more lax about.\n\
+      correctness of the content.\n\
+      Defaults to true.\n\
+\n\
+  RETURNS:\n\
+\n\
+    a Mol object, None on failure.\n\
+\n";
+  python::def(
+      "MolFromMolFile", RDKit::MolFromMolFile,
+      (python::arg("molFileName"), python::arg("sanitize") = true,
+       python::arg("removeHs") = true, python::arg("strictParsing") = true),
+      docString.c_str(),
+      python::return_value_policy<python::manage_new_object>());
+
+  docString =
+      "Construct a molecule from a Mol block.\n\n\
+  ARGUMENTS:\n\
+\n\
+    - molBlock: string containing the Mol block\n\
+\n\
+    - sanitize: (optional) toggles sanitization of the molecule.\n\
+      Defaults to True.\n\
+\n\
+    - removeHs: (optional) toggles removing hydrogens from the molecule.\n\
+      This only make sense when sanitization is done.\n\
+      Defaults to true.\n\
+\n\
+    - strictParsing: (optional) if this is false, the parser is more lax about.\n\
+      correctness of the content.\n\
+      Defaults to true.\n\
+\n\
+  RETURNS:\n\
+\n\
+    a Mol object, None on failure.\n\
+\n";
+  python::def(
+      "MolFromMolBlock", RDKit::MolFromMolBlock,
+      (python::arg("molBlock"), python::arg("sanitize") = true,
+       python::arg("removeHs") = true, python::arg("strictParsing") = true),
+      docString.c_str(),
+      python::return_value_policy<python::manage_new_object>());
+
+  docString =
       "Returns a Mol block for a molecule\n\
   ARGUMENTS:\n\
 \n\
@@ -1480,8 +1551,6 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
   python::enum_<RDKit::RestoreBondDirOption>("RestoreBondDirOption")
       .value("RestoreBondDirOptionClear",
              RDKit::RestoreBondDirOption::RestoreBondDirOptionClear)
-      .value("RestoreBondDirOptionFalse",
-             RDKit::RestoreBondDirOption::RestoreBondDirOptionFalse)
       .value("RestoreBondDirOptionTrue",
              RDKit::RestoreBondDirOption::RestoreBondDirOptionTrue);
 
@@ -1492,7 +1561,7 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
       (python::arg("mol"), python::arg("params"),
        python::arg("flags") = RDKit::SmilesWrite::CXSmilesFields::CX_ALL,
        python::arg("restoreBondDirs") =
-           RDKit::RestoreBondDirOption::RestoreBondDirOptionFalse),
+           RDKit::RestoreBondDirOption::RestoreBondDirOptionClear),
       "Returns the CXSMILES string for a molecule");
 
   docString =

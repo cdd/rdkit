@@ -1129,6 +1129,9 @@ int symmetrizeSSSR(ROMol &mol, VECT_INT_VECT &res, bool includeDativeBonds) {
   // avoid repeating this work
   findSSSR(mol, sssrs, includeDativeBonds);
 
+  // reinit as SYMM_SSSR
+  mol.getRingInfo()->initialize(FIND_RING_TYPE_SYMM_SSSR);
+
   res.reserve(sssrs.size());
   for (const auto &r : sssrs) {
     res.emplace_back(r);

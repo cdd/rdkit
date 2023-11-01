@@ -689,7 +689,7 @@ void updateAtomNeighborIndex(canon_atom *atoms, std::vector<bondholder> &nbrs) {
 // This routine calculates the number of swaps that would be required to
 // determine what the smiles chirality value would be for a given chiral atom
 // given that the atom is visited first from the atom of interest.
-// THis is used to determine which of two atoms has priority based on the
+// This is used to determine which of two atoms has priority based on the
 // neighbor's chirality
 //
 // If the chiral neighbor has two equivlent (at least so far) neighbors that are

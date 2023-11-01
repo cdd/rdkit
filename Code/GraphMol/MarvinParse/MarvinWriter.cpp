@@ -19,6 +19,7 @@
 #include <iomanip>
 #include <cstdio>
 
+#include <RDGeneral/LocaleSwitcher.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
 #include <GraphMol/Depictor/RDDepictor.h>
 #include <GraphMol/GenericGroups/GenericGroups.h>
@@ -368,7 +369,7 @@ class MarvinCMLWriter {
         dir = Bond::NONE;  // other types are ignored
       }
     } else if (bond->getBondType() == Bond::DOUBLE) {
-      if (MolOps::shouldBeACrossedBond(bond)) {
+      if (Chirality::shouldBeACrossedBond(bond)) {
         dir = Bond::BondDir::EITHERDOUBLE;
       }
     }
@@ -1180,6 +1181,8 @@ class MarvinCMLWriter {
 
 std::string MolToMrvBlock(const ROMol &mol, bool includeStereo, int confId,
                           bool kekulize, bool prettyPrint) {
+  Utils::LocaleSwitcher ls;
+
   RWMol trwmol(mol);
   // NOTE: kekulize the molecule before writing it out
   // because of the way mol files handle aromaticity
@@ -1237,6 +1240,8 @@ void MolToMrvFile(const ROMol &mol, const std::string &fName,
 
 std::string ChemicalReactionToMrvBlock(const ChemicalReaction &rxn,
                                        bool prettyPrint) {
+  Utils::LocaleSwitcher ls;
+
   MarvinCMLWriter marvinCMLWriter;
 
   auto marvinRxn = marvinCMLWriter.ChemicalReactionToMarvinRxn(&rxn);

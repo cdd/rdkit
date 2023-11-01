@@ -144,13 +144,6 @@ bool isClosingRingBond(Bond *bond) {
          bond->hasProp(common_properties::_TraversalRingClosureBond);
 }
 
-bool canHaveDirection(const Bond *bond) {
-  PRECONDITION(bond, "bad bond");
-  Bond::BondType bondType = bond->getBondType();
-  return (bondType == Bond::SINGLE || bondType == Bond::AROMATIC ||
-          bond->isDative());
-}
-
 }  // namespace
 // FIX: this may only be of interest from the SmilesWriter, should we
 // move it there?
@@ -200,7 +193,7 @@ void canonicalizeDoubleBond(Bond *dblBond, UINT_VECT &bondVisitOrders,
                                auto atom, auto &firstNeighborBond,
                                auto &secondNeighborBond, auto &dirSet) {
     for (const auto bond : mol.atomBonds(atom)) {
-      if (bond == dblBond || !canHaveDirection(bond)) {
+      if (bond == dblBond || !bond->canSetDoubleBondStereo()) {
         continue;
       }
 
@@ -920,7 +913,7 @@ void clearBondDirs(ROMol &mol, Bond *refBond, const Atom *fromAtom,
     // std::cerr<<"  >>"<<oBond->getIdx()<<" "<<canHaveDirection(oBond)<<"
     // "<<bondDirCounts[oBond->getIdx()]<<"-"<<bondDirCounts[refBond->getIdx()]<<"
     // "<<atomDirCounts[oBond->getBeginAtomIdx()]<<"-"<<atomDirCounts[oBond->getEndAtomIdx()]<<std::endl;
-    if (oBond != refBond && canHaveDirection(oBond)) {
+    if (oBond != refBond && oBond->canHaveDirection()) {
       nbrPossible = true;
       if ((bondDirCounts[oBond->getIdx()] >=
            bondDirCounts[refBond->getIdx()]) &&
@@ -974,7 +967,7 @@ void removeRedundantBondDirSpecs(ROMol &mol, MolStack &molStack,
       const Atom *canonBeginAtom = mol.getAtomWithIdx(msI.number);
       const Atom *canonEndAtom =
           mol.getAtomWithIdx(tBond->getOtherAtomIdx(msI.number));
-      if (canHaveDirection(tBond) && bondDirCounts[tBond->getIdx()] >= 1) {
+      if (tBond->canHaveDirection() && bondDirCounts[tBond->getIdx()] >= 1) {
         // start by finding the double bond that sets tBond's direction:
         const Atom *dblBondAtom = nullptr;
         ROMol::OEDGE_ITER beg, end;

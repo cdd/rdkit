@@ -288,7 +288,7 @@ unsigned int RingInfo::addRingFamily(const INT_VECT &atomIndices,
 #endif
 
 void RingInfo::initialize(RDKit::FIND_RING_TYPE ringType) {
-  PRECONDITION(!df_init, "already initialized");
+  // PRECONDITION(!df_init, "already initialized");
   df_init = true;
   df_find_type_type = ringType;
 };

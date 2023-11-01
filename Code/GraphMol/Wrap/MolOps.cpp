@@ -388,9 +388,9 @@ void addRecursiveQuery(ROMol &mol, const ROMol &query, unsigned int atomIdx,
   }
 }
 
-void reapplyWedging(ROMol &mol, bool throwAromaticyError) {
+void reapplyWedging(ROMol &mol) {
   auto &wmol = static_cast<RWMol &>(mol);
-  reapplyMolBlockWedging(wmol, throwAromaticyError);
+  reapplyMolBlockWedging(wmol);
 }
 
 MolOps::SanitizeFlags sanitizeMol(ROMol &mol, boost::uint64_t sanitizeOps,
@@ -1349,17 +1349,15 @@ struct molops_wrapper {
                 python::return_value_policy<python::manage_new_object>());
 
     docString =
-      "Check to see if the molecule has query Hs, this is normally used on query molecules\n\
+        "Check to see if the molecule has query Hs, this is normally used on query molecules\n\
 such as thos returned from MolFromSmarts\n\
 Example: \n\
       (hasQueryHs, hasUnmergableQueryHs) = HasQueryHs(mol)\n\
 \n\
 if hasUnmergableQueryHs, these query hs cannot be removed by calling\n\
 MergeQueryHs";
-    python::def("HasQueryHs", hasQueryHsHelper,
-                python::arg("mol"),
-		docString.c_str());
-
+    python::def("HasQueryHs", hasQueryHsHelper, python::arg("mol"),
+                docString.c_str());
 
     // ------------------------------------------------------------------------
     docString =
@@ -2435,12 +2433,8 @@ ARGUMENTS:\n\
 \n\
             - molecule: the molecule to update\n\
 \n\
-            - throwAromaticException: bool to indicate if an aromatic bond was found where a wedge bond should be\n\
-\n\
         \n";
-    python::def(
-        "ReapplyMolBlockWedging", reapplyWedging,
-        (python::arg("mol"), python::arg("throwAromaticException") = false),
+    python::def("ReapplyMolBlockWedging", reapplyWedging, (python::arg("mol")),
                 docString.c_str());
 
     docString =

@@ -317,6 +317,17 @@ class RDKIT_GRAPHMOL_EXPORT Bond : public RDProps {
   //! returns our direction
   BondDir getBondDir() const { return static_cast<BondDir>(d_dirTag); }
 
+  bool canHaveDirection() const {
+    auto bondType = getBondType();
+    return (bondType == Bond::SINGLE || bondType == Bond::AROMATIC);
+  }
+
+  bool canSetDoubleBondStereo() const {
+    auto bondType = getBondType();
+    return (bondType == Bond::SINGLE || bondType == Bond::AROMATIC ||
+            isDative());
+  }
+
   //! sets our stereo code
   /*!
       STEREONONE, STEREOANY, STEREOE and STEREOZ can be set without

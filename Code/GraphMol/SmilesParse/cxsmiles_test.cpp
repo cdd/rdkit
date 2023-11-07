@@ -975,11 +975,11 @@ void testOne3dChiral(const SmilesTest *smilesTest) {
     // second pass use onlyExplicit3D
 
     RDKit::Chirality::setPerceive3DChiralExplicitOnly(true);
-
+    smilesParserParams.sanitize = true;
     smilesMol =
         std::unique_ptr<RWMol>(SmilesToMol(inputSmiles, smilesParserParams));
 
-    // test round trip back to smiles
+    // test no canonical, sanitize,  no restore bond dirs
     {
       std::string expectedFileName = fName + ".expected3D2.cxsmi";
 

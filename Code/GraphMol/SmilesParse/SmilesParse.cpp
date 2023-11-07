@@ -443,22 +443,22 @@ RWMol *SmilesToMol(const std::string &smiles,
     }
   }
 
-    if (res->hasProp(SmilesParseOps::detail::_needsDetectAtomStereo)) {
-      // we encountered a wedged bond in the CXSMILES,
-      // these need to be handled the same way they were in mol files
-      res->clearProp(SmilesParseOps::detail::_needsDetectAtomStereo);
+  if (res->hasProp(SmilesParseOps::detail::_needsDetectAtomStereo)) {
+    // we encountered a wedged bond in the CXSMILES,
+    // these need to be handled the same way they were in mol files
+    res->clearProp(SmilesParseOps::detail::_needsDetectAtomStereo);
 
     if (conf) {
       MolOps::assignChiralTypesFromBondDirs(*res, conf->getId());
-      }
     }
+  }
 
-    // if we read a 3D conformer, set the stereo:
+  // if we read a 3D conformer, set the stereo:
   // if (res->getNumConformers() && res->getConformer().is3D()) {
   if (!conf && conf3d) {
-      res->updatePropertyCache(false);
+    res->updatePropertyCache(false);
     MolOps::assignChiralTypesFrom3D(*res, conf3d->getId(), true);
-    }
+  }
   if (conf || conf3d) {
     try {
       RDKit::DetectAtropisomerChirality(*res, conf ? conf : conf3d);
@@ -494,19 +494,12 @@ RWMol *SmilesToMol(const std::string &smiles,
     bool cleanIt = true, force = true, flagPossible = true;
     MolOps::assignStereochemistry(*res, cleanIt, force, flagPossible);
   } else {
-    MolOps::cleanupAtropisomers(*res);
-    if (!Chirality::getUseLegacyStereoPerception()) {
-      MolOps::findSSSR(*res);
-      Chirality::removeBadStereo(*res);
-  }
-
-    // we still need to do something about double bond stereochemistry
-    // (was github issue 337)
-    // now that atom stereochem has been perceived, the wedging
-    // information is no longer needed, so we clear
-    // single bond dir flags:
+    //  we still need to do something about double bond stereochemistry
+    //  (was github issue 337)
+    //  now that atom stereochem has been perceived, the wedging
+    //  information is no longer needed, so we clear
+    //  single bond dir flags:
     MolOps::clearSingleBondDirFlags(*res, true);
-    MolOps::detectBondStereochemistry(*res);
   }
 
   if (res && res->hasProp(common_properties::_NeedsQueryScan)) {

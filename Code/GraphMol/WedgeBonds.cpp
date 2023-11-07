@@ -523,20 +523,24 @@ void reapplyMolBlockWedging(ROMol &mol) {
     int bond_dir = -1;
     if (b->getPropIfPresent<int>(common_properties::_MolFileBondStereo,
                                  bond_dir)) {
-      if (bond_dir == 1) {
-        b->setBondDir(Bond::BEGINWEDGE);
-      } else if (bond_dir == 6) {
-        b->setBondDir(Bond::BEGINDASH);
+      if (b->canHaveDirection()) {
+        if (bond_dir == 1) {
+          b->setBondDir(Bond::BEGINWEDGE);
+        } else if (bond_dir == 6) {
+          b->setBondDir(Bond::BEGINDASH);
+        }
       }
     }
     int cfg = -1;
     if (b->getPropIfPresent<int>(common_properties::_MolFileBondCfg, cfg)) {
       switch (cfg) {
         case 1:
-          b->setBondDir(Bond::BEGINWEDGE);
+          if (b->canHaveDirection()) {
+            b->setBondDir(Bond::BEGINWEDGE);
+          }
           break;
         case 2:
-          if (b->getBondType() == Bond::SINGLE) {
+          if (b->canHaveDirection()) {
             b->setBondDir(Bond::UNKNOWN);
           } else if (b->getBondType() == Bond::DOUBLE) {
             b->setBondDir(Bond::EITHERDOUBLE);
@@ -544,7 +548,9 @@ void reapplyMolBlockWedging(ROMol &mol) {
           }
           break;
         case 3:
-          b->setBondDir(Bond::BEGINDASH);
+          if (b->canHaveDirection()) {
+            b->setBondDir(Bond::BEGINDASH);
+          }
           break;
       }
     }

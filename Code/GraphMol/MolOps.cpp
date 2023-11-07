@@ -491,11 +491,13 @@ void cleanupAtropisomers(RWMol &mol) {
 
 void cleanupAtropisomers(RWMol &mol,
                          std::vector<Atom::HybridizationType> &hybs) {
+  const RingInfo *ri = mol.getRingInfo();
   for (auto bond : mol.bonds()) {
     switch (bond->getStereo()) {
       case Bond::BondStereo::STEREOATROPCW:
       case Bond::BondStereo::STEREOATROPCCW:
-        if (hybs[bond->getBeginAtom()->getIdx()] != Atom::SP2 ||
+        if (ri->numBondRings(bond->getIdx()) > 0 ||
+            hybs[bond->getBeginAtom()->getIdx()] != Atom::SP2 ||
             hybs[bond->getEndAtom()->getIdx()] != Atom::SP2) {
           bond->setStereo(Bond::BondStereo::STEREONONE);
         }

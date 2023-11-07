@@ -2430,6 +2430,10 @@ void stereoPerception(ROMol &mol, bool cleanIt,
 
 bool canBeStereoBond(const Bond *bond) {
   PRECONDITION(bond, "no bond");
+  if (bond->getBondType() != Bond::BondType::DOUBLE &&
+      bond->getBondType() != Bond::BondType::AROMATIC) {
+    return false;
+  }
   auto beginAtom = bond->getBeginAtom();
   auto endAtom = bond->getEndAtom();
   for (const auto atom : {beginAtom, endAtom}) {
@@ -2454,16 +2458,14 @@ bool canBeStereoBond(const Bond *bond) {
           return false;
         }
 
-        // if two neighbors has the same CIP ranking, this is not stereo
-
+        // if two neighbors havr the same CIP ranking, this is not stereo
         const auto otherAtom = nbrBond->getOtherAtom(atom);
         int rank;
         if (RDKit::Chirality::getUseLegacyStereoPerception()) {
           if (!otherAtom->getPropIfPresent(common_properties::_CIPRank, rank)) {
             rank = -1;
           }
-        } else  // NOT legacy stereo
-        {
+        } else {  // NOT legacy stereo
           if (!otherAtom->getPropIfPresent(common_properties::_ChiralAtomRank,
                                            rank)) {
             rank = -1;
@@ -2542,15 +2544,13 @@ bool shouldBeACrossedBond(const Bond *bond) {
     // FIX: this is the fix for github #2649, but we will need to
     // change it once we start handling allenes properly
 
-    // if (checkNeighbors(bond, bond->getBeginAtom()) &&
-    //     checkNeighbors(bond, bond->getEndAtom())) {
-    //   return true;  // crossed double bond
-    // }
+
     if (canBeStereoBond(bond)) {
       return true;  // crossed double bond
     }
   }
-  return false;
+
+  return false;  // NOT crossed double bond
 }
 }  // namespace Chirality
 

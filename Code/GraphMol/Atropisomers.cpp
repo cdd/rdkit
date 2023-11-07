@@ -373,11 +373,10 @@ void cleanupAtropisomerStereoGroups(ROMol &mol) {
         if (bond->getStereo() == Bond::BondStereo::STEREOATROPCCW ||
             bond->getStereo() == Bond::BondStereo::STEREOATROPCW) {
           foundAtrop = true;
-          std::vector<Bond *> oneBondInArray = {bond};
-          if (!boost::algorithm::contains(okbonds, oneBondInArray)) {
+          if (std::find(okbonds.begin(), okbonds.end(), bond) ==
+              okbonds.end()) {
             okbonds.push_back(bond);
           }
-          break;
         }
       }
 
@@ -401,11 +400,6 @@ void DetectAtropisomerChirality(ROMol &mol, const Conformer *conf) {
   PRECONDITION(&(conf->getOwningMol()) == &mol,
                "conformer does not belong to molecule");
 
-  auto ringInfo = mol.getRingInfo();
-  if (!ringInfo->isSymmSssr()) {
-    MolOps::symmetrizeSSSR(mol);
-  }
-
   std::set<Bond *> bondsToTry;
 
   for (auto bond : mol.bonds()) {
@@ -421,14 +415,8 @@ void DetectAtropisomerChirality(ROMol &mol, const Conformer *conf) {
     }
   }
 
-  // const RingInfo *ri = bond->getOwningMol().getRingInfo();
-  const RingInfo *ri = mol.getRingInfo();
   bool foundAtrop = false;
   for (auto bondToTry : bondsToTry) {
-    if (ri->numBondRings(bondToTry->getIdx()) > 0) {
-      continue;
-    }
-
     if (bondToTry->getBeginAtom()->getImplicitValence() == -1) {
       bondToTry->getBeginAtom()->calcExplicitValence(false);
       bondToTry->getBeginAtom()->calcImplicitValence(false);
@@ -464,8 +452,8 @@ void getAllAtomIdsForStereoGroup(const ROMol &mol, const StereoGroup &group,
   }
 
   for (auto &&bond : group.getBonds()) {
-    // figure out which atoms of the bond get stereo group indications
-    // either to both that have a wedge/hash get the designation
+    // figure out which atoms of the bond get wedge/hash indications
+    // mark the atom with the wedge/hash
 
     for (auto atom : bond->getAtoms()) {
       for (const auto atomBond : mol.atomBonds(atom)) {
@@ -474,8 +462,10 @@ void getAllAtomIdsForStereoGroup(const ROMol &mol, const StereoGroup &group,
         }
         if (atomBond->getBondDir() == Bond::BEGINWEDGE ||
             atomBond->getBondDir() == Bond::BEGINDASH) {
-          atomIds.push_back(atom->getIdx());
-          break;
+          if (std::find(atomIds.begin(), atomIds.end(), atom->getIdx()) ==
+              atomIds.end()) {
+            atomIds.push_back(atom->getIdx());
+          }
         }
       }
     }
@@ -810,19 +800,10 @@ void WedgeBondsFromAtropisomers(const ROMol &mol, const Conformer *conf,
   PRECONDITION(&(conf->getOwningMol()) == &mol,
                "conformer does not belong to molecule");
 
-  if (!mol.getRingInfo()->isFindFastOrBetter()) {
-    MolOps::fastFindRings(mol);
-  }
-
-  auto *ri = mol.getRingInfo();
   for (auto bond : mol.bonds()) {
-    if (ri->numBondRings(bond->getIdx()) > 0) {
-      continue;
-    }
-
     auto bondStereo = bond->getStereo();
 
-    if (!bond->canHaveDirection() ||
+    if (bond->getBondType() != Bond::BondType::SINGLE ||
         (bondStereo != Bond::BondStereo::STEREOATROPCW &&
          bondStereo != Bond::BondStereo::STEREOATROPCCW) ||
         bond->getBeginAtom()->getTotalDegree() < 2 ||

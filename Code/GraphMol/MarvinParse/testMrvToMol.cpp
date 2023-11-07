@@ -174,30 +174,40 @@ class MrvTests {
 
       // test round trip back to smiles
       {
-        std::string expectedMrvName = fName + ".expected.smi";
+        std::string expectedMrvName =
+            fName + (smilesTest->sanitizeFlag ? "" : ".nosan") +
+            ".expected.smi";
 
         SmilesWriteParams ps;
         ps.canonical = false;
 
         std::string smilesOut = MolToSmiles(*smilesMol, ps);
 
-        generateNewExpectedFilesIfSoSpecified(fName + ".NEW.smi", smilesOut);
+        generateNewExpectedFilesIfSoSpecified(
+            fName + (smilesTest->sanitizeFlag ? "" : ".nosan") + ".NEW.smi",
+            smilesOut);
 
         TEST_ASSERT(GetExpectedValue(expectedMrvName) == smilesOut);
       }
 
       {
-        std::string expectedMrvName = fName + ".expected.sdf";
+        std::string expectedMrvName =
+            fName + (smilesTest->sanitizeFlag ? "" : ".nosan") +
+            ".expected.sdf";
         std::string outMolStr = "";
         outMolStr = MolToMolBlock(*smilesMol, true, 0, true, true);
 
-        generateNewExpectedFilesIfSoSpecified(fName + ".NEW.sdf", outMolStr);
+        generateNewExpectedFilesIfSoSpecified(
+            fName + (smilesTest->sanitizeFlag ? "" : ".nosan") + ".NEW.sdf",
+            outMolStr);
 
         TEST_ASSERT(GetExpectedValue(expectedMrvName) == outMolStr);
       }
       {
         std::string mrvBlock;
-        std::string expectedMrvName = fName + ".expected.mrv";
+        std::string expectedMrvName =
+            fName + (smilesTest->sanitizeFlag ? "" : ".nosan") +
+            ".expected.mrv";
         std::string outMolStr = "";
         try {
           outMolStr = MolToMrvBlock(*smilesMol, true, -1, true, false);
@@ -209,7 +219,9 @@ class MrvTests {
                                       false);  // try without kekule'ing
           }
 
-          generateNewExpectedFilesIfSoSpecified(fName + ".NEW.mrv", outMolStr);
+          generateNewExpectedFilesIfSoSpecified(
+              fName + (smilesTest->sanitizeFlag ? "" : ".nosan") + ".NEW.mrv",
+              outMolStr);
 
           TEST_ASSERT(GetExpectedValue(expectedMrvName) == outMolStr);
         }
@@ -250,7 +262,8 @@ class MrvTests {
       TEST_ASSERT(mol->getNumBonds() == molTest->bondCount)
 
       {
-        std::string expectedMrvName = fName + ".expected.sdf";
+        std::string expectedMrvName =
+            fName + (molTest->sanitizeFlag ? "" : ".nosan") + ".expected.sdf";
         std::string outMolStr = "";
         try {
           outMolStr = MolToMolBlock(*mol, true, 0, true, true);
@@ -262,13 +275,16 @@ class MrvTests {
                                     true);  // try without kekule'ing
         }
 
-        generateNewExpectedFilesIfSoSpecified(fName + ".NEW.sdf", outMolStr);
+        generateNewExpectedFilesIfSoSpecified(
+            fName + (molTest->sanitizeFlag ? "" : ".nosan") + ".NEW.sdf",
+            outMolStr);
 
         TEST_ASSERT(GetExpectedValue(expectedMrvName) == outMolStr);
       }
 
       {
-        std::string expectedMrvName = fName + ".expected.mrv";
+        std::string expectedMrvName =
+            fName + (molTest->sanitizeFlag ? "" : ".nosan") + ".expected.mrv";
 
         std::string outMolStr = "";
         try {
@@ -280,7 +296,9 @@ class MrvTests {
           outMolStr = MolToMrvBlock(*mol, true, -1, false,
                                     false);  // try without kekule'ing
         }
-        generateNewExpectedFilesIfSoSpecified(fName + ".NEW.mrv", outMolStr);
+        generateNewExpectedFilesIfSoSpecified(
+            fName + (molTest->sanitizeFlag ? "" : ".nosan") + ".NEW.mrv",
+            outMolStr);
 
         TEST_ASSERT(GetExpectedValue(expectedMrvName) == outMolStr);
 
@@ -517,7 +535,8 @@ class MrvTests {
     std::string fName =
         rdbase + "/Code/GraphMol/MarvinParse/test_data/" + molTest->fileName;
     try {
-      std::unique_ptr<RWMol> mol(MrvFileToMol(fName, false, false));
+      std::unique_ptr<RWMol> mol(
+          MrvFileToMol(fName, molTest->sanitizeFlag, false));
 
       // mol  test
 
@@ -526,52 +545,40 @@ class MrvTests {
       TEST_ASSERT(mol->getNumAtoms() == molTest->atomCount)
       TEST_ASSERT(mol->getNumBonds() == molTest->bondCount)
 
-      {
-        std::string expectedMrvName = fName + ".expected.sdf";
-        std::string outMolStr = "";
-        MolOps::Kekulize(*mol);
+      MolOps::Kekulize(*mol);
+      if (molTest->reapplyMolBlockWedging) {
         reapplyMolBlockWedging(*mol);
-        outMolStr = MolToMolBlock(*mol, true, 0, true, true);
+      }
 
-        generateNewExpectedFilesIfSoSpecified(fName + ".NEW.sdf", outMolStr);
+      {
+        std::string expectedMrvName =
+            fName + (molTest->sanitizeFlag ? "" : ".nosan") +
+            (molTest->reapplyMolBlockWedging ? "" : ".noReapply") +
+            ".expected.sdf";
+        std::string outMolStr = MolToMolBlock(*mol, true, 0, true, true);
+
+        generateNewExpectedFilesIfSoSpecified(
+            fName + (molTest->sanitizeFlag ? "" : ".nosan") +
+                (molTest->reapplyMolBlockWedging ? "" : ".noReapply") +
+                ".NEW.sdf",
+            outMolStr);
 
         TEST_ASSERT(GetExpectedValue(expectedMrvName) == outMolStr);
       }
 
       {
-        std::string expectedMrvName = fName + ".expected.mrv";
+        std::string expectedMrvName =
+            fName + (molTest->sanitizeFlag ? "" : ".nosan") +
+            (molTest->reapplyMolBlockWedging ? "" : ".noReapply") +
+            ".expected.mrv";
 
-        std::string outMolStr = "";
-        MolOps::Kekulize(*mol);
-        reapplyMolBlockWedging(*mol);
-        outMolStr = MolToMrvBlock(*mol, true, -1, true, false);
+        std::string outMolStr = MolToMrvBlock(*mol, true, -1, true, false);
 
-        generateNewExpectedFilesIfSoSpecified(fName + ".NEW.mrv", outMolStr);
-
-        TEST_ASSERT(GetExpectedValue(expectedMrvName) == outMolStr);
-      }
-
-      // now try without restoring the original bond dir
-
-      mol = std::unique_ptr<RWMol>(MrvFileToMol(fName, false, false));
-
-      {
-        std::string expectedMrvName = fName + ".expected2.sdf";
-        std::string outMolStr = "";
-        outMolStr = MolToMolBlock(*mol, true, 0, true, true);
-
-        generateNewExpectedFilesIfSoSpecified(fName + ".NEW2.sdf", outMolStr);
-
-        TEST_ASSERT(GetExpectedValue(expectedMrvName) == outMolStr);
-      }
-
-      {
-        std::string expectedMrvName = fName + ".expected2.mrv";
-
-        std::string outMolStr = "";
-        outMolStr = MolToMrvBlock(*mol, true, -1, true, false);
-
-        generateNewExpectedFilesIfSoSpecified(fName + ".NEW2.mrv", outMolStr);
+        generateNewExpectedFilesIfSoSpecified(
+            fName + (molTest->sanitizeFlag ? "" : ".nosan") +
+                (molTest->reapplyMolBlockWedging ? "" : ".noReapply") +
+                ".NEW.mrv",
+            outMolStr);
 
         TEST_ASSERT(GetExpectedValue(expectedMrvName) == outMolStr);
       }
@@ -608,7 +615,9 @@ class MrvTests {
       TEST_ASSERT(mol->getNumBonds() == molFileTest->bondCount)
 
       {
-        std::string expectedMrvName = fName + ".expected.sdf";
+        std::string expectedMrvName =
+            fName + (molFileTest->sanitizeFlag ? "" : ".nosan") +
+            ".expected.sdf";
         std::string outMolStr = "";
         try {
           outMolStr = MolToMolBlock(*mol, true, 0, true, true);
@@ -620,13 +629,17 @@ class MrvTests {
                                     true);  // try without kekule'ing
         }
 
-        generateNewExpectedFilesIfSoSpecified(fName + ".NEW.sdf", outMolStr);
+        generateNewExpectedFilesIfSoSpecified(
+            fName + (molFileTest->sanitizeFlag ? "" : ".nosan") + ".NEW.sdf",
+            outMolStr);
 
         TEST_ASSERT(GetExpectedValue(expectedMrvName) == outMolStr);
       }
 
       {
-        std::string expectedMrvName = fName + ".expected.mrv";
+        std::string expectedMrvName =
+            fName + (molFileTest->sanitizeFlag ? "" : ".nosan") +
+            ".expected.mrv";
 
         std::string outMolStr = "";
         try {
@@ -639,13 +652,17 @@ class MrvTests {
           outMolStr = MolToMrvBlock(*mol, true, -1, false, false);
         }
 
-        generateNewExpectedFilesIfSoSpecified(fName + ".NEW.mrv", outMolStr);
+        generateNewExpectedFilesIfSoSpecified(
+            fName + (molFileTest->sanitizeFlag ? "" : ".nosan") + ".NEW.mrv",
+            outMolStr);
 
         TEST_ASSERT(GetExpectedValue(expectedMrvName) == outMolStr);
       }
 
       {
-        std::string expectedSmiName = fName + ".expected.cxsmi";
+        std::string expectedSmiName =
+            fName + (molFileTest->sanitizeFlag ? "" : ".nosan") +
+            ".expected.cxsmi";
 
         SmilesWriteParams ps;
         ps.canonical = true;
@@ -664,7 +681,9 @@ class MrvTests {
 
         std::string smilesOut = MolToCXSmiles(*mol, ps, flags, restoreDir);
 
-        generateNewExpectedFilesIfSoSpecified(fName + ".NEW.cxsmi", smilesOut);
+        generateNewExpectedFilesIfSoSpecified(
+            fName + (molFileTest->sanitizeFlag ? "" : ".nosan") + ".NEW.cxsmi",
+            smilesOut);
 
         TEST_ASSERT(GetExpectedValue(expectedSmiName) == smilesOut);
       }
@@ -967,64 +986,222 @@ class MrvTests {
 
     // atropisomer tests
     if (testToRun == "" || testToRun == "atropisomerTests") {
-      std::list<MolTest> atropisomerTests{
-          MolTest("FalseAtropisomer.mrv", true, 17, 18),
-          MolTest("AtropEnhancedStereo.mrv", true, 16, 17),
-          MolTest("AtropManyChirals.mrv", true, 20, 20),
-          MolTest("AtropManyChiralsEnhanced.mrv", true, 20, 20),
-          MolTest("AtropManyChiralsEnhanced2.mrv", true, 20, 20),
-          MolTest("AtropManyChiralsEnhanced3.mrv", true, 20, 20),
-          MolTest("AtropManyChiralsEnhanced4.mrv", true, 20, 20),
-          MolTest("BMS-986142_3d_chiral.mrv", true, 72, 77),
-          MolTest("BMS-986142_3d.mrv", true, 72, 77),
-          MolTest("BMS-986142_atrop1.mrv", true, 42, 47),
-          MolTest("BMS-986142_atrop2.mrv", true, 42, 47),
-          MolTest("BMS-986142_atrop3.mrv", true, 42, 47),
-          MolTest("BMS-986142_atrop4.mrv", true, 42, 47),
-          MolTest("BMS-986142_atrop5.mrv", true, 42, 47),
-          MolTest("BMS-986142_atrop6.mrv", true, 42, 47),
-          MolTest("BMS-986142_atrop7.mrv", true, 42, 47),
-          MolTest("BMS-986142_atrop8.mrv", true, 42, 47),
-          MolTest("BMS-986142_atropBad2.mrv", true, 42, 47),
-          MolTest("JDQ443_3d.mrv", true, 66, 72),
-          MolTest("JDQ443_atrop1.mrv", true, 38, 44),
-          MolTest("JDQ443_atrop2.mrv", true, 38, 44),
-          MolTest("JDQ443_atrop3.mrv", true, 38, 44),
-          MolTest("JDQ443_atropBad1.mrv", false, 38, 44),
-          MolTest("RP-6306_atrop1.mrv", true, 24, 26),
-          MolTest("RP-6306_atrop2.mrv", true, 24, 26),
-          MolTest("RP-6306_atrop3.mrv", true, 24, 26),
-          MolTest("RP-6306_atrop4.mrv", true, 24, 26),
-          MolTest("RP-6306_atrop5.mrv", true, 24, 26),
-          MolTest("RP-6306_atropBad1.mrv", true, 24, 26),
-          MolTest("RP-6306_atropBad2.mrv", true, 24, 26),
+      auto sanitizeOff = false;
+      auto reapplyWedgesOn = true;
+      auto sanitizeOn = true;
+      auto reapplyWedgesOff = false;
+
+      std::vector<MolTest> atropisomerTests{
+          // first the tests with sanitize off,
+          // and reapplyMolBlockWedging on
+          MolTest("FalseAtropisomer.mrv", true, 17, 18, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("AtropEnhancedStereo.mrv", true, 16, 17, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("AtropManyChirals.mrv", true, 20, 20, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("AtropManyChiralsEnhanced.mrv", true, 20, 20, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("AtropManyChiralsEnhanced2.mrv", true, 20, 20, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("AtropManyChiralsEnhanced3.mrv", true, 20, 20, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("AtropManyChiralsEnhanced4.mrv", true, 20, 20, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("BMS-986142_3d_chiral.mrv", true, 72, 77, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("BMS-986142_3d.mrv", true, 72, 77, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("BMS-986142_atrop1.mrv", true, 42, 47, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("BMS-986142_atrop2.mrv", true, 42, 47, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("BMS-986142_atrop3.mrv", true, 42, 47, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("BMS-986142_atrop4.mrv", true, 42, 47, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("BMS-986142_atrop5.mrv", true, 42, 47, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("BMS-986142_atrop6.mrv", true, 42, 47, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("BMS-986142_atrop7.mrv", true, 42, 47, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("BMS-986142_atrop8.mrv", true, 42, 47, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("BMS-986142_atropBad2.mrv", true, 42, 47, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("JDQ443_3d.mrv", true, 66, 72, sanitizeOff, reapplyWedgesOn),
+          MolTest("JDQ443_atrop1.mrv", true, 38, 44, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("JDQ443_atrop2.mrv", true, 38, 44, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("JDQ443_atrop3.mrv", true, 38, 44, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("JDQ443_atropBad1.mrv", true, 38, 44, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("RP-6306_atrop1.mrv", true, 24, 26, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("RP-6306_atrop2.mrv", true, 24, 26, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("RP-6306_atrop3.mrv", true, 24, 26, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("RP-6306_atrop4.mrv", true, 24, 26, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("RP-6306_atrop5.mrv", true, 24, 26, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("RP-6306_atropBad1.mrv", true, 24, 26, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("RP-6306_atropBad2.mrv", true, 24, 26, sanitizeOff,
+                  reapplyWedgesOn),
           // note the rp-6306_3d.mrv is backwards from the 2D versions
           // the 2D version were based on images from drug hunter
           // the 3D version came from PUBCHEM
-          MolTest("RP-6306_3d.mrv", true, 44, 46),
-          MolTest("Sotorasib_atrop1.mrv", true, 41, 45),
-          MolTest("Sotorasib_atrop2.mrv", true, 41, 45),
-          MolTest("Sotorasib_atrop3.mrv", true, 41, 45),
-          MolTest("Sotorasib_atrop4.mrv", true, 41, 45),
-          MolTest("Sotorasib_atrop5.mrv", true, 41, 45),
-          MolTest("Sotorasib_atropBad1.mrv", true, 41, 45),
-          MolTest("Sotorasib_atropBad2.mrv", true, 41, 45),
+          MolTest("RP-6306_3d.mrv", true, 44, 46, sanitizeOff, reapplyWedgesOn),
+          MolTest("Sotorasib_atrop1.mrv", true, 41, 45, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("Sotorasib_atrop2.mrv", true, 41, 45, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("Sotorasib_atrop3.mrv", true, 41, 45, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("Sotorasib_atrop4.mrv", true, 41, 45, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("Sotorasib_atrop5.mrv", true, 41, 45, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("Sotorasib_atropBad1.mrv", true, 41, 45, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("Sotorasib_atropBad2.mrv", true, 41, 45, sanitizeOff,
+                  reapplyWedgesOn),
           // note the sotorasib_3d.mrv is backwards from the 2D versions
           // the 2D version were based on images from drug hunter
           // the 3D version came from PUBCHEM
-          MolTest("Sotorasib_3d.mrv", true, 71, 75),
-          MolTest("ZM374979_atrop1.mrv", true, 45, 49),
-          MolTest("ZM374979_atrop2.mrv", true, 45, 49),
-          MolTest("ZM374979_atrop3.mrv", true, 45, 49),
-          MolTest("ZM374979_atropBad1.mrv", true, 45, 49),
+          MolTest("Sotorasib_3d.mrv", true, 71, 75, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("ZM374979_atrop1.mrv", true, 45, 49, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("ZM374979_atrop2.mrv", true, 45, 49, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("ZM374979_atrop3.mrv", true, 45, 49, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("ZM374979_atropBad1.mrv", true, 45, 49, sanitizeOff,
+                  reapplyWedgesOn),
           // note the mrtx1719_3d.mrv is backwards from the 2D versions
           // the 2D version were based on images from drug hunter
           // the 3D version came from PUBCHEM
-          MolTest("mrtx1719_3d.mrv", true, 51, 55),
-          MolTest("mrtx1719_atrop1.mrv", true, 33, 37),
-          MolTest("mrtx1719_atrop2.mrv", true, 33, 37),
-          MolTest("mrtx1719_atrop3.mrv", true, 33, 37),
-          MolTest("mrtx1719_atropBad1.mrv", true, 33, 37),
+          MolTest("mrtx1719_3d.mrv", true, 51, 55, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("mrtx1719_atrop1.mrv", true, 33, 37, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("mrtx1719_atrop2.mrv", true, 33, 37, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("mrtx1719_atrop3.mrv", true, 33, 37, sanitizeOff,
+                  reapplyWedgesOn),
+          MolTest("mrtx1719_atropBad1.mrv", true, 33, 37, sanitizeOff,
+                  reapplyWedgesOn),
+
+          // now the tests with sanitizeOff on,
+          // and reapplyMolBlockWedging off
+
+          MolTest("FalseAtropisomer.mrv", true, 17, 18, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("AtropEnhancedStereo.mrv", true, 16, 17, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("AtropManyChirals.mrv", true, 20, 20, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("AtropManyChiralsEnhanced.mrv", true, 20, 20, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("AtropManyChiralsEnhanced2.mrv", true, 20, 20, true, false),
+          MolTest("AtropManyChiralsEnhanced3.mrv", true, 20, 20, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("AtropManyChiralsEnhanced4.mrv", true, 20, 20, true, false),
+          MolTest("BMS-986142_3d_chiral.mrv", true, 72, 77, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("BMS-986142_3d.mrv", true, 72, 77, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("BMS-986142_atrop1.mrv", true, 42, 47, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("BMS-986142_atrop2.mrv", true, 42, 47, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("BMS-986142_atrop3.mrv", true, 42, 47, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("BMS-986142_atrop4.mrv", true, 42, 47, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("BMS-986142_atrop5.mrv", true, 42, 47, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("BMS-986142_atrop6.mrv", true, 42, 47, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("BMS-986142_atrop7.mrv", true, 42, 47, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("BMS-986142_atrop8.mrv", true, 42, 47, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("BMS-986142_atropBad2.mrv", true, 42, 47, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("JDQ443_3d.mrv", true, 66, 72, sanitizeOn, reapplyWedgesOff),
+          MolTest("JDQ443_atrop1.mrv", true, 38, 44, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("JDQ443_atrop2.mrv", true, 38, 44, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("JDQ443_atrop3.mrv", true, 38, 44, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("JDQ443_atropBad1.mrv", true, 38, 44, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("RP-6306_atrop1.mrv", true, 24, 26, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("RP-6306_atrop2.mrv", true, 24, 26, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("RP-6306_atrop3.mrv", true, 24, 26, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("RP-6306_atrop4.mrv", true, 24, 26, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("RP-6306_atrop5.mrv", true, 24, 26, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("RP-6306_atropBad1.mrv", true, 24, 26, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("RP-6306_atropBad2.mrv", true, 24, 26, sanitizeOn,
+                  reapplyWedgesOff),
+          // note the rp-6306_3d.mrv is backwards from the 2D versions
+          // the 2D version were based on images from drug hunter
+          // the 3D version came from PUBCHEM
+          MolTest("RP-6306_3d.mrv", true, 44, 46, sanitizeOn, reapplyWedgesOff),
+          MolTest("Sotorasib_atrop1.mrv", true, 41, 45, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("Sotorasib_atrop2.mrv", true, 41, 45, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("Sotorasib_atrop3.mrv", true, 41, 45, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("Sotorasib_atrop4.mrv", true, 41, 45, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("Sotorasib_atrop5.mrv", true, 41, 45, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("Sotorasib_atropBad1.mrv", true, 41, 45, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("Sotorasib_atropBad2.mrv", true, 41, 45, sanitizeOn,
+                  reapplyWedgesOff),
+          // note the sotorasib_3d.mrv is backwards from the 2D versions
+          // the 2D version were based on images from drug hunter
+          // the 3D version came from PUBCHEM
+          MolTest("Sotorasib_3d.mrv", true, 71, 75, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("ZM374979_atrop1.mrv", true, 45, 49, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("ZM374979_atrop2.mrv", true, 45, 49, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("ZM374979_atrop3.mrv", true, 45, 49, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("ZM374979_atropBad1.mrv", true, 45, 49, sanitizeOn,
+                  reapplyWedgesOff),
+          // note the mrtx1719_3d.mrv is backwards from the 2D versions
+          // the 2D version were based on images from drug hunter
+          // the 3D version came from PUBCHEM
+          MolTest("mrtx1719_3d.mrv", true, 51, 55, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("mrtx1719_atrop1.mrv", true, 33, 37, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("mrtx1719_atrop2.mrv", true, 33, 37, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("mrtx1719_atrop3.mrv", true, 33, 37, sanitizeOn,
+                  reapplyWedgesOff),
+          MolTest("mrtx1719_atropBad1.mrv", true, 33, 37, sanitizeOn,
+                  reapplyWedgesOff),
       };
 
       for (auto atropisomerTest : atropisomerTests) {

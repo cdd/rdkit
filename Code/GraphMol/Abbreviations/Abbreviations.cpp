@@ -226,8 +226,7 @@ void condenseMolAbbreviations(
   applyMatches(mol, applicable);
   if (sanitize) {
     auto ringInfo = mol.getRingInfo();
-    if (!ringInfo->isInitialized() ||
-        ringInfo->getRingType() != FIND_RING_TYPE_SSSR) {
+    if (!ringInfo->isSymmSssr()) {
       MolOps::symmetrizeSSSR(mol);
     }
   }

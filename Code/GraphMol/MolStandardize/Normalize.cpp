@@ -113,8 +113,7 @@ void Normalizer::normalizeInPlace(RWMol &mol) {
     }
   }
   // we might want ring info
-  auto ringInfo = mol.getRingInfo();
-  if (!ringInfo->isSymmSssr()) {
+  if (!mol.getRingInfo()->isSymmSssr()) {
     MolOps::symmetrizeSSSR(mol);
   }
   for (unsigned int i = 0; i < MAX_RESTARTS; ++i) {

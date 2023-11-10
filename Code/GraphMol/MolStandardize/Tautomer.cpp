@@ -283,8 +283,7 @@ TautomerEnumeratorResult TautomerEnumerator::enumerate(const ROMol &mol) const {
   if (taut->needsUpdatePropertyCache()) {
     taut->updatePropertyCache(false);
   }
-  auto ringInfo = taut->getRingInfo();
-  if (!ringInfo->isSymmSssr()) {
+  if (!taut->getRingInfo()->isSymmSssr()) {
     MolOps::symmetrizeSSSR(*taut);
   }
 

@@ -258,9 +258,6 @@ RDKIT_GRAPHMOL_EXPORT void wedgeMolBonds(
 RDKIT_GRAPHMOL_EXPORT void wedgeBond(Bond *bond, unsigned int fromAtomIdx,
                                      const Conformer *conf);
 
-//! Returns whether or not a bond is a candidate for bond stereo
-RDKIT_GRAPHMOL_EXPORT bool canBeStereoBond(const Bond *bond);
-
 //! Returns true for double bonds which should be shown as a crossed bonds.
 // It always returns false if any adjacent bond is a squiggle bond.
 RDKIT_GRAPHMOL_EXPORT bool shouldBeACrossedBond(const Bond *bond);
@@ -269,9 +266,6 @@ RDKIT_GRAPHMOL_EXPORT bool shouldBeACrossedBond(const Bond *bond);
 /*!
  \param mol: molecule to have its wedges altered
  */
-
-RDKIT_GRAPHMOL_EXPORT bool shouldBeACrossedBond(const Bond *bond);
-
 RDKIT_GRAPHMOL_EXPORT void reapplyMolBlockWedging(ROMol &mol);
 //! Remove MolBlock bond wedging information from molecule.
 /*!

@@ -638,16 +638,14 @@ std::string FragmentSmartsConstruct(
   // but for smarts we are going to ignore that part. We will artificially
   // set the "SSSR" property to an empty property
   mol.getRingInfo()->reset();
-  mol.getRingInfo()->initialize(
-      RDKit::FIND_RING_TYPE_SYMM_SSSR);  // seems dangerous to mark ring, but
-                                         // there are no rings caluculated
+  mol.getRingInfo()->initialize();
   for (auto &atom : mol.atoms()) {
     atom->updatePropertyCache(false);
   }
 
   // For Smarts, we avoid reordering of chiral atoms in canonicalizeFragment.
   bool doRandom = false;
-  bool doChiralInversions = false;
+  bool doChiralInversions = true;
   Canon::MolStack molStack;
   molStack.reserve(mol.getNumAtoms() + mol.getNumBonds());
   Canon::canonicalizeFragment(mol, atomIdx, colors, ranks, molStack,

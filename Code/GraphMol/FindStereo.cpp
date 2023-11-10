@@ -1183,8 +1183,7 @@ std::vector<StereoInfo> runCleanup(ROMol &mol, bool flagPossible,
 
 std::vector<StereoInfo> findPotentialStereo(ROMol &mol, bool cleanIt,
                                             bool findPossible) {
-  auto ringInfo = mol.getRingInfo();
-  if (!ringInfo->isSymmSssr()) {
+  if (!mol.getRingInfo()->isSymmSssr()) {
     MolOps::symmetrizeSSSR(mol);
   }
 

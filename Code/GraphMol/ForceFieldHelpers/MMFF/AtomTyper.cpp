@@ -2482,7 +2482,6 @@ unsigned int sanitizeMMFFMol(RWMol &mol) {
                        MolOps::SANITIZE_SETCONJUGATION |
                        MolOps::SANITIZE_SETHYBRIDIZATION |
                        MolOps::SANITIZE_CLEANUPCHIRALITY |
-                       MolOps::SANITIZE_CLEANUPATROPISOMERS |
                        MolOps::SANITIZE_ADJUSTHS));
     if (!(mol.hasProp(common_properties::_MMFFSanitized))) {
       mol.setProp(common_properties::_MMFFSanitized, 1, true);
@@ -3776,7 +3775,8 @@ bool MMFFMolProperties::getMMFFStretchBendParams(
               getPeriodicTableRow(mol.getAtomWithIdx(idx2)->getAtomicNum()),
               getPeriodicTableRow(mol.getAtomWithIdx(idx3)->getAtomicNum()));
         }
-        res = (!(isDoubleZero((mmffStbnParams.second)->kbaIJK) &&
+        res = (mmffStbnParams.second &&
+               !(isDoubleZero((mmffStbnParams.second)->kbaIJK) &&
                  isDoubleZero((mmffStbnParams.second)->kbaKJI)));
       }
       if (res) {

@@ -65,7 +65,9 @@ struct RDKIT_SUBSTRUCTMATCH_EXPORT SubstructMatchParameters {
                      const std::vector<unsigned int> &match)>
       extraFinalCheck;  //!< a function to be called at the end to validate a
                         //!< match
-
+  unsigned int maxRecursiveMatches =
+      1000;  //!< maximum number of matches that the recursive substructure
+             //!< matching should return
   SubstructMatchParameters() {}
 };
 

@@ -272,6 +272,7 @@ void updateSubstructMatchParamsFromJSON(SubstructMatchParameters &params,
   PT_OPT_GET(recursionPossible);
   PT_OPT_GET(uniquify);
   PT_OPT_GET(maxMatches);
+  PT_OPT_GET(maxRecursiveMatches);
   PT_OPT_GET(numThreads);
 }
 
@@ -285,6 +286,7 @@ std::string substructMatchParamsToJSON(const SubstructMatchParameters &params) {
   PT_OPT_PUT(recursionPossible);
   PT_OPT_PUT(uniquify);
   PT_OPT_PUT(maxMatches);
+  PT_OPT_PUT(maxRecursiveMatches);
   PT_OPT_PUT(numThreads);
 
   std::stringstream ss;

@@ -417,8 +417,7 @@ void addMol(const T &imol, rj::Value &rjMol, rj::Document &doc,
             const rj::Value &atomDefaults, const rj::Value &bondDefaults,
             const JSONWriteParameters &params) {
   RWMol mol(imol);
-  auto ringInfo = mol.getRingInfo();
-  if (!ringInfo->isSymmSssr()) {
+  if (!mol.getRingInfo()->isSymmSssr()) {
     MolOps::symmetrizeSSSR(mol);
   }
   if (mol.needsUpdatePropertyCache()) {

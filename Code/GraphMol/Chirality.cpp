@@ -2544,7 +2544,6 @@ bool shouldBeACrossedBond(const Bond *bond) {
     // FIX: this is the fix for github #2649, but we will need to
     // change it once we start handling allenes properly
 
-
     if (canBeStereoBond(bond)) {
       return true;  // crossed double bond
     }
@@ -3250,8 +3249,7 @@ void setDoubleBondNeighborDirections(ROMol &mol, const Conformer *conf) {
   // stereochemistry
   // NOTE that we are explicitly excluding double bonds in rings
   // with this test.
-  auto ringInfo = mol.getRingInfo();
-  if (!ringInfo->isSymmSssr()) {
+  if (!mol.getRingInfo()->isSymmSssr()) {
     RDKit::MolOps::symmetrizeSSSR(mol);
   }
 

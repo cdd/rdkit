@@ -47,7 +47,7 @@ if [[ $4 == "TEST" ]]; then
         sudo service postgresql restart
     fi
     if [[ $2 == "ON" ]]; then
-        sudo sh -c 'echo "/usr/local/lib/python3/dist-packages/" > /usr/local/lib/python3.10/dist-packages/rdkit.pth'
+        sudo sh -c 'echo "/usr/local/lib/python3/dist-packages/" > /usr/local/lib/python3.11/dist-packages/rdkit.pth'
     fi
     ctest --output-on-failure
     if [[ $1 == "ON" ]]; then

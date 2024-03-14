@@ -306,15 +306,5 @@ inline std::string MolFragmentToCXSmiles(
                                bondSymbols);
 }
 
-// ! \brief returns canonical RWMol including rationalization of stereo groups
-/*!
-  \param mol : the molecule in question.
-
-
- */
-
-RDKIT_SMILESPARSE_EXPORT std::unique_ptr<RDKit::RWMol> canonicalizeStereoGroups(
-    const RDKit::RWMol &mol);
-
 }  // namespace RDKit
 #endif

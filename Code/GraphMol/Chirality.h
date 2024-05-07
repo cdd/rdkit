@@ -301,7 +301,7 @@ RDKIT_GRAPHMOL_EXPORT void setStereoForBond(ROMol &mol, Bond *bond,
 /// returns a map from bond idx -> controlling atom idx
 RDKIT_GRAPHMOL_EXPORT
 std::map<int, std::unique_ptr<Chirality::WedgeInfoBase>> pickBondsToWedge(
-    const ROMol &mol);
+    const ROMol &mol, const BondWedgingParameters *params = nullptr);
 
 RDKIT_GRAPHMOL_EXPORT
 std::map<int, std::unique_ptr<Chirality::WedgeInfoBase>> pickBondsToWedge(
@@ -321,9 +321,11 @@ RDKIT_GRAPHMOL_EXPORT bool shouldBeACrossedBond(const Bond *bond);
 //! Clears existing bond wedging and forces use of atom wedging from MolBlock.
 /*!
  \param mol: molecule to have its wedges altered
- \param allBondTypes: reapply the wedging also on bonds other than single and aromatic ones
+ \param allBondTypes: reapply the wedging also on bonds other than single and
+ aromatic ones
  */
-RDKIT_GRAPHMOL_EXPORT void reapplyMolBlockWedging(ROMol &mol, bool allBondTypes=true);
+RDKIT_GRAPHMOL_EXPORT void reapplyMolBlockWedging(ROMol &mol,
+                                                  bool allBondTypes = true);
 //! Remove MolBlock bond wedging information from molecule.
 /*!
  \param mol: molecule to modify

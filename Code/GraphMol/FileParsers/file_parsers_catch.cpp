@@ -1618,7 +1618,6 @@ H      0.635000    0.635000    0.635000
     mol->addConformer(conf);
 
     const std::string xyzblock = MolToXYZBlock(*mol, 0, 15);
-    std::cout << xyzblock << std::endl;
     std::string xyzblock_expected = R"XYZ(7
 CHEMBL506259
 O      0.402012650000000   -0.132994360000000    1.000000170000000
@@ -5074,7 +5073,8 @@ M  END
     Chirality::reapplyMolBlockWedging(*m);
     CHECK(m->getBondWithIdx(2)->getBondDir() == Bond::BondDir::NONE);
   }
-  SECTION("Reapply the original wedging, regardless the bond type of wedged bonds") {
+  SECTION(
+      "Reapply the original wedging, regardless the bond type of wedged bonds") {
     auto m = R"CTAB(
   Mrv2311 04232413302D          
 
@@ -6621,6 +6621,46 @@ TEST_CASE(
 
     CHECK(atomBlock.find(" -2 ") != std::string::npos);
   }
+}
+
+TEST_CASE("MaeWriter should not prefix Maestro-formatted properties") {
+  std::string rdbase = getenv("RDBASE");
+  std::string fname1 =
+      rdbase + "/Code/GraphMol/FileParsers/test_data/NCI_aids_few.mae";
+
+  v2::FileParsers::MaeMolSupplier supplier(fname1);
+  auto mol = supplier.next();
+  REQUIRE(mol);
+
+  // MaeMolSupplier should ignore the i_m_ct_enhanced_stereo_status property
+  // (it's meaningless to the RDKit)
+  CHECK(mol->hasProp("i_m_ct_enhanced_stereo_status") == false);
+
+  std::string mae_block;
+  {
+    auto oss = new std::ostringstream;
+    MaeWriter w(oss);
+    w.write(*mol);
+    w.flush();
+    mae_block = oss->str();
+  }
+
+  // properties that already match the Maestro format should not be prefixed
+  // with "[birs]_rdk_"
+  CHECK(mae_block.find("b_rdk_b_m_subgroup_collapsed") == std::string::npos);
+  CHECK(mae_block.find("b_m_subgroup_collapsed") != std::string::npos);
+
+  CHECK(mae_block.find("b_rdk_b_sd_chiral_flag") == std::string::npos);
+  CHECK(mae_block.find("b_sd_chiral_flag") != std::string::npos);
+
+  CHECK(mae_block.find("i_rdk_i_m_Source_File_Index") == std::string::npos);
+  CHECK(mae_block.find("i_m_Source_File_Index") != std::string::npos);
+
+  CHECK(mae_block.find("i_rdk_i_m_ct_format") == std::string::npos);
+  CHECK(mae_block.find("i_m_ct_format") != std::string::npos);
+
+  CHECK(mae_block.find("s_rdk_s_m_entry_name") == std::string::npos);
+  CHECK(mae_block.find("s_m_entry_name") != std::string::npos);
 }
 
 #endif

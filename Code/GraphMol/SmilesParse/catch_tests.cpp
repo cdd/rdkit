@@ -2596,9 +2596,9 @@ TEST_CASE("ensure unused features are not used") {
     CHECK(smiles == "F[C@H](Cl)NCO[C@H](F)Cl");
 
     smiles = MolToCXSmiles(*mol1, ps);
-    CHECK(smiles == "F[C@H](Cl)NCO[C@H](F)Cl |&1:6|");
+    CHECK(smiles == "F[C@H](Cl)NCO[C@H](F)Cl |a:1,&1:6|");
     smiles = MolToCXSmiles(*mol2, ps);
-    CHECK(smiles == "F[C@H](Cl)OCN[C@H](F)Cl |&1:6|");
+    CHECK(smiles == "F[C@H](Cl)OCN[C@H](F)Cl |a:1,&1:6|");
 
     ps.doIsomericSmiles = false;
     smiles = MolToSmiles(*mol1, ps);
@@ -2805,6 +2805,15 @@ TEST_CASE("Github #7295") {
     MolOps::assignStereochemistry(m2, cleanIt);
     auto smi3 = MolToSmiles(m2);
     CHECK(smi1 == smi3);
+  }
+}
+
+TEST_CASE("simpleSmiles") {
+  SECTION("basics") {
+    auto m = "CCN(CCO)CCCCC[C@H]1CC[C@H](N(C)C(=O)Oc2ccc(Cl)cc2)CC1.Cl"_smiles;
+    REQUIRE(m);
+    CHECK(MolToSmiles(*m) ==
+          "CCN(CCO)CCCCC[C@H]1CC[C@H](N(C)C(=O)Oc2ccc(Cl)cc2)CC1.Cl");
   }
 }
 

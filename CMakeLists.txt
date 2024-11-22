@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.18)
 project (RDKit)
 
 IF(NOT CMAKE_BUILD_TYPE)
-  SET(CMAKE_BUILD_TYPE Release CACHE STRING
+  SET(CMAKE_BUILD_TYPE Debug CACHE STRING
       "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel."
       FORCE)
 ENDIF(NOT CMAKE_BUILD_TYPE)
@@ -73,8 +73,9 @@ option(RDK_BUILD_MINIMAL_LIB_SUBSTRUCTLIBRARY "build support for SubstructLibrar
 option(RDK_BUILD_MINIMAL_LIB_MCS "build support for MCS into MinimalLib" OFF )
 option(RDK_BUILD_MINIMAL_LIB_MOLZIP "build support for molzip into MinimalLib" OFF )
 
+# set(RDK_BOOST_VERSION "1.58.0")
 # set(RDK_BOOST_VERSION "1.70.0")
-set(RDK_BOOST_VERSION "1.58.0")
+set(RDK_BOOST_VERSION "1.84.0")
 
 if(NOT MSVC)
   if(RDK_OPTIMIZE_POPCNT)

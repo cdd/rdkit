@@ -23,7 +23,7 @@ ARG RDKIT_GIT_URL="https://github.com/rdkit/rdkit.git"
 ARG RDKIT_BRANCH="master"
 ARG EMSDK_VERSION="latest"
 ARG BOOST_MAJOR_VERSION="1"
-ARG BOOST_MINOR_VERSION="74"
+ARG BOOST_MINOR_VERSION="70"
 ARG BOOST_PATCH_VERSION="0"
 
 FROM debian:bookworm as build-stage
@@ -81,9 +81,7 @@ WORKDIR $RDBASE/build
 
 RUN echo "source /opt/emsdk/emsdk_env.sh > /dev/null 2>&1" >> ~/.bashrc
 SHELL ["/bin/bash", "-c", "-l"]
-RUN emcmake cmake -Dboost_headers_DIR=/opt/boost/lib/cmake/boost_headers-1.74.0_headers \
-  -DBoost_DIR=/opt/boost/lib/cmake/Boost-1.74.0/ -DBoost_INCLUDE_DIR=/opt/boost/lib/cmake/Boost-1.74.0/ \
-  -DRDK_BUILD_FREETYPE_SUPPORT=ON -DRDK_BUILD_MINIMAL_LIB=ON \  -DCMAKE_PREFIX_PATH=Boost,boost \
+RUN emcmake cmake -DBoost_INCLUDE_DIR=/opt/boost/include -DRDK_BUILD_FREETYPE_SUPPORT=ON -DRDK_BUILD_MINIMAL_LIB=ON \
   -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_CPP_TESTS=OFF -DRDK_BUILD_INCHI_SUPPORT=ON \
   -DRDK_USE_BOOST_SERIALIZATION=OFF -DRDK_OPTIMIZE_POPCNT=OFF -DRDK_BUILD_THREADSAFE_SSS=OFF \
   -DRDK_BUILD_DESCRIPTORS3D=OFF -DRDK_TEST_MULTITHREADED=OFF \

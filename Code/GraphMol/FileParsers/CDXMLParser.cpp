@@ -663,6 +663,9 @@ void visit_children(
       } else {
         MolOps::detectBondStereochemistry(*res);
       }
+
+      Chirality::cleanupStereoGroups(*res);
+
     } else if (frag.first == "scheme") {  // get the reaction info
       int scheme_id = frag.second.template get<int>("<xmlattr>.id", -1);
       for (auto &node : frag.second) {

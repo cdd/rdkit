@@ -182,7 +182,11 @@ int smiles_parse(const std::string &inp, std::vector<RDKit::RWMol *> &molVect) {
   return smiles_parse_helper(inp, molVect, atom, bond, start_tok);
 }
 
-typedef enum { BASE = 0, BRANCH, RECURSE } SmaState;
+typedef enum {
+  BASE = 0,
+  BRANCH,
+  RECURSE
+} SmaState;
 
 std::string labelRecursivePatterns(const std::string &sma) {
 #ifndef NO_AUTOMATIC_SMARTS_RELABELLING
@@ -512,6 +516,7 @@ std::unique_ptr<RWMol> MolFromSmiles(const std::string &smiles,
     //  single bond dir flags:
     MolOps::clearSingleBondDirFlags(*res, true);
   }
+  Chirality::cleanupStereoGroups(*res);
 
   if (res && res->hasProp(common_properties::_NeedsQueryScan)) {
     res->clearProp(common_properties::_NeedsQueryScan);

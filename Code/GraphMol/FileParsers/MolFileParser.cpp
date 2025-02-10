@@ -3385,6 +3385,7 @@ void finishMolProcessing(
   } else {
     MolOps::detectBondStereochemistry(*res);
   }
+  Chirality::cleanupStereoGroups(*res);
 
   if (res->hasProp(common_properties::_NeedsQueryScan)) {
     res->clearProp(common_properties::_NeedsQueryScan);

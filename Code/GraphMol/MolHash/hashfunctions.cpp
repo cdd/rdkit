@@ -21,6 +21,7 @@
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/RDKitQueries.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
+#include <GraphMol/Chirality.h>
 
 #include "nmmolhash.h"
 #include "mf.h"
@@ -332,6 +333,7 @@ std::string AnonymousGraph(RWMol *mol, bool elem, bool useCXSmiles,
   bool cleanIt = true;
   bool force = true;
   MolOps::assignStereochemistry(*mol, cleanIt, force);
+  Chirality::cleanupStereoGroups(*mol);
 
   result = convertToSmilesWithCXFlags(*mol, useCXSmiles);
 
@@ -366,6 +368,7 @@ std::string MesomerHash(RWMol *mol, bool netq, bool useCXSmiles,
   bool cleanIt = true;
   bool force = true;
   MolOps::assignStereochemistry(*mol, cleanIt, force);
+  Chirality::cleanupStereoGroups(*mol);
 
   result = convertToSmilesWithCXFlags(*mol, useCXSmiles);
   if (netq) {
@@ -660,6 +663,7 @@ std::string TautomerHashv2(RWMol *mol, bool proto, bool useCXSmiles,
     bool cleanIt = true;
     bool force = true;
     MolOps::assignStereochemistry(*mol, cleanIt, force);
+    Chirality::cleanupStereoGroups(*mol);
   }
 
   SmilesWriteParams ps;
@@ -715,6 +719,8 @@ std::string TautomerHash(RWMol *mol, bool proto, bool useCXSmiles,
   bool cleanIt = true;
   bool force = true;
   MolOps::assignStereochemistry(*mol, cleanIt, force);
+  Chirality::cleanupStereoGroups(*mol);
+
   result = convertToSmilesWithCXFlags(*mol, useCXSmiles);
   if (!proto) {
     sprintf(buffer, "_%d_%d", hcount, charge);
@@ -832,6 +838,7 @@ std::string ExtendedMurckoScaffold(RWMol *mol, bool useCXSmiles,
   bool cleanIt = true;
   bool force = true;
   MolOps::assignStereochemistry(*mol, cleanIt, force);
+  Chirality::cleanupStereoGroups(*mol);
 
   std::string result;
   result = convertToSmilesWithCXFlags(*mol, useCXSmiles);
@@ -876,6 +883,7 @@ std::string MurckoScaffoldHash(RWMol *mol, bool useCXSmiles,
   bool cleanIt = true;
   bool force = true;
   MolOps::assignStereochemistry(*mol, cleanIt, force);
+  Chirality::cleanupStereoGroups(*mol);
 
   std::string result;
   result = convertToSmilesWithCXFlags(*mol, useCXSmiles);
@@ -1057,6 +1065,7 @@ std::string RegioisomerHash(RWMol *mol, bool useCXSmiles,
   bool cleanIt = true;
   bool force = true;
   MolOps::assignStereochemistry(*mol, cleanIt, force);
+  Chirality::cleanupStereoGroups(*mol);
 
   auto result = convertToSmilesWithCXFlags(*mol, useCXSmiles);
   if (useCXSmiles) {

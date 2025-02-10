@@ -22,6 +22,8 @@ namespace Atropisomers {
 using AtropAtomAndBondVec = std::pair<Atom *, std::vector<Bond *>>;
 RDKIT_GRAPHMOL_EXPORT void detectAtropisomerChirality(ROMol &mol,
                                                       const Conformer *conf);
+RDKIT_GRAPHMOL_EXPORT void cleanupAtropisomerStereoGroups(ROMol &mol);
+
 RDKIT_GRAPHMOL_EXPORT void wedgeBondsFromAtropisomers(
     const ROMol &mol, const Conformer *conf,
     std::map<int, std::unique_ptr<RDKit::Chirality::WedgeInfoBase>>

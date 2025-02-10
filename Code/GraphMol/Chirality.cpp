@@ -2171,6 +2171,8 @@ INT_VECT findStereoAtoms(const Bond *bond) {
   }
 }
 void cleanupStereoGroups(ROMol &mol) {
+  Atropisomers::cleanupAtropisomerStereoGroups(mol);
+
   std::vector<StereoGroup> newsgs;
   for (auto sg : mol.getStereoGroups()) {
     std::vector<Atom *> okatoms;
@@ -2459,7 +2461,7 @@ void legacyStereoPerception(ROMol &mol, bool cleanIt,
         }
       }
     }
-    Chirality::cleanupStereoGroups(mol);
+    // Chirality::cleanupStereoGroups(mol);
   }
 }
 
@@ -2543,9 +2545,9 @@ void stereoPerception(ROMol &mol, bool cleanIt,
   }
   // populate double bond stereo info:
   updateDoubleBondStereo(mol, sinfo, cleanIt);
-  if (cleanIt) {
-    Chirality::cleanupStereoGroups(mol);
-  }
+  // if (cleanIt) {
+  //   Chirality::cleanupStereoGroups(mol);
+  // }
 }
 
 bool canBeStereoBond(const Bond *bond) {
@@ -2914,9 +2916,9 @@ void findPotentialStereoBonds(ROMol &mol, bool cleanIt) {
             if (begAtomNeighbors.size() > 0 && endAtomNeighbors.size() > 0) {
               if ((begAtomNeighbors.size() == 2) &&
                   (endAtomNeighbors.size() == 2)) {
-// if both of the atoms have 2 neighbors (other than the one
-// connected
-// by the double bond) and ....
+                // if both of the atoms have 2 neighbors (other than the one
+                // connected
+                // by the double bond) and ....
                 if ((ranks[begAtomNeighbors[0]] !=
                      ranks[begAtomNeighbors[1]]) &&
                     (ranks[endAtomNeighbors[0]] !=

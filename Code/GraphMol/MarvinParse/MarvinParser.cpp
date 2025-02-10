@@ -649,6 +649,7 @@ class MarvinCMLReader {
       } else {
         MolOps::detectBondStereochemistry(*mol);
       }
+      Chirality::cleanupStereoGroups(*mol);
 
       if (mol->hasProp(common_properties::_NeedsQueryScan)) {
         mol->clearProp(common_properties::_NeedsQueryScan);

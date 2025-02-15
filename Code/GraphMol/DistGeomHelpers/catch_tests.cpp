@@ -20,6 +20,8 @@
 #include <GraphMol/FileParsers/FileParsers.h>
 #include <GraphMol/FileParsers/MolSupplier.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
+#include <GraphMol/SmilesParse/SmilesWrite.h>
+
 #include <GraphMol/ForceFieldHelpers/CrystalFF/TorsionPreferences.h>
 #include <GraphMol/MolAlign/AlignMolecules.h>
 #include "Embedder.h"
@@ -595,6 +597,9 @@ TEST_CASE("double bond stereo not honored in conformer generator") {
       auto bnd = lcp.getBondBetweenAtoms(22, 23);
       REQUIRE(bnd);
       REQUIRE(bnd->getBondType() == Bond::BondType::DOUBLE);
+      INFO("#5283 interation: " << iter);
+      INFO("#5283 smi: " << RDKit::MolToCXSmiles(lcp));
+
       CHECK(bnd->getStereo() == m->getBondWithIdx(bnd->getIdx())->getStereo());
     }
   }

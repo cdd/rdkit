@@ -577,7 +577,8 @@ TEST_CASE("double bond stereo not honored in conformer generator") {
       }
     }
   }
-
+}
+TEST_CASE("github #5283") {
   SECTION("github #5283") {
     UseLegacyStereoPerceptionFixture useLegacy(false);
     auto m =
@@ -588,17 +589,21 @@ TEST_CASE("double bond stereo not honored in conformer generator") {
     DGeomHelpers::EmbedParameters ps = DGeomHelpers::ETKDGv3;
     ps.enforceChirality = false;
     for (unsigned int iter = 0; iter < 10; ++iter) {
-      INFO(iter);
+      INFO("#5283 interation: " << iter);
       RWMol lcp(cp);
       ps.randomSeed = 140 + iter;
+      INFO("#5283 smi before embed: " << RDKit::MolToCXSmiles(lcp));
+
       auto cid = DGeomHelpers::EmbedMolecule(lcp, ps);
       REQUIRE(cid >= 0);
+      INFO("#5283 smi before assignStereochemistryFrom3D: "
+           << RDKit::MolToCXSmiles(lcp));
+
       MolOps::assignStereochemistryFrom3D(lcp, cid, true);
       auto bnd = lcp.getBondBetweenAtoms(22, 23);
       REQUIRE(bnd);
       REQUIRE(bnd->getBondType() == Bond::BondType::DOUBLE);
-      INFO("#5283 interation: " << iter);
-      INFO("#5283 smi: " << RDKit::MolToCXSmiles(lcp));
+      INFO("#5283 smi final: " << RDKit::MolToCXSmiles(lcp));
 
       CHECK(bnd->getStereo() == m->getBondWithIdx(bnd->getIdx())->getStereo());
     }

@@ -587,7 +587,7 @@ TEST_CASE("github #5283") {
     RWMol cp(*m);
     MolOps::addHs(cp);
     DGeomHelpers::EmbedParameters ps = DGeomHelpers::ETKDGv3;
-    ps.enforceChirality = false;
+    ps.enforceChirality = true;
     for (unsigned int iter = 0; iter < 10; ++iter) {
       INFO("#5283 interation: " << iter);
       RWMol lcp(cp);

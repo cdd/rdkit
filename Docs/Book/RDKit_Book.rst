@@ -2701,6 +2701,114 @@ path) enumeration algorithm used in the RDKit fingerprint. After a subgraph has
 been generated, it is used to set multiple bits based on different atom and bond
 type definitions.
 
+Self-Contained Structure Representations (SCSR) for Macromolecules
+*******************
+
+The SCSR support tentative added to RDKit follows the description in the BIOVIA document “biovia_ctfileformats_2020.pdf” available from “CTfile Formats - Dassault Systèmes”.  That document does not provide any real detail for that format, and contains one example file.
+In addition, Biovia Draw supports reading and writing this format.  As much as possible, the RDKit support allows the functionality supported by Biovia Draw.  One exception is the RDkit treatment of hydrogen bonds in SCSR files/blocks (vide infra).
+
+
+Representation
+==============
+
+Main mol
+--------
+An SCSR file contains a mol with a CTAB in v3000 format.   That CTAB can contain elemental atoms and macro atoms corresponding to amino acids (AA), RNA, and DNA elements.  The RNA and DNA elements are represented by three parts – a phosphate group, a sugar, and a base.  
+Each atom line in the CAT can refer to an elemental atom or a macro atom.  Macro atom lines have a text description of the macro name and must have a CLASS and an ATTCHORD attributed.  They can also have an optional SEQID attribute.  
+According to the Biovia doc, the CLASS attribute must have a value that is one of:  AA, dAA, ScsrSupportInRDKitDNA, RNA, SUGAR, BASE, PHOSPHATE, LINKER, CHEM, LGR,P MODAA, MODdAA, MODDNA, MODRNA, XLINKAA, XLINKdAA, XLINKDNA, XLINKRNA.    This implementation in RDKit does NOT enforce the allowed list.
+The SEQID is a sequential integer and is ignored by this treatment.  Typically, the three parts of an RNA or DNA element have the same SEQID.
+The ATTCHORD attribute must have a specification for each bond that comes from the macro atom.   The specification is contained between parentheses, and the first character is a integer that indicates the number of items that follow.  Each connection is specified with the atom ID (1 offset) for the connected atom in the main CTAB, and a string that indicates the attachment point for this macro atom.   The attachment point string is always two characters.  The first indicates the order, and is a capital letter starting at A.  The second char is one of “l” (left), “r” (right), “x” (cross connections – e.g. for cysteine).  In this implementation, the second character can also be “h” for hydrogen bond.   Thus, the attach connections are almost always in the list: “Al”, “Br”, “Cx” or “Ch”.   For example:
+
+    # ATTCHORD=(6 15 Br 13 Al 21 Cx)
+
+Templates
+---------
+
+### Template Header ###
+
+In addition to the CTAB for the main molecule, each macro atom is detailed automatically in a TEMPLATE.  The TEMPLATES are numbered and appear between a BEGIN TEMPLATES line and an END TEMPLATES line. Each template starts with a TEMPLATE line that indicates the template number (1 to n), the template Class and Name, and the NATREPLACE attribute.
+The Class and Name consists of three (or more) parts separated by forward slashes.  The first part is the CLASS,  and must match the CLASS attribute in one or more of the atoms in the main CTAB.  The second and third (and subsequent) items are choices for names of the macro atom template.  Typically, the first name is the long form and second is the short form, as in “AA/Ala/A” for alanine.  This treatment does not enforce any restrictions on the name lengths.    The name given the macro atom in the main CTAB must match one of the names in one of the templates with the correct class.
+The NATREPLACE attribute specifies the natural replacement for this macro atom, and is ignored by this treatment.  Example:
+
+    # M  V30 TEMPLATE 1 SUGAR/Rib/R NATREPLACE=SUGAR/R
+
+### Main Template CTAB and SGROUPs ###
+
+After the TEMPLATE is a full CTAB with the atoms and bonds of the template.   Each CTAB must contain an SGROUP for the main macro definition atoms and bonds, and one for each leaving group.  The main SGROUP for the template must have a LABEL attribute that is the same as one of the names in the TEMPLATE line, and it must have a CLASS attribute that matches the TEMPLATE line class.
+In addition, the main SGROUP must have ATOMS, XBONDS, NATREPLACE attributes.  ATOMS is a list of all atom IDs (1-offset).  XBONDS are the IDs of the connecting bonds.   NATRELACE is the natural replacement as discussed above.  The XBONDS and NATREPLACE attributes are ignored by this treatment.   
+The main SGROUP must also contain a list of SAP (SGROUP attachment points) attributes.  Each one is enclosed in parentheses, and starts with a “3”.  That is followed by two atom IDs of a bond that starts in this SGROUP and goes to an atom NOT in this SGROUP,  and this is followed by a string indicating the connection name.  The connection name, as discussed above, is usually one of “Al”, “Br”, “Cx” or “Ch”.  SAPs “Al”, “Br”, “Cx” will have one SAP, and “Ch” will typically have two or three distinct SAP attributes.  The order of the SAP attributes for hydrogen bonds (“Ch”) matters, and should go from the H-bond atom nearest to the connecting “Al” atom to the most distant.  Hydrogen bonds do not have a leaving group, so the second ID of the designation is “0”.
+Example:
+
+    # M  V30 2 SUP 2 ATOMS=(8 1 2 3 4 5 6 7 8) XBONDS=(1 7)-
+    M  V30 LABEL=U CLASS=BASE SAP=(3 4 9 Al) SAP=(3 8 0 Ch) SAP=(3 6 0 Ch) SAP=(3 7 0 Ch)-
+    NATREPLACE=BASE/U
+
+In addition to the main SGROUP, there will be an SGROUP that identifies each leaving group.  Most leaving groups have one atom, but they could have multiple atoms.  The leaving group SGROUPS have ATOMS, XBONDS, LABEL, and CLASS attributes.   The XBONDS attribute is ignored in this treatment.   LABEL must be “LGRP” (leaving group).
+Example:
+
+    # M  V30 1 SUP 1 ATOMS=(1 11) XBONDS=(1 11) LABEL=H CLASS=LGRP
+
+Parsing SCSR files and text blocks
+==================================
+
+The following calls parse the SCSR mol or block produces an SCSRMol:
+
+  * SCSRMolFromScsrDataStream  (stream to SCSRMol)
+  * SCSRMolFromScsrBlock  (text block to SCSRMol)
+  * SCSRMolFromScsrFile  (file to SCSRMol)
+  
+Full Example of SCST files:
+===========================
+
+Here are two examples of SCST files:
+[DnaTest3.mol](data/DnaTest3.mol)
+[CrossLink.mol](data/CrossLink.mol)
+
+  
+Expansion to Full Atomistic Form
+===============================
+
+It is possible to convert an SCSRMol into a full atomistic representation as a RWMol.   That conversion is made with a call to MolFromSCSRMol.  This routine takes two parameters:  the SCSRMol to convert and a MolFromScsrParams parameter.
+MolFromScsrParams has two properties at this time – a ScsrTemplateNames parameter and a Boolean ”includeLeavingGroups”.  
+
+    * The “ScsrTemplateNames” parameter controls how the Sgoups of the expanded file are generated, and must be one of: ScsrTemplateNamesAsEntered, ScsrTemplateNamesUseFirstName, or ScsrTemplateNamesUseLastName.   If ScsrTemplateNamesAsEntered is specified, the name as referenced in the main SCSR CTAB will be used.  
+
+    * The ”includeLeavingGroups” parameter control whether leaving groups that are not replaced in the main CTAB are included in the resulting atomistic file.   The leaving groups that are so retained become end caps and caps on unused cross-link sites.    Setting this property to “false” causes the end caps and cross-link caps to remain unsubstituted.  This allows the results to be used as a full atom query for the sub-units from the SCSR mol.
+
+An SGROUP is produced in the resulting RWMol for each template and retained leaving group from the SCSRMol.  The name of each SGROUP is derived from the template name, the sequence number if present, and, for leaving groups, the leaving group SAP ID (e.g. “Al”, “Br”, “Cx” or “Ch”).
+
+### Hydrogen Bonds ###
+
+For sense-antisense pairings in DNA and RNA, the hydrogen bonds are represented as a single hydrogen bond in the SCSR representation.    When converted to a full atomistic representation, each such hydrogen bond can represent up to 3 hydrogen bonds between the full-atomistic representations of the Base groups.  
+The conversion from a single hydrogen bond in the SCSRMol to the RWMol uses three stepwise procedures.  
+If each of the bases of the pair, as defined in the SCSR Template, has three SAPs defines for the hydrogen bond (type “Ch”), the following is done:
+
+ 1. Determine the donor or acceptor function of each of the 3 attachment points on each side.
+ 2.	See if the donor/acceptor function is complementary for all 3 pairs.  Matching pairs would include those like the Watson-Crick pairs:  DDA-AAD (like G/C pairing), DAD-ADA (like A-T and A-U pairings).
+ 3.	If all three sets of donor/acceptor sites are compatible, all three H-donor bonds are created, and the conversion is complete.
+
+If there are three sites on both sides, but the sites are not compatible, a check it made for a specific case of “wobble” binding.   This is a two bond pairing like that which occurs in a G-U pairing.   In this case, one side must be a DDA configuration like Guanine, and the other side must have an ADA configuration like Uracil.  If found, the second and third sites of the DDA base are h-bonded to the first and second sites of the ADA base, and processing is complete.
+If one of the two bases has only two h-bonding sites, like Inosine, the following is done:
+
+ 1.	The donor/acceptor configuration of the side with two sites is checked to see if it is DA, like Inosine).   If not, we skip to the default treatment below.
+ 2.	If the configuration of the other side is AAD (like Cytosine), or it is DAD (like Adenine), two h-bonds are created using the second and third sites of the 3-site side, and processing is complete.
+ 3.	If the configuration of the other side is ADA (like Uracil), then the first and second sites of the Uracil like base are used to create two h-bonds, and processing is complete.
+
+The above rules cover the normal Watson-Crick binding as detailed in “https://water.lsbu.ac.uk/water/nucleic_acid_hydration.html” , and also the 4 common “wobble” pairs as detailed in “https://en.wikipedia.org/wiki/Wobble_base_pair#:~:text=A%20wobble%20bas”
+If none of the above methods can be applied, then the default action is to create a single h-bond between the 2nd positions of both side without regard to the donor/acceptor function of those positions.   This at least maintains the relationship between those two base pairs in the resulting RWMol.
+
+Example of Peptide conversion:
+
+.. image:: images/PeptideConversion.png
+ 
+Example of DNA-RNA paired strands conversion: 
+
+. image:: images/DnaDoubleStrand.png
+ 
+Example of “Wobble” pairing conversion:  
+
+. image:: images/WobbleRna.png
+ 
 
 Feature Flags: global variables affecting RDKit behavior
 ********************************************************

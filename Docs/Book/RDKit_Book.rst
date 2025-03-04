@@ -2798,8 +2798,8 @@ Full Example of SCST files:
 
 Here are two examples of SCST files:
 
-'DnaTest3.mol </data/DnaTest3.mol>'
-'CrossLink.mol </data/CrossLink.mol>'
+'DnaTest3.mol </Docs/Book/data/DnaTest3.mol>'
+'CrossLink.mol </Docs/Book/data/CrossLink.mol>'
 
   
 Expansion to Full Atomistic Form

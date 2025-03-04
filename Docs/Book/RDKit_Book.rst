@@ -2704,8 +2704,11 @@ type definitions.
 Self-Contained Structure Representations (SCSR) for Macromolecules
 *******************
 
-The SCSR support tentative added to RDKit follows the description in the BIOVIA document “biovia_ctfileformats_2020.pdf” available from “CTfile Formats - Dassault Systèmes”.  That document does not provide any real detail for that format, and contains one example file.
-In addition, Biovia Draw supports reading and writing this format.  As much as possible, the RDKit support allows the functionality supported by Biovia Draw.  One exception is the RDkit treatment of hydrogen bonds in SCSR files/blocks (vide infra).
+The SCSR support tentative added to RDKit follows the description in the BIOVIA document “biovia_ctfileformats_2020.pdf” available from 
+“CTfile Formats - Dassault Systèmes”.  That document does not provide any real detail for that format, and contains one example file.
+
+In addition, Biovia Draw supports reading and writing this format.  As much as possible, the RDKit support allows the functionality
+supported by Biovia Draw.  One exception is the RDkit treatment of hydrogen bonds in SCSR files/blocks (vide infra).
 
 
 Representation
@@ -2736,7 +2739,8 @@ Thus, the attach connections are almost always in the list: “Al”, “Br”, 
 Templates
 ---------
 
-### Template Header ###
+Template Header
+===============
 
 In addition to the CTAB for the main molecule, each macro atom is detailed automatically in a TEMPLATE.  The TEMPLATES are numbered and appear between a 
 BEGIN TEMPLATES line and an END TEMPLATES line. Each template starts with a TEMPLATE line that indicates the template number (1 to n), the template Class and 
@@ -2750,7 +2754,8 @@ The NATREPLACE attribute specifies the natural replacement for this macro atom, 
 
     # M  V30 TEMPLATE 1 SUGAR/Rib/R NATREPLACE=SUGAR/R
 
-### Main Template CTAB and SGROUPs ###
+Main Template CTAB and SGROUPs
+##############################
 
 After the TEMPLATE is a full CTAB with the atoms and bonds of the template.   Each CTAB must contain an SGROUP for the main macro definition atoms and bonds, 
 and one for each leaving group.  The main SGROUP for the template must have a LABEL attribute that is the same as one of the names in the TEMPLATE line, and 
@@ -2814,7 +2819,8 @@ MolFromScsrParams has two properties at this time – a ScsrTemplateNames parame
 An SGROUP is produced in the resulting RWMol for each template and retained leaving group from the SCSRMol.  The name of each SGROUP is derived from the 
 template name, the sequence number if present, and, for leaving groups, the leaving group SAP ID (e.g. “Al”, “Br”, “Cx” or “Ch”).
 
-###Hydrogen Bonds###
+Hydrogen Bonds
+==============
 
 For sense-antisense pairings in DNA and RNA, the hydrogen bonds are represented as a single hydrogen bond in the SCSR representation.   
 When converted to a full atomistic representation, each such hydrogen bond can represent up to 3 hydrogen bonds between the full-atomistic representations of 

@@ -2740,7 +2740,7 @@ Templates
 ---------
 
 Template Header
----------------
+^^^^^^^^^^^^^^^
 
 In addition to the CTAB for the main molecule, each macro atom is detailed automatically in a TEMPLATE.  The TEMPLATES are numbered and appear between a 
 BEGIN TEMPLATES line and an END TEMPLATES line. Each template starts with a TEMPLATE line that indicates the template number (1 to n), the template Class and 

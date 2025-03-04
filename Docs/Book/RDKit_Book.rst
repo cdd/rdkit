@@ -2847,8 +2847,8 @@ If one of the two bases has only two h-bonding sites, like Inosine, the followin
  3.	If the configuration of the other side is ADA (like Uracil), then the first and second sites of the Uracil like base are used to create two h-bonds, 
  and processing is complete.
 
-The above rules cover the normal Watson-Crick binding as detailed in ..“https://water.lsbu.ac.uk/water/nucleic_acid_hydration.html” , and also the 4 
-common “wobble” pairs as detailed in ..“https://en.wikipedia.org/wiki/Wobble_base_pair#:~:text=A%20wobble%20bas”
+The above rules cover the normal Watson-Crick binding as detailed in “https://water.lsbu.ac.uk/water/nucleic_acid_hydration.html” , and also the 4 
+common “wobble” pairs as detailed in “https://en.wikipedia.org/wiki/Wobble_base_pair#:~:text=A%20wobble%20bas”
 If none of the above methods can be applied, then the default action is to create a single h-bond between the 2nd positions of both side without 
 regard to the donor/acceptor function of those positions.   This at least maintains the relationship between those two base pairs in the resulting RWMol.
 

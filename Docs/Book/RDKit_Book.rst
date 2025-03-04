@@ -2858,11 +2858,11 @@ Example of Peptide conversion:
  
 Example of DNA-RNA paired strands conversion: 
 
-. image:: images/DnaDoubleStrand.png
+.. image:: images/DnaDoubleStrand.png
  
 Example of “Wobble” pairing conversion:  
 
-. image:: images/WobbleRna.png
+.. image:: images/WobbleRna.png
  
 
 Feature Flags: global variables affecting RDKit behavior

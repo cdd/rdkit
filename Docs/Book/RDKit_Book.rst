@@ -2846,10 +2846,12 @@ member of the ScsrMolFileParserParams parameter.  The options are:
     If not, we check to check to see if they comply to a wobble bond
     configuration. There are four generally accepted wobble bonds, and we
     deal with these four types only.  The four known wobble bonds are:
-    1.  I-C
-    2.  I-U
-    3.  I-A
-    4.  G-U
+
+     1. I-C
+     2. I-U
+     3. I-A
+     4. G-U
+
     "I" stands for inosine - it has only two available hbond sites . The
     pair G-U has three sites on each end, but they are not complimentary.
     (https://en.wikipedia.org/wiki/Wobble_base_pair#:~:text=A%20wobble%20base%20pair%20is,hypoxanthine%2Dcytosine%20(I%2DC).
@@ -2871,7 +2873,7 @@ member of the ScsrMolFileParserParams parameter.  The options are:
 
  3. ScsrBaseHbondOptionsUseSapOne
     If this is selected, only one SAP hbond per base is used.
-    If multiple SAPs are defined, the first hbond is used
+    If multiple SAPs are defined, the first hbond site is used
     even if it is not the best.  No attempt is made to match the Donor/Acceptor 
     status of the chosen bond sites.
     (this just maintains the relationship between
@@ -2883,6 +2885,9 @@ member of the ScsrMolFileParserParams parameter.  The options are:
     Hbonding is used, and is determined by substructure matching.
     No Hbond SAPs ("Ch") need to be defined in the template, and if
     defined, they are ignored.
+
+    Processing of the H-bond sites so determined is done just as it is when ScsrBaseHbondOptionsUseSapAll is selected.
+    (see above).
     
 Example of Peptide conversion:
 

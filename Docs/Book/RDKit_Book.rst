@@ -2755,7 +2755,7 @@ The NATREPLACE attribute specifies the natural replacement for this macro atom, 
     # M  V30 TEMPLATE 1 SUGAR/Rib/R NATREPLACE=SUGAR/R
 
 Main Template CTAB and SGROUPs
-------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 After the TEMPLATE is a full CTAB with the atoms and bonds of the template.   Each CTAB must contain an SGROUP for the main macro definition atoms and bonds, 
 and one for each leaving group.  The main SGROUP for the template must have a LABEL attribute that is the same as one of the names in the TEMPLATE line, and 

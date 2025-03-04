@@ -2827,32 +2827,63 @@ For sense-antisense pairings in DNA and RNA, the hydrogen bonds are represented 
 When converted to a full atomistic representation, each such hydrogen bond can represent up to 3 hydrogen bonds between the full-atomistic representations of 
 the Base groups.  
 
-The conversion from a single hydrogen bond in the SCSRMol to the RWMol uses three stepwise procedures.  
+The processing of H-bonds is contorlled by the ScsrBaseHbondOptions
+member of the ScsrMolFileParserParams parameter.  The options are:
 
-If each of the bases of the pair, as defined in the SCSR Template, has three SAPs defines for the hydrogen bond (type “Ch”), the following is done:
+ 1. ScsrBaseHbondOptionsIgnore - if this is selected, all H-bonds are
+    ignored and not processed.
 
- 1. Determine the donor or acceptor function of each of the 3 attachment points on each side.
- 2.	See if the donor/acceptor function is complementary for all 3 pairs.  Matching pairs would include those like the Watson-Crick pairs:  DDA-AAD (like G/C pairing), DAD-ADA (like A-T and A-U pairings).
- 3.	If all three sets of donor/acceptor sites are compatible, all three H-donor bonds are created, and the conversion is complete.
+ 2. ScsrBaseHbondOptionsUseSapAll = 1
+    If this is selected, all SAPs
+    for the hbond are used.  They must be defined in the template in the
+    correct order, which starts with the first atom nearest the "Al"
+    connection, and continues sequentially
 
-If there are three sites on both sides, but the sites are not compatible, a check it made for a specific case of “wobble” binding.   
-This is a two bond pairing like that which occurs in a G-U pairing.   In this case, one side must be a DDA configuration like Guanine, and the other side 
-must have an ADA configuration like Uracil.  If found, the second and third sites of the DDA base are h-bonded to the first and second sites of the ADA base, 
-and processing is complete.
+    If there are 3 sites on each side and they are complimentary (the
+    donors match acceptors and vice versa), we add the bonds. and
+    we are done.  THis is the standard Watson-Crick binding (“https://water.lsbu.ac.uk/water/nucleic_acid_hydration.html”)
 
-If one of the two bases has only two h-bonding sites, like Inosine, the following is done:
+    If not, we check to check to see if they comply to a wobble bond
+    configuration. There are four generally accepted wobble bonds, and we
+    deal with these four types only.  The four known wobble bonds are:
+    1.  I-C
+    2.  I-U
+    3.  I-A
+    4.  G-U
+    "I" stands for inosine - it has only two available hbond sites . The
+    pair G-U has three sites on each end, but they are not complimentary.
+    (https://en.wikipedia.org/wiki/Wobble_base_pair#:~:text=A%20wobble%20base%20pair%20is,hypoxanthine%2Dcytosine%20(I%2DC).
 
- 1.	The donor/acceptor configuration of the side with two sites is checked to see if it is DA, like Inosine).   If not, we skip to the default treatment below.
- 2.	If the configuration of the other side is AAD (like Cytosine), or it is DAD (like Adenine), two h-bonds are created using the second and third sites 
- of the 3-site side, and processing is complete.
- 3.	If the configuration of the other side is ADA (like Uracil), then the first and second sites of the Uracil like base are used to create two h-bonds, 
- and processing is complete.
+    For pairs that have I (inosine) or something like it, the configuration must be
+    DA, so those two atoms form the two H bonds. The other side (C,U or A)
+    has confiuration of AAD (C), ADA (U), or DAD (A). For C-type bases and
+    A type bases, the second and third atoms are used (AD), and for U
+    types, the first two atoms are used (AD).
 
-The above rules cover the normal Watson-Crick binding as detailed in “https://water.lsbu.ac.uk/water/nucleic_acid_hydration.html” , and also the 4 
-common “wobble” pairs as detailed in “https://en.wikipedia.org/wiki/Wobble_base_pair#:~:text=A%20wobble%20bas”
-If none of the above methods can be applied, then the default action is to create a single h-bond between the 2nd positions of both side without 
-regard to the donor/acceptor function of those positions.   This at least maintains the relationship between those two base pairs in the resulting RWMol.
+    For the GU pair, both sides have 3 atoms, but they are not
+    complimentary.  The second and third sites on the G side are used (DA),
+    and the first two sites on the U side are used (AD).
 
+    In any other case, we punt and add just one bond between the first
+    hydrogen-bond atom on both sides even if they are NOT complemenary.  This just
+    indicates that the sides are h-bonded somehow and keeps the overall
+    pairing straight.
+
+ 3. ScsrBaseHbondOptionsUseSapOne
+    If this is selected, only one SAP hbond per base is used.
+    If multiple SAPs are defined, the first hbond is used
+    even if it is not the best.  No attempt is made to match the Donor/Acceptor 
+    status of the chosen bond sites.
+    (this just maintains the relationship between
+    the to base pairs)
+
+ 4. ScsrBaseHbondOptionsAuto
+    For bases that are C,G,A,T,U,In (and
+    derivatives) the standard Watson-Crick
+    Hbonding is used, and is determined by substructure matching.
+    No Hbond SAPs ("Ch") need to be defined in the template, and if
+    defined, they are ignored.
+    
 Example of Peptide conversion:
 
 .. image:: images/PeptideConversion.png

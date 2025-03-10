@@ -19,6 +19,7 @@
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/FileParsers/FileParsers.h>
 #include <GraphMol/Atropisomers.h>
+#include <GraphMol/SmilesParse/SmilesWrite.h>
 
 #include <RDGeneral/BoostStartInclude.h>
 #include <boost/lexical_cast.hpp>
@@ -32,13 +33,10 @@ using namespace RDKit;
 class ScsiMolTest {
  public:
  public:
-  std::string testToRun;
-  bool generateExpectedFiles;
+  std::string testToRun = "";
+  bool generateExpectedFiles = false;
 
-  ScsiMolTest() {
-    testToRun = "";
-    generateExpectedFiles = false;
-  }
+  ScsiMolTest() {}
 
   class ScsiTest {
    public:
@@ -132,6 +130,16 @@ class ScsiMolTest {
 
       CHECK(GetExpectedValue(expectedMolName) == outMolStr);
     }
+
+    {
+      std::string expectedSmiName = fName + ".expected.cxsmi";
+      auto smiOut = MolToCXSmiles(*mol);
+
+      generateNewExpectedFilesIfSoSpecified(fName + ".NEW.cxsmi", smiOut);
+
+      CHECK(GetExpectedValue(expectedSmiName) == smiOut);
+    }
+
     // now make the expanded mol in "query" mode - not including any leaving
     // groups
 

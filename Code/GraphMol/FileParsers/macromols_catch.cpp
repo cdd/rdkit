@@ -144,26 +144,30 @@ class ScsiMolTest {
     // groups
 
     molFromSCSRParams.includeLeavingGroups = false;
-    std::unique_ptr<RDKit::RWMol> molFromStream;
+    std::unique_ptr<RDKit::RWMol> molNoLeavingGroups;
     if (scsiTest->scsrExpandResult) {
-      REQUIRE_NOTHROW(molFromStream =
+      REQUIRE_NOTHROW(molNoLeavingGroups =
                           MolFromSCSRFile(fName, pp, molFromSCSRParams));
     } else {
-      REQUIRE_THROWS(molFromStream =
+      REQUIRE_THROWS(molNoLeavingGroups =
                          MolFromSCSRFile(fName, pp, molFromSCSRParams));
       return;
     }
+
+    CHECK(molNoLeavingGroups != nullptr);
+    CHECK(molNoLeavingGroups->getNumAtoms() == scsiTest->totalQueryAtomCount);
+    CHECK(molNoLeavingGroups->getNumBonds() == scsiTest->totalQueryBondCount);
 
     {
       std::string expectedMolName = fName + ".expected2.sdf";
       std::string outMolStr = "";
       try {
-        outMolStr = MolToMolBlock(*molFromStream, true, 0, true, true);
+        outMolStr = MolToMolBlock(*molNoLeavingGroups, true, 0, true, true);
       } catch (const RDKit::KekulizeException &) {
         outMolStr = "";
       }
       if (outMolStr == "") {
-        outMolStr = MolToMolBlock(*molFromStream, true, 0, false,
+        outMolStr = MolToMolBlock(*molNoLeavingGroups, true, 0, false,
                                   true);  // try without kekule'ing
       }
 
@@ -265,8 +269,8 @@ class ScsiMolTest {
 TEST_CASE("scsiTests", "scsiTests") {
   SECTION("basics") {
     std::list<ScsiMolTest::ScsiTest> scsiTests{
-        ScsiMolTest::ScsiTest("DnaBadPairs_NoCh.mol", true,
-                              SCSRBaseHbondOptions::Auto, 84, 94, 80, 90),
+        ScsiMolTest::ScsiTest("ModifiedPeptide2.mol", true,
+                              SCSRBaseHbondOptions::Auto, 438, 444, 407, 413),
         ScsiMolTest::ScsiTest("DnaBadPairs.mol", true,
                               SCSRBaseHbondOptions::UseSapAll, 84, 94, 80, 90),
         ScsiMolTest::ScsiTest("DnaTest.mol", false,

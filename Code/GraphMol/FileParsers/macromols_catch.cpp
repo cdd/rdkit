@@ -33,7 +33,6 @@ using namespace RDKit;
 class ScsiMolTest {
  public:
  public:
-  std::string testToRun = "";
   bool generateExpectedFiles = false;
 
   ScsiMolTest() {}
@@ -271,6 +270,8 @@ TEST_CASE("scsiTests", "scsiTests") {
     std::list<ScsiMolTest::ScsiTest> scsiTests{
         ScsiMolTest::ScsiTest("ModifiedPeptide2.mol", true,
                               SCSRBaseHbondOptions::Auto, 438, 444, 407, 413),
+        ScsiMolTest::ScsiTest("DnaBadPairs_NoCh.mol", true,
+                              SCSRBaseHbondOptions::Auto, 84, 94, 80, 90),
         ScsiMolTest::ScsiTest("DnaBadPairs.mol", true,
                               SCSRBaseHbondOptions::UseSapAll, 84, 94, 80, 90),
         ScsiMolTest::ScsiTest("DnaTest.mol", false,

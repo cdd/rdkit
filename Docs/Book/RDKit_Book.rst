@@ -2701,7 +2701,7 @@ path) enumeration algorithm used in the RDKit fingerprint. After a subgraph has
 been generated, it is used to set multiple bits based on different atom and bond
 type definitions.
 
-Self-Contained Structure Representations (SCSR) for Macromolecules
+Self-Contained Structure Representation (SCSR) for Macromolecules
 *******************
 
 The SCSR support tentative added to RDKit follows the description in the BIOVIA document “biovia_ctfileformats_2020.pdf” available from 
@@ -2754,7 +2754,7 @@ The NATREPLACE attribute specifies the natural replacement for this macro atom, 
 
     # M  V30 TEMPLATE 1 SUGAR/Rib/R NATREPLACE=SUGAR/R
 
-Main Template CTAB and SGROUPs
+Template CTAB and SGROUPs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 After the TEMPLATE is a full CTAB with the atoms and bonds of the template.   Each CTAB must contain an SGROUP for the main macro definition atoms and bonds, 
@@ -2777,7 +2777,7 @@ Example:
     NATREPLACE=BASE/U
 
 In addition to the main SGROUP, there will be an SGROUP that identifies each leaving group.  Most leaving groups have one atom, but they could have multiple 
-atoms.  The leaving group SGROUPS have ATOMS, XBONDS, LABEL, and CLASS attributes.   The XBONDS attribute is ignored in this treatment.   LABEL must be 
+atoms.  The leaving group SGROUPS have ATOMS, XBONDS, LABEL, and CLASS attributes.   The XBONDS attribute is ignored in this treatment.   CLASS must be 
 “LGRP” (leaving group).
 
 Example:
@@ -2810,12 +2810,11 @@ It is possible to convert an SCSRMol into a full atomistic representation as a R
 takes two parameters:  the SCSRMol to convert and a MolFromScsrParams parameter.
 MolFromScsrParams has two properties at this time – a ScsrTemplateNames parameter and a Boolean ”includeLeavingGroups”.  
 
-    * The “ScsrTemplateNames” parameter controls how the Sgoups of the expanded file are generated, and must be one of: ScsrTemplateNamesAsEntered, 
-    ScsrTemplateNamesUseFirstName, or ScsrTemplateNamesUseLastName.   If ScsrTemplateNamesAsEntered is specified, the name as referenced in the main 
-    SCSR CTAB will be used.  
+    * The “ScsrTemplateNames” parameter controls how the Sgoups of the expanded file are generated, and must be one of: UseFirstName, UseSecondName, or AsEntered.  
+    If "AsEntered" is specified, the name as referenced in the main SCSR CTAB will be used.  
 
     * The ”includeLeavingGroups” parameter control whether leaving groups that are not replaced in the main CTAB are included in the resulting atomistic file.   
-    The leaving groups that are so retained become end caps and caps on unused cross-link sites.    Setting this property to “false” causes the end caps and cross-link caps to remain unsubstituted.  This allows the results to be used as a full atom query for the sub-units from the SCSR mol.
+    The leaving groups that are so retained become end caps on unused cross-link sites.    Setting this property to “false” causes the end caps and cross-link caps to remain unsubstituted.  This allows the results to be used as a full atom query for the sub-units from the SCSR mol.
 
 An SGROUP is produced in the resulting RWMol for each template and retained leaving group from the SCSRMol.  The name of each SGROUP is derived from the 
 template name, the sequence number if present, and, for leaving groups, the leaving group SAP ID (e.g. “Al”, “Br”, “Cx” or “Ch”).

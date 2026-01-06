@@ -31,6 +31,7 @@ rdkit_library(FileParsers
     Mol2FileParser.cpp MolFileParser.cpp 
     SCSRMolFileParser.cpp
     SCSRMolFileWriter.cpp
+    MACROMOLUtils.cpp
     MolSGroupParsing.cpp MolSGroupWriting.cpp
     MolFileStereochem.cpp MolFileWriter.cpp
     ForwardSDMolSupplier.cpp SDMolSupplier.cpp SDWriter.cpp

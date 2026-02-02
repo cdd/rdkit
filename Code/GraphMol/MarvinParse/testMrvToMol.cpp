@@ -18,6 +18,8 @@
 #include <GraphMol/FileParsers/MolFileStereochem.h>
 #include <GraphMol/Depictor/RDDepictor.h>
 #include "MarvinParser.h"
+#include <GraphMol/SCSRMol.h>
+#include <GraphMol/FileParsers/SCSRUtils.h>
 
 #include <GraphMol/ChemReactions/Reaction.h>
 #include <GraphMol/ChemReactions/ReactionParser.h>
@@ -404,7 +406,7 @@ class MrvTests {
       pp.removeHs = false;
       pp.strictParsing = true;
 
-      RDKit::v2::FileParsers::MolFromSCSRParams molFromSCSRParams;
+      MolFromSCSRParams molFromSCSRParams;
       molFromSCSRParams.includeLeavingGroups = true;
       molFromSCSRParams.scsrBaseHbondOptions = SCSRBaseHbondOptions::Auto;
 

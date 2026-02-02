@@ -29,9 +29,9 @@ endif()
 rdkit_library(FileParsers
     CDXMLParser.cpp
     Mol2FileParser.cpp MolFileParser.cpp 
-    SCSRMolFileParser.cpp
     SCSRMolFileWriter.cpp
-    MACROMOLUtils.cpp
+    SCSRUtils.cpp
+    MACROMolUtils.cpp
     MolSGroupParsing.cpp MolSGroupWriting.cpp
     MolFileStereochem.cpp MolFileWriter.cpp
     ForwardSDMolSupplier.cpp SDMolSupplier.cpp SDWriter.cpp
@@ -59,7 +59,7 @@ target_compile_definitions(FileParsers PRIVATE RDKIT_FILEPARSERS_BUILD)
 rdkit_headers(CDXMLParser.h
     FileParsers.h
     FileParserUtils.h
-    SCSRMolFileParser.h
+    SCSRUtils.h
     SCSRMolFileWriter.h
     MolFileStereochem.h
     FileWriters.h

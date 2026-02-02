@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2024 Tad Hurst and other RDKit contributors
+//  Copyright (C) 20126 Tad Hurst and other RDKit contributors
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -8,297 +8,20 @@
 //  of the RDKit source tree.
 //
 
+#include "FileParsers.h"
 #include "FileParserUtils.h"
 #include "MolSGroupParsing.h"
 #include <RDGeneral/StreamOps.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/Substruct/SubstructMatch.h>
+#include <GraphMol/SubstanceGroup.h>
 
 #include <RDGeneral/FileParseException.h>
 #include <RDGeneral/BadFileException.h>
+#include <GraphMol/FileParsers/SCSRUtils.h>
 #include <GraphMol/SCSRMol.h>
 
-using namespace RDKit::SGroupParsing;
-
 namespace RDKit {
-
-namespace v2 {
-namespace FileParsers {
-
-//------------------------------------------------
-//
-//  Read a SCVSR molecule from a stream
-//
-//------------------------------------------------
-std::unique_ptr<SCSRMol> SCSRMolFromSCSRDataStream(
-    std::istream &inStream, unsigned int &line,
-    const RDKit::v2::FileParsers::MolFileParserParams &params) {
-  bool chiralityPossible = false;
-  if (inStream.eof()) {
-    return nullptr;
-  }
-  auto res = std::unique_ptr<SCSRMol>(new SCSRMol());
-  auto localParams = params;
-  localParams.parsingSCSRMol = true;
-  res->setMol(RDKit::v2::FileParsers::MolFromMolDataStream(inStream, line,
-                                                           localParams));
-
-  // now get all of the templates
-
-  auto tempStr = FileParserUtils::getV3000Line(&inStream, line);
-
-  if (tempStr != "BEGIN TEMPLATE") {
-    std::ostringstream errout;
-    errout << "BEGIN TEMPLATE not found at line  " << line;
-    throw FileParseException(errout.str());
-  }
-  tempStr = FileParserUtils::getV3000Line(&inStream, line);
-
-  // TEMPLATE 1 AA/Cya/Cya/ NATREPLACE=AA/A COMMENT=comment FULLNAME=fullname
-  // CATEGORY=cat UNIQUEID=uniqueid CASNUMBER=xxxx, COLLABORATOR=col,
-  // PROTECTION=prot
-
-  // other attributes are allowed.  We capture them and ignore them, except for
-  // writing them back out
-
-  while (tempStr.substr(0, 8) == "TEMPLATE") {
-    std::vector<std::string> tokens;
-    std::vector<std::string> subTokens;
-    boost::algorithm::split(tokens, tempStr, boost::algorithm::is_space());
-
-    if (tokens.size() < 3) {
-      std::ostringstream errout;
-      errout << "Bad Template entry at line  " << line;
-      throw FileParseException(errout.str());
-    }
-
-    // get the class and template names
-
-    boost::algorithm::split(subTokens, tokens[2],
-                            boost::algorithm::is_any_of("/"));
-    if (subTokens.size() < 3) {
-      std::ostringstream errout;
-      errout << "Type/Name(s) string is not of the form \"AA/Gly/G/\" at line  "
-             << line;
-      throw FileParseException(errout.str());
-    }
-
-    res->addTemplate(std::unique_ptr<ROMol>(new ROMol()));
-    auto templateMol = (RWMol *)res->getTemplate(res->getTemplateCount() - 1);
-
-    templateMol->setProp(common_properties::molAtomClass, subTokens[0]);
-
-    std::vector<std::string> templateNames;
-
-    for (unsigned int i = 1; i < subTokens.size(); ++i) {
-      if (subTokens[i] != "") {
-        templateNames.push_back(subTokens[i]);
-      }
-    }
-    templateMol->setProp(common_properties::templateNames, templateNames);
-
-    for (unsigned int i = 3; i < tokens.size(); ++i) {
-      boost::algorithm::split(subTokens, tokens[i],
-                              boost::algorithm::is_any_of("="));
-      if (subTokens.size() != 2) {
-        std::ostringstream errout;
-        errout
-            << "Attribute  string is not of the form \"AttrName=value\" at line  "
-            << line;
-        throw FileParseException(errout.str());
-      }
-      templateMol->setProp(subTokens[0], subTokens[1]);
-    }
-
-    auto molComplete = false;
-    Conformer *conf = nullptr;
-    try {
-      unsigned int nAtoms = 0, nBonds = 0;
-      bool expectMEND = false;
-      molComplete = FileParserUtils::ParseV3000CTAB(
-          &inStream, line, templateMol, conf, chiralityPossible, nAtoms, nBonds,
-          params.strictParsing, expectMEND);
-    } catch (MolFileUnhandledFeatureException &e) {
-      // unhandled mol file feature, show an error
-      res.reset();
-      delete conf;
-      conf = nullptr;
-      BOOST_LOG(rdErrorLog) << " Unhandled CTAB feature: '" << e.what()
-                            << "'. Molecule skipped." << std::endl;
-
-      if (!inStream.eof()) {
-        tempStr = getLine(inStream);
-      }
-      ++line;
-      while (!inStream.eof() && !inStream.fail() &&
-             tempStr.substr(0, 6) != "M  END" &&
-             tempStr.substr(0, 4) != "$$$$") {
-        tempStr = getLine(inStream);
-        ++line;
-      }
-      molComplete = !inStream.eof() || tempStr.substr(0, 6) == "M  END" ||
-                    tempStr.substr(0, 4) == "$$$$";
-    } catch (FileParseException &e) {
-      // catch our exceptions and throw them back after cleanup
-      delete conf;
-      conf = nullptr;
-      throw e;
-    }
-
-    if (!molComplete) {
-      delete conf;
-      conf = nullptr;
-      std::ostringstream errout;
-      errout
-          << "Problems encountered parsing Mol data, M  END or BEGIN TEMPLATE missing around line "
-          << line;
-      throw FileParseException(errout.str());
-    }
-
-    if (templateMol) {
-      auto tempParams = params;
-      tempParams.sanitize = false;
-      tempParams.removeHs = false;
-      FileParserUtils::finishMolProcessing(templateMol, chiralityPossible,
-                                           tempParams);
-    }
-
-    tempStr = FileParserUtils::getV3000Line(&inStream, line);
-  }
-
-  if (tempStr != "END TEMPLATE") {
-    std::ostringstream errout;
-    errout << "END TEMPLATE not found at line  " << line;
-    throw FileParseException(errout.str());
-  }
-
-  tempStr = getLine(inStream);
-  ++line;
-  if (tempStr.substr(0, 6) != "M  END") {
-    std::ostringstream errout;
-    errout << "M  END not found at line  " << line;
-    throw FileParseException(errout.str());
-  }
-
-  // now validate the templates to the main mol
-  // each atom in the mol that requires a template should match one,
-  // and the ATTCHORD entries of each main atom must be consistent
-  // with the template mol it matches.
-
-  unsigned int atomCount = res.get()->getMol()->getNumAtoms();
-  for (unsigned int atomIdx = 0; atomIdx < atomCount; ++atomIdx) {
-    auto atom = res->getMol()->getAtomWithIdx(atomIdx);
-
-    std::string dummyLabel = "";
-    std::string atomClass = "";
-    std::vector<std::pair<unsigned int, std::string>> attchOrds;
-    if (atom->hasProp(common_properties::dummyLabel)) {
-      dummyLabel = atom->getProp<std::string>(common_properties::dummyLabel);
-    }
-    if (atom->hasProp(common_properties::molAtomClass)) {
-      atomClass = atom->getProp<std::string>(common_properties::molAtomClass);
-    }
-    if (atom->hasProp(common_properties::molAttachOrderTemplate)) {
-      atom->getProp(common_properties::molAttachOrderTemplate, attchOrds);
-    }
-    if (dummyLabel != "" && atomClass != "") {
-      // find the template that matches the class and label
-
-      bool templateFound = false;
-      for (unsigned int templateIdx = 0;
-           !templateFound && templateIdx < res.get()->getTemplateCount();
-           ++templateIdx) {
-        auto templateMol = res->getTemplate(templateIdx);
-        if (templateMol->getProp<std::string>(
-                common_properties::molAtomClass) == atomClass) {
-          for (auto templateName :
-               templateMol->getProp<std::vector<std::string>>(
-                   common_properties::templateNames)) {
-            if (templateFound) {
-              break;
-            }
-            if (templateName != dummyLabel) {
-              continue;  // check next template name
-            }
-            // find the SUP group for the main connections (not leaving
-            // groups)
-
-            const RDKit::SubstanceGroup *mainSUP = nullptr;
-            for (auto &sgroup : RDKit::getSubstanceGroups(*templateMol)) {
-              if (sgroup.getProp<std::string>("TYPE") == "SUP" &&
-                  sgroup.getProp<std::string>("CLASS") == atomClass) {
-                mainSUP = &sgroup;
-                break;
-              }
-            }
-
-            if (mainSUP == nullptr) {
-              break;  // breaks out of the loop over template names - continues
-                      // to next template
-            }
-
-            // now check the ATTCHORD entries
-            templateFound = true;  // tentative - until some attachment point in
-                                   // the atom is not found in the template
-            for (const auto &attachOrd : attchOrds) {
-              auto supAttachPoints = mainSUP->getAttachPoints();
-              if (std::find_if(supAttachPoints.begin(), supAttachPoints.end(),
-                               [&attachOrd](auto a) {
-                                 return a.id == attachOrd.second;
-                               }) == supAttachPoints.end()) {
-                templateFound = false;
-                break;
-              }
-            }
-          }
-        }
-      }
-
-      if (!templateFound) {
-        std::ostringstream errout;
-        errout << "No template found for atom " << atom->getIdx() << " class "
-               << atomClass << " label " << dummyLabel;
-        throw FileParseException(errout.str());
-      }
-    }
-  }
-
-  return res;
-}
-
-//------------------------------------------------
-//
-//  Read a molecule from a string
-//
-//------------------------------------------------
-std::unique_ptr<SCSRMol> SCSRMolFromSCSRBlock(
-    const std::string &molBlock,
-    const RDKit::v2::FileParsers::MolFileParserParams &params) {
-  std::istringstream inStream(molBlock);
-  unsigned int line = 0;
-  return SCSRMolFromSCSRDataStream(inStream, line, params);
-}
-
-//------------------------------------------------
-//
-//  Read a molecule from a file
-//
-//------------------------------------------------
-std::unique_ptr<SCSRMol> SCSRMolFromSCSRFile(
-    const std::string &fName, const MolFileParserParams &params) {
-  std::ifstream inStream(fName.c_str());
-  if (!inStream || (inStream.bad())) {
-    std::ostringstream errout;
-    errout << "Bad input file " << fName;
-    throw BadFileException(errout.str());
-  }
-  if (!inStream.eof()) {
-    unsigned int line = 0;
-    return SCSRMolFromSCSRDataStream(inStream, line, params);
-  } else {
-    return std::unique_ptr<SCSRMol>();
-  }
-}
 
 class MolFromSCSRMolConverter {
  private:
@@ -362,11 +85,11 @@ class MolFromSCSRMolConverter {
           dp_mol{SmartsToMol(smarts)} {}
   };
 
-  SCSRMol *scsrMol;
+  RDKit::SCSRMol *scsrMol;
   std::unique_ptr<RWMol> resMol;
   const ROMol *mol;
-  const MolFileParserParams molFileParserParams;
-  const MolFromSCSRParams molFromSCSRParams;
+  const RDKit::v2::FileParsers::MolFileParserParams molFileParserParams;
+  const RDKit::MolFromSCSRParams molFromSCSRParams;
 
   std::map<unsigned int, std::vector<HydrogenBondConnection>>
       hBondSitesForTemplate;
@@ -441,7 +164,7 @@ class MolFromSCSRMolConverter {
           auto isDonor = templateAtom->getTotalNumHs() > 0;
           hydrogenBondConnections.emplace_back(templateAtomIdx, isDonor);
           if (molFromSCSRParams.scsrBaseHbondOptions ==
-              SCSRBaseHbondOptions::UseSapOne) {
+              RDKit::SCSRBaseHbondOptions::UseSapOne) {
             return;
           }
         }
@@ -603,7 +326,7 @@ class MolFromSCSRMolConverter {
     std::vector<HydrogenBondConnection> endHatomConnections;
 
     if (molFromSCSRParams.scsrBaseHbondOptions ==
-        SCSRBaseHbondOptions::Ignore) {
+        RDKit::SCSRBaseHbondOptions::Ignore) {
       return;
     }
     if (molFromSCSRParams.scsrBaseHbondOptions ==
@@ -743,14 +466,7 @@ class MolFromSCSRMolConverter {
   }
 
  public:
-  MolFromSCSRMolConverter(SCSRMol *scsrMolInit,
-                          const MolFileParserParams &molFileParserParamsInit,
-                          const MolFromSCSRParams &molFromSCSRParamsInit)
-      : scsrMol(scsrMolInit),
-        molFileParserParams(molFileParserParamsInit),
-        molFromSCSRParams(molFromSCSRParamsInit) {}
-
-  std::unique_ptr<RDKit::RWMol> convert() {
+  std::unique_ptr<RWMol> convert() {
     resMol.reset(new RWMol());
     mol = scsrMol->getMol();
 
@@ -1287,38 +1003,324 @@ class MolFromSCSRMolConverter {
 
     return std::move(resMol);
   }
+
+ public:
+  MolFromSCSRMolConverter(SCSRMol *scsrMolInit,
+                          const RDKit::v2::FileParsers::MolFileParserParams
+                              &molFileParserParamsInit,
+                          const MolFromSCSRParams &molFromSCSRParamsInit)
+      : scsrMol(scsrMolInit),
+        molFileParserParams(molFileParserParamsInit),
+        molFromSCSRParams(molFromSCSRParamsInit) {}
 };
 
+std::unique_ptr<RDKit::SCSRMol> SCSRMolFromSCSRDataStream(
+    std::istream &inStream, unsigned int &line,
+    const RDKit::v2::FileParsers::MolFileParserParams &params) {
+  bool chiralityPossible = false;
+  if (inStream.eof()) {
+    return nullptr;
+  }
+  auto res = std::unique_ptr<RDKit::SCSRMol>(new RDKit::SCSRMol());
+  auto localParams = params;
+  localParams.parsingSCSRMol = true;
+  res->setMol(RDKit::v2::FileParsers::MolFromMolDataStream(inStream, line,
+                                                           localParams));
+
+  // now get all of the templates
+
+  auto tempStr = RDKit::FileParserUtils::getV3000Line(&inStream, line);
+
+  if (tempStr != "BEGIN TEMPLATE") {
+    std::ostringstream errout;
+    errout << "BEGIN TEMPLATE not found at line  " << line;
+    throw RDKit::FileParseException(errout.str());
+  }
+  tempStr = RDKit::FileParserUtils::getV3000Line(&inStream, line);
+
+  // TEMPLATE 1 AA/Cya/Cya/ NATREPLACE=AA/A COMMENT=comment FULLNAME=fullname
+  // CATEGORY=cat UNIQUEID=uniqueid CASNUMBER=xxxx, COLLABORATOR=col,
+  // PROTECTION=prot
+
+  // other attributes are allowed.  We capture them and ignore them, except for
+  // writing them back out
+
+  while (tempStr.substr(0, 8) == "TEMPLATE") {
+    std::vector<std::string> tokens;
+    std::vector<std::string> subTokens;
+    boost::algorithm::split(tokens, tempStr, boost::algorithm::is_space());
+
+    if (tokens.size() < 3) {
+      std::ostringstream errout;
+      errout << "Bad Template entry at line  " << line;
+      throw RDKit::FileParseException(errout.str());
+    }
+
+    // get the class and template names
+
+    boost::algorithm::split(subTokens, tokens[2],
+                            boost::algorithm::is_any_of("/"));
+    if (subTokens.size() < 3) {
+      std::ostringstream errout;
+      errout << "Type/Name(s) string is not of the form \"AA/Gly/G/\" at line  "
+             << line;
+      throw RDKit::FileParseException(errout.str());
+    }
+
+    res->addTemplate(std::unique_ptr<RDKit::ROMol>(new RDKit::ROMol()));
+    auto templateMol =
+        (RDKit::RWMol *)res->getTemplate(res->getTemplateCount() - 1);
+
+    templateMol->setProp(RDKit::common_properties::molAtomClass, subTokens[0]);
+
+    std::vector<std::string> templateNames;
+
+    for (unsigned int i = 1; i < subTokens.size(); ++i) {
+      if (subTokens[i] != "") {
+        templateNames.push_back(subTokens[i]);
+      }
+    }
+    templateMol->setProp(RDKit::common_properties::templateNames,
+                         templateNames);
+
+    for (unsigned int i = 3; i < tokens.size(); ++i) {
+      boost::algorithm::split(subTokens, tokens[i],
+                              boost::algorithm::is_any_of("="));
+      if (subTokens.size() != 2) {
+        std::ostringstream errout;
+        errout
+            << "Attribute  string is not of the form \"AttrName=value\" at line  "
+            << line;
+        throw RDKit::FileParseException(errout.str());
+      }
+      templateMol->setProp(subTokens[0], subTokens[1]);
+    }
+
+    auto molComplete = false;
+    RDKit::Conformer *conf = nullptr;
+    try {
+      unsigned int nAtoms = 0, nBonds = 0;
+      bool expectMEND = false;
+      molComplete = RDKit::FileParserUtils::ParseV3000CTAB(
+          &inStream, line, templateMol, conf, chiralityPossible, nAtoms, nBonds,
+          params.strictParsing, expectMEND);
+    } catch (RDKit::MolFileUnhandledFeatureException &e) {
+      // unhandled mol file feature, show an error
+      res.reset();
+      delete conf;
+      conf = nullptr;
+      BOOST_LOG(rdErrorLog) << " Unhandled CTAB feature: '" << e.what()
+                            << "'. Molecule skipped." << std::endl;
+
+      if (!inStream.eof()) {
+        tempStr = RDKit::getLine(inStream);
+      }
+      ++line;
+      while (!inStream.eof() && !inStream.fail() &&
+             tempStr.substr(0, 6) != "M  END" &&
+             tempStr.substr(0, 4) != "$$$$") {
+        tempStr = RDKit::getLine(inStream);
+        ++line;
+      }
+      molComplete = !inStream.eof() || tempStr.substr(0, 6) == "M  END" ||
+                    tempStr.substr(0, 4) == "$$$$";
+    } catch (RDKit::FileParseException &e) {
+      // catch our exceptions and throw them back after cleanup
+      delete conf;
+      conf = nullptr;
+      throw e;
+    }
+
+    if (!molComplete) {
+      delete conf;
+      conf = nullptr;
+      std::ostringstream errout;
+      errout
+          << "Problems encountered parsing Mol data, M  END or BEGIN TEMPLATE missing around line "
+          << line;
+      throw RDKit::FileParseException(errout.str());
+    }
+
+    if (templateMol) {
+      auto tempParams = params;
+      tempParams.sanitize = false;
+      tempParams.removeHs = false;
+      RDKit::FileParserUtils::finishMolProcessing(
+          templateMol, chiralityPossible, tempParams);
+    }
+
+    tempStr = RDKit::FileParserUtils::getV3000Line(&inStream, line);
+  }
+
+  if (tempStr != "END TEMPLATE") {
+    std::ostringstream errout;
+    errout << "END TEMPLATE not found at line  " << line;
+    throw RDKit::FileParseException(errout.str());
+  }
+
+  tempStr = RDKit::getLine(inStream);
+  ++line;
+  if (tempStr.substr(0, 6) != "M  END") {
+    std::ostringstream errout;
+    errout << "M  END not found at line  " << line;
+    throw RDKit::FileParseException(errout.str());
+  }
+
+  // now validate the templates to the main mol
+  // each atom in the mol that requires a template should match one,
+  // and the ATTCHORD entries of each main atom must be consistent
+  // with the template mol it matches.
+
+  unsigned int atomCount = res.get()->getMol()->getNumAtoms();
+  for (unsigned int atomIdx = 0; atomIdx < atomCount; ++atomIdx) {
+    auto atom = res->getMol()->getAtomWithIdx(atomIdx);
+
+    std::string dummyLabel = "";
+    std::string atomClass = "";
+    std::vector<std::pair<unsigned int, std::string>> attchOrds;
+    if (atom->hasProp(RDKit::common_properties::dummyLabel)) {
+      dummyLabel =
+          atom->getProp<std::string>(RDKit::common_properties::dummyLabel);
+    }
+    if (atom->hasProp(RDKit::common_properties::molAtomClass)) {
+      atomClass =
+          atom->getProp<std::string>(RDKit::common_properties::molAtomClass);
+    }
+    if (atom->hasProp(RDKit::common_properties::molAttachOrderTemplate)) {
+      atom->getProp(RDKit::common_properties::molAttachOrderTemplate,
+                    attchOrds);
+    }
+    if (dummyLabel != "" && atomClass != "") {
+      // find the template that matches the class and label
+
+      bool templateFound = false;
+      for (unsigned int templateIdx = 0;
+           !templateFound && templateIdx < res.get()->getTemplateCount();
+           ++templateIdx) {
+        auto templateMol = res->getTemplate(templateIdx);
+        if (templateMol->getProp<std::string>(
+                RDKit::common_properties::molAtomClass) == atomClass) {
+          for (auto templateName :
+               templateMol->getProp<std::vector<std::string>>(
+                   RDKit::common_properties::templateNames)) {
+            if (templateFound) {
+              break;
+            }
+            if (templateName != dummyLabel) {
+              continue;  // check next template name
+            }
+            // find the SUP group for the main connections (not leaving
+            // groups)
+
+            const RDKit::SubstanceGroup *mainSUP = nullptr;
+            for (auto &sgroup : RDKit::getSubstanceGroups(*templateMol)) {
+              if (sgroup.getProp<std::string>("TYPE") == "SUP" &&
+                  sgroup.getProp<std::string>("CLASS") == atomClass) {
+                mainSUP = &sgroup;
+                break;
+              }
+            }
+
+            if (mainSUP == nullptr) {
+              break;  // breaks out of the loop over template names - continues
+                      // to next template
+            }
+
+            // now check the ATTCHORD entries
+            templateFound = true;  // tentative - until some attachment point in
+                                   // the atom is not found in the template
+            for (const auto &attachOrd : attchOrds) {
+              auto supAttachPoints = mainSUP->getAttachPoints();
+              if (std::find_if(supAttachPoints.begin(), supAttachPoints.end(),
+                               [&attachOrd](auto a) {
+                                 return a.id == attachOrd.second;
+                               }) == supAttachPoints.end()) {
+                templateFound = false;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (!templateFound) {
+        std::ostringstream errout;
+        errout << "No template found for atom " << atom->getIdx() << " class "
+               << atomClass << " label " << dummyLabel;
+        throw RDKit::FileParseException(errout.str());
+      }
+    }
+  }
+
+  return res;
+}
+
+//------------------------------------------------
+//
+//  Read a molecule from a string
+//
+//------------------------------------------------
+std::unique_ptr<RDKit::SCSRMol> SCSRMolFromSCSRBlock(
+    const std::string &molBlock,
+    const RDKit::v2::FileParsers::MolFileParserParams &params) {
+  std::istringstream inStream(molBlock);
+  unsigned int line = 0;
+  return SCSRMolFromSCSRDataStream(inStream, line, params);
+}
+
+//------------------------------------------------
+//
+//  Read a molecule from a file
+//
+//------------------------------------------------
+std::unique_ptr<RDKit::SCSRMol> SCSRMolFromSCSRFile(
+    const std::string &fName,
+    const RDKit::v2::FileParsers::MolFileParserParams &params) {
+  std::ifstream inStream(fName.c_str());
+  if (!inStream || (inStream.bad())) {
+    std::ostringstream errout;
+    errout << "Bad input file " << fName;
+    throw RDKit::BadFileException(errout.str());
+  }
+  if (!inStream.eof()) {
+    unsigned int line = 0;
+    return SCSRMolFromSCSRDataStream(inStream, line, params);
+  } else {
+    return std::unique_ptr<RDKit::SCSRMol>();
+  }
+}
+
 static std::unique_ptr<RDKit::RWMol> MolFromSCSRMol(
-    SCSRMol *scsrMol, const MolFileParserParams &molFileParserParams,
-    const MolFromSCSRParams &molFromSCSRParams) {
-  MolFromSCSRMolConverter converter(scsrMol, molFileParserParams,
-                                    molFromSCSRParams);
+    RDKit::SCSRMol *scsrMol,
+    const RDKit::v2::FileParsers::MolFileParserParams &molFileParserParams,
+    const RDKit::MolFromSCSRParams &molFromSCSRParams) {
+  RDKit::MolFromSCSRMolConverter converter(scsrMol, molFileParserParams,
+                                           molFromSCSRParams);
   return converter.convert();
 }
 
 std::unique_ptr<RDKit::RWMol> MolFromSCSRDataStream(
     std::istream &inStream, unsigned int &line,
-    const MolFileParserParams &molFileParserParams,
-    const MolFromSCSRParams &molFromSCSRParams) {
-  auto scsr = SCSRMolFromSCSRDataStream(inStream, line, molFileParserParams);
+    const RDKit::v2::FileParsers::MolFileParserParams &molFileParserParams,
+    const RDKit::MolFromSCSRParams &molFromSCSRParams) {
+  auto scsr =
+      RDKit::SCSRMolFromSCSRDataStream(inStream, line, molFileParserParams);
   return MolFromSCSRMol(scsr.get(), molFileParserParams, molFromSCSRParams);
 }
 
 std::unique_ptr<RDKit::RWMol> MolFromSCSRBlock(
-    const std::string &molBlock, const MolFileParserParams &molFileParserParams,
-    const MolFromSCSRParams &molFromSCSRParams) {
-  auto scsr = SCSRMolFromSCSRBlock(molBlock, molFileParserParams);
+    const std::string &molBlock,
+    const RDKit::v2::FileParsers::MolFileParserParams &molFileParserParams,
+    const RDKit::MolFromSCSRParams &molFromSCSRParams) {
+  auto scsr = RDKit::SCSRMolFromSCSRBlock(molBlock, molFileParserParams);
   return MolFromSCSRMol(scsr.get(), molFileParserParams, molFromSCSRParams);
 }
 
 std::unique_ptr<RDKit::RWMol> MolFromSCSRFile(
-    const std::string &fName, const MolFileParserParams &molFileParserParams,
-    const MolFromSCSRParams &molFromSCSRParams) {
-  auto scsr = SCSRMolFromSCSRFile(fName, molFileParserParams);
+    const std::string &fName,
+    const RDKit::v2::FileParsers::MolFileParserParams &molFileParserParams,
+    const RDKit::MolFromSCSRParams &molFromSCSRParams) {
+  auto scsr = RDKit::SCSRMolFromSCSRFile(fName, molFileParserParams);
   return MolFromSCSRMol(scsr.get(), molFileParserParams, molFromSCSRParams);
 }
-
-}  // namespace FileParsers
-}  // namespace v2
 }  // namespace RDKit

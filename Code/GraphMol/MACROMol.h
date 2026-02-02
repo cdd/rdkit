@@ -38,9 +38,11 @@ class RDKIT_GRAPHMOL_EXPORT MACROMol {
  private:
   std::unique_ptr<RWMol> p_mol;
   std::vector<std::unique_ptr<ROMol>> p_templates;
+  bool p_atomIdxToTemplateIdxIsStale;
+  std::map<unsigned int, unsigned int> p_atomIdxToTemplateIdx;
 
  public:
-  MACROMol() {};
+  MACROMol() : p_atomIdxToTemplateIdxIsStale(true) {};
   MACROMol(const MACROMol &other) = delete;
   MACROMol(MACROMol &&other) noexcept = delete;
   MACROMol &operator=(MACROMol &&other) noexcept = delete;
@@ -67,12 +69,15 @@ class RDKIT_GRAPHMOL_EXPORT MACROMol {
   void setMol(std::unique_ptr<RWMol> mol) {
     PRECONDITION(mol, "bad molecule");
     p_mol = std::move(mol);
+    p_atomIdxToTemplateIdxIsStale = true;
   }
 
-  static std::unique_ptr<RDKit::RWMol> MolFromMacroRMol(
+  static std::unique_ptr<RDKit::RWMol> MolFromMacroMol(
       MACROMol *scsrMol,
       const RDKit::v2::FileParsers::MolFileParserParams &molFileParserParams,
       const MolFromMACROMolParams &molFromMACROMolParams);
+
+  unsigned int atomIdxToTemplateIdx(unsigned int atomIdx);
 };
 
 typedef boost::shared_ptr<MACROMol> MACROMol_SPTR;

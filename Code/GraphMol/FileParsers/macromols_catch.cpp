@@ -17,11 +17,25 @@
 #include <catch2/catch_all.hpp>
 #include <RDGeneral/Invariant.h>
 #include <GraphMol/RDKitBase.h>
-#include <GraphMol/FileParsers/FileParsers.h>
+
+#include "FileParsers.h"
+#include "FileParserUtils.h"
+#include "MolSGroupParsing.h"
+#include <RDGeneral/StreamOps.h>
+#include <GraphMol/SmilesParse/SmilesParse.h>
+#include <GraphMol/Substruct/SubstructMatch.h>
+#include <GraphMol/SubstanceGroup.h>
+
 #include <GraphMol/FileParsers/FileWriters.h>
+#include <GraphMol/FileParsers/SCSRUtils.h>
 #include <GraphMol/Atropisomers.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
-#include <GraphMol/FileParsers/FileWriters.h>
+
+#include <RDGeneral/FileParseException.h>
+#include <RDGeneral/BadFileException.h>
+#include <GraphMol/MACROMol.h>
+#include <GraphMol/FileParsers/SCSRUtils.h>
+#include <GraphMol/SCSRMol.h>
 
 #include <RDGeneral/BoostStartInclude.h>
 #include <boost/lexical_cast.hpp>
@@ -53,7 +67,7 @@ class ScsrMolTest {
     unsigned int totalQueryBondCount;
     unsigned int querySgroupCount;
     ExpectedStatus expectedStatus;
-    SCSRBaseHbondOptions scsrBaseHbondOptions;
+    RDKit::SCSRBaseHbondOptions scsrBaseHbondOptions;
     ScsrTest(std::string fileNameInit, ExpectedStatus expectedStatusInit,
              SCSRBaseHbondOptions scsrBaseHbondOptions,
              unsigned int totalAtomCountInit, unsigned int totalBondCountInit,
@@ -244,7 +258,7 @@ class ScsrMolTest {
     pp.removeHs = false;
     pp.strictParsing = true;
 
-    RDKit::v2::FileParsers::MolFromSCSRParams molFromSCSRParams;
+    MolFromSCSRParams molFromSCSRParams;
     molFromSCSRParams.includeLeavingGroups = true;
     molFromSCSRParams.scsrBaseHbondOptions = ScsrTest->scsrBaseHbondOptions;
 
@@ -325,10 +339,9 @@ class ScsrMolTest {
     pp.removeHs = false;
     pp.strictParsing = false;
 
-    RDKit::v2::FileParsers::MolFromSCSRParams molFromSCSRParams;
+    MolFromSCSRParams molFromSCSRParams;
     molFromSCSRParams.includeLeavingGroups = true;
-    molFromSCSRParams.scsrTemplateNames =
-        RDKit::v2::FileParsers::SCSRTemplateNames::AsEntered;
+    molFromSCSRParams.scsrTemplateNames = SCSRTemplateNames::AsEntered;
     molFromSCSRParams.scsrBaseHbondOptions = ScsrTest->scsrBaseHbondOptions;
 
     std::unique_ptr<RDKit::RWMol> mol;
@@ -347,8 +360,7 @@ class ScsrMolTest {
     CHECK(getSubstanceGroups(*mol).size() == ScsrTest->sgroupCount);
 
     molFromSCSRParams.includeLeavingGroups = true;
-    molFromSCSRParams.scsrTemplateNames =
-        RDKit::v2::FileParsers::SCSRTemplateNames::UseFirstName;
+    molFromSCSRParams.scsrTemplateNames = SCSRTemplateNames::UseFirstName;
     std::unique_ptr<RWMol> mol2;
     if (ScsrTest->expectedStatus == ExpectedStatus::Success) {
       REQUIRE_NOTHROW(mol2 = MolFromSCSRFile(fName, pp, molFromSCSRParams));
@@ -390,7 +402,7 @@ TEST_CASE("nestedParens", "nestedParens") {
     pp.removeHs = false;
     pp.strictParsing = true;
 
-    RDKit::v2::FileParsers::MolFromSCSRParams molFromSCSRParams;
+    MolFromSCSRParams molFromSCSRParams;
     molFromSCSRParams.includeLeavingGroups = true;
     molFromSCSRParams.scsrBaseHbondOptions = SCSRBaseHbondOptions::Auto;
 

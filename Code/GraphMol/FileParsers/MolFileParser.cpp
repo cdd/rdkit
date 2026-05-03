@@ -245,7 +245,21 @@ std::string parseEnhancedStereo(std::istream *inStream, unsigned int &line,
       for (size_t i = 0; i < count; ++i) {
         ss >> index;
         // atoms are 1 indexed in molfiles
-        atoms.push_back(mol->getAtomWithIdx(index - 1));
+        auto atom = mol->getAtomWithIdx(index - 1);
+        if (std::ranges::find(atoms, atom) != atoms.end()) {
+          std::string message =
+              (boost::format(
+                   "Atom %1% appears more than once in stereo group specification on line %2%!") %
+               index % line)
+                  .str();
+          if (strictParsing) {
+            throw FileParseException(message);
+          } else {
+            BOOST_LOG(rdWarningLog) << message << std::endl;
+          }
+        } else {
+          atoms.push_back(atom);
+        }
       }
       std::vector<Bond *> newBonds;
       groups.emplace_back(grouptype, std::move(atoms), std::move(newBonds),
@@ -367,9 +381,8 @@ void ParseChargeLine(RWMol *mol, const std::string &text, bool firstCall,
   // if this line is specified all the atom other than those specified
   // here should carry a charge of 0; but we should only do this once:
   if (firstCall) {
-    for (ROMol::AtomIterator ai = mol->beginAtoms(); ai != mol->endAtoms();
-         ++ai) {
-      (*ai)->setFormalCharge(0);
+    for (auto at : mol->atoms()) {
+      at->setFormalCharge(0);
     }
   }
 
@@ -408,9 +421,8 @@ void ParseRadicalLine(RWMol *mol, const std::string &text, bool firstCall,
   // if this line is specified all the atom other than those specified
   // here should carry a charge of 0; but we should only do this once:
   if (firstCall) {
-    for (ROMol::AtomIterator ai = mol->beginAtoms(); ai != mol->endAtoms();
-         ++ai) {
-      (*ai)->setFormalCharge(0);
+    for (auto at : mol->atoms()) {
+      at->setFormalCharge(0);
     }
   }
 
@@ -3471,19 +3483,23 @@ void finishMolProcessing(
   // sign that chirality ever existed and makes us sad... so first
   // perceive chirality, then remove the Hs and sanitize.
   //
-  const Conformer &conf = res->getConformer();
-  if (chiralityPossible || conf.is3D()) {
-    if (!conf.is3D()) {
-      bool replaceExistingTags = true;
-      MolOps::assignChiralTypesFromBondDirs(*res, conf.getId(),
-                                            replaceExistingTags);
-    } else {
-      res->updatePropertyCache(false);
-      MolOps::assignChiralTypesFrom3D(*res, conf.getId(), true);
-    }
-  }
 
-  Atropisomers::detectAtropisomerChirality(*res, &conf);
+  const Conformer *conf = nullptr;
+  if (res->getNumConformers() > 0) {
+    conf = &res->getConformer();
+    if (chiralityPossible || conf->is3D()) {
+      if (!conf->is3D()) {
+        bool replaceExistingTags = true;
+        MolOps::assignChiralTypesFromBondDirs(*res, conf->getId(),
+                                              replaceExistingTags);
+      } else {
+        res->updatePropertyCache(false);
+        MolOps::assignChiralTypesFrom3D(*res, conf->getId(), true);
+      }
+    }
+}
+
+  Atropisomers::detectAtropisomerChirality(*res, conf);
 
   // now that atom stereochem has been perceived, the wedging
   // information is no longer needed, so we clear

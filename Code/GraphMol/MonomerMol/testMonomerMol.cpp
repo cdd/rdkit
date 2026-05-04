@@ -14,6 +14,7 @@
 #include <RDGeneral/Invariant.h>
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/FileParsers/FileParsers.h>
+#include <GraphMol/FileParsers/MACROMolUtils.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <RDGeneral/FileParseException.h>
@@ -25,6 +26,7 @@
 
 #include <GraphMol/MonomerMol/Conversions.h>
 #include <GraphMol/MonomerMol/MonomerMol.h>
+#include <GraphMol/MonomerMol/MonomerLibrary.h>
 #include <GraphMol/MonomerInfo.h>
 
 #include <GraphMol/FileParsers/FileParsers.h>
@@ -193,6 +195,7 @@ TEST_CASE("FASTAConversions") {
 
     // PDB info is used to convert the atomistic sturcture into a MonomerMol
     auto monomer_mol = toMonomeric(*atomistic_mol);
+
     CHECK(std::string(">Chain PEPTIDE1\nCGCGAATTACCGCG") == to_fasta(*monomer_mol));
     delete atomistic_mol;
   }
@@ -203,7 +206,7 @@ TEST_CASE("Conversions") {
     std::string seq = "CGCGA";
     auto atomistic_mol = SequenceToMol(seq);
 
-    MonomerMol monomer_mol;
+    MonomerMol monomer_mol(true);
     auto midx1 = monomer_mol.addMonomer("C", 1, "PEPTIDE", "PEPTIDE1");
     auto midx2 = monomer_mol.addMonomer("G");
     auto midx3 = monomer_mol.addMonomer("C");
@@ -215,7 +218,7 @@ TEST_CASE("Conversions") {
     monomer_mol.addConnection(midx3, midx4, BACKBONE_LINKAGE);
     monomer_mol.addConnection(midx4, midx5, BACKBONE_LINKAGE);
     auto atomistic_mol2 = toAtomistic(monomer_mol);
-
+    
     // atomistic structure is same as using sequence parser
     std::string smi1 = MolToSmiles(*atomistic_mol);
     std::string smi2 = MolToSmiles(*atomistic_mol2);
@@ -226,7 +229,7 @@ TEST_CASE("Conversions") {
 
   SECTION("toAtomisticWithBranch") {
     // This is equivalent to HELM string "PEPTIDE1{A.D(C)P}$$$$"
-    MonomerMol monomer_mol;
+    MonomerMol monomer_mol(true);
     auto midx1 = monomer_mol.addMonomer("A", 1, "PEPTIDE", "PEPTIDE1");
     auto midx2 = monomer_mol.addMonomer("D");
     auto midx3 = monomer_mol.addMonomer("C");
@@ -245,7 +248,7 @@ TEST_CASE("Conversions") {
     std::string helm = "PEPTIDE1{C.A.A.A.C}$PEPTIDE1,PEPTIDE1,1:R3-5:R3$$$V2.0";
     auto atomistic_mol = HELMToMol(helm);
 
-    MonomerMol monomer_mol;
+    MonomerMol monomer_mol(true);
     auto midx1 = monomer_mol.addMonomer("C", 1, "PEPTIDE", "PEPTIDE1");
     auto midx2 = monomer_mol.addMonomer("A");
     auto midx3 = monomer_mol.addMonomer("A");
@@ -268,7 +271,7 @@ TEST_CASE("Conversions") {
     std::string helm = "PEPTIDE1{F.Y.K.A.R.L}$PEPTIDE1,PEPTIDE1,6:R2-1:R1$$$V2.0";
     auto atomistic_mol = HELMToMol(helm);
 
-    MonomerMol monomer_mol;
+    MonomerMol monomer_mol(true);
     auto midx1 = monomer_mol.addMonomer("F", 1, "PEPTIDE", "PEPTIDE1");
     auto midx2 = monomer_mol.addMonomer("Y");
     auto midx3 = monomer_mol.addMonomer("K");
@@ -285,8 +288,11 @@ TEST_CASE("Conversions") {
     CHECK(monomer_mol.getNumAtoms() == 6);
     CHECK(monomer_mol.getNumBonds() == 6);
 
+
+    
     std::string smi1 = MolToSmiles(*atomistic_mol);
-    std::string smi2 = MolToSmiles(*toAtomistic(monomer_mol));
+    auto mol2 = toAtomistic(monomer_mol);
+    std::string smi2 = MolToSmiles(*(mol2.get()));
     CHECK(smi1 == smi2);
     delete atomistic_mol;
   }
@@ -297,7 +303,7 @@ TEST_CASE("Conversions") {
 
 
     // toAtomistic should still work even when monomers are added out of order
-    MonomerMol monomer_mol;
+    MonomerMol monomer_mol(true);
     auto midx1 = monomer_mol.addMonomer("A", 1, "PEPTIDE", "PEPTIDE1");
     auto midx2 = monomer_mol.addMonomer("K");
     auto midx3 = monomer_mol.addMonomer("Y");
@@ -323,7 +329,7 @@ TEST_CASE("Conversions") {
 
   SECTION("toAtomisticSmilesMonomer") {
     // This is equivelent to HELM string "PEPTIDE1{A.[O=C([C@H]1CCCN1[*:1])[*:2]].P}$$$$"
-    MonomerMol monomer_mol;
+    MonomerMol monomer_mol(true);
     auto midx1 = monomer_mol.addMonomer("A", 1, "PEPTIDE", "PEPTIDE1");
     auto midx2 = monomer_mol.addMonomer("O=C([C@H]1CCCN1[*:1])[*:2]", MonomerType::SMILES);
     auto midx3 = monomer_mol.addMonomer("P");
@@ -342,6 +348,7 @@ TEST_CASE("Conversions") {
     pdbfile += "/Code/GraphMol/MonomerMol/test_data/1dng.pdb";
     auto mol = PDBFileToMol(pdbfile);
     auto monomer_mol = toMonomeric(*mol);
+
     CHECK(std::string(">Chain PEPTIDE1\nQAPAYEEAAEELAKS") == to_fasta(*monomer_mol));
     CHECK(monomer_mol->getNumAtoms() == 15);
     CHECK(monomer_mol->getNumBonds() == 14);
@@ -358,6 +365,7 @@ TEST_CASE("Conversions") {
     pdbfile += "/Code/GraphMol/MonomerMol/test_data/2n65.pdb";
     auto mol = PDBFileToMol(pdbfile);
     auto monomer_mol = toMonomeric(*mol);
+
     CHECK(std::string(">Chain PEPTIDE1\nVARGWKRKCPLFGKGG\n>Chain PEPTIDE2\nVARGWKRKCPLFGKGG") == to_fasta(*monomer_mol));
     CHECK(monomer_mol->getNumAtoms() == 32);
     CHECK(monomer_mol->getNumBonds() == 31);
@@ -397,6 +405,7 @@ TEST_CASE("Conversions") {
     pdbfile += "/Code/GraphMol/MonomerMol/test_data/5vav.pdb";
     auto mol = PDBFileToMol(pdbfile);
     auto monomer_mol = toMonomeric(*mol);
+    
     remove_solvents(*mol); // we don't care about water or S04
 
     // Checking sequence doesn't make sense due to SMILES monomer

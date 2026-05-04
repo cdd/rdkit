@@ -15,9 +15,22 @@
 
 namespace RDKit {
 
-
+std::string getLinkage(const Bond * bond) {
+    std::string atom1Conn = "", atom2Conn = "";
+    bond->getPropIfPresent(common_properties::_MolFileBondAttachPt1,atom1Conn);
+    bond->getPropIfPresent(common_properties::_MolFileBondAttachPt2,atom2Conn);
+    auto linkage = atom1Conn + "-" + atom2Conn;
+    return linkage;
+}
 bool isMonomer(const Atom* atom) {
-    return atom->hasProp(SMILES_MONOMER);
+    
+    //return atom->hasProp(SMILES_MONOMER);
+
+    std::string dummyLabel="", atomClass="";
+    return atom->getPropIfPresent(RDKit::common_properties::dummyLabel, dummyLabel) &&
+          dummyLabel != "" &&
+          atom->getPropIfPresent(RDKit::common_properties::molAtomClass, atomClass) &&
+          atomClass != "";
 }
 
 std::string getPolymerId(const Atom* atom) {
@@ -66,7 +79,10 @@ bool isValidChain(const MonomerMol& monomer_mol, std::string_view polymer_id) {
             return false;
         }
 
-        auto linkage = bond->getProp<std::string>(LINKAGE);
+        //auto linkage = bond->getProp<std::string>(LINKAGE);
+       
+        auto linkage = getLinkage(bond);
+
         if (linkage == BACKBONE_LINKAGE) {
             last_residue = chain.atoms[i];
         } else if (linkage != BRANCH_LINKAGE) {
@@ -88,7 +104,10 @@ Atom* findChainBegin(MonomerMol& monomer_mol) {
         updated = false;
         seen[chain_begin->getIdx()] = true;
         for (const auto bond : monomer_mol.atomBonds(chain_begin)) {
-            auto linkage = bond->getProp<std::string>(LINKAGE);
+            
+            //auto linkage = bond->getProp<std::string>(LINKAGE);
+            auto linkage = getLinkage(bond);
+
             if (linkage == "R3-R3") {
                 // Don't cross cysteine bridges
                 continue;
@@ -139,7 +158,10 @@ void orderResidues(MonomerMol& monomer_mol) {
                 visited[bond->getOtherAtom(current)->getIdx()]) {
                 continue;
             }
-            auto linkage = bond->getProp<std::string>(LINKAGE);
+            //auto linkage = bond->getProp<std::string>(LINKAGE);
+            auto linkage = getLinkage(bond);
+
+
             if (linkage == BRANCH_LINKAGE) {
                 auto other = bond->getOtherAtom(current);
                 setResidueNumber(other, current_res_idx);
@@ -189,8 +211,7 @@ void MonomerMol::assignChains() {
                 }
             }
             if (connection_bond != getNumBonds()) {
-                std::string linkage = getBondWithIdx(connection_bond)
-                                          ->getProp<std::string>(LINKAGE);
+                std::string linkage = getLinkage(getBondWithIdx(connection_bond));
                 getBondWithIdx(connection_bond)
                     ->setProp(EXTRA_LINKAGE, linkage);
             } else {
@@ -202,7 +223,7 @@ void MonomerMol::assignChains() {
     for (auto bond : bonds()) {
         if (getPolymerId(bond->getBeginAtom()) !=
             getPolymerId(bond->getEndAtom())) {
-            std::string linkage = bond->getProp<std::string>(LINKAGE);
+            std::string linkage = getLinkage(bond);
             bond->setProp(EXTRA_LINKAGE, linkage);
         }
     }

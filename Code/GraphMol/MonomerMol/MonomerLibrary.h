@@ -18,6 +18,7 @@
 #include <string_view>
 #include <tuple>
 #include <unordered_map>
+#include <GraphMol/MACROMol.h>
 
 #include <RDGeneral/export.h>
 
@@ -36,27 +37,36 @@ struct RDKIT_MONOMERMOL_EXPORT MonomerEntry {
 
 //! Library of monomer definitions for use with MonomerMol
 /*!
-    MonomerLibrary provides access to monomer definitions. It supports two modes:
-    1. Global mode (default): A singleton with global monomer definitions
-    2. Instance mode: Per-MonomerMol instance with local definitions
+    MonomerLibrary provides access to monomer definitions. The monomer items
+    can be owned by an external lib (global libraary) or owned by this library
 
     Access is typically via MonomerMol::getMonomerLibrary().
 */
-class RDKIT_MONOMERMOL_EXPORT MonomerLibrary {
+class RDKIT_MONOMERMOL_EXPORT MonomerLibrary{
  public:
     //! Return type for getMonomerInfo: {symbol, original_data, monomer_class}
     using monomer_info_t = std::optional<std::tuple<std::string, std::string, std::string>>;
+
+
+    //MonomerLibrary() : d_macroMolTemplateLib(MonomerLibrary::().getMACROMolTemplateLib()) {};
 
     //! Constructor
     /*!
         \param loadBuiltins If true, loads built-in monomer definitions.
                             If false (default), creates an empty library.
     */
-    explicit MonomerLibrary(bool loadBuiltins = false);
+    explicit MonomerLibrary(bool loadBuiltins = false) 
+            : d_localMacroMolTemplateLib(std::unique_ptr<RDKit::MACROMolTemplateLib>(new RDKit::MACROMolTemplateLib())),
+            d_macroMolTemplateLib(*(d_localMacroMolTemplateLib.get())) {
+        if (loadBuiltins) {
+            loadFromGlobalLibrary();
+        }
+    }
 
     //! Constructor with path to database/json file (future use)
-    explicit MonomerLibrary(std::string_view database_path);
-
+    //explicit MonomerLibrary(std::string_view database_path);
+    explicit MonomerLibrary(RDKit::MACROMolTemplateLib &libInit) : d_macroMolTemplateLib(libInit) {};
+   
     ~MonomerLibrary();
 
     // Non-copyable but movable
@@ -78,14 +88,25 @@ class RDKIT_MONOMERMOL_EXPORT MonomerLibrary {
         \return tuple of {symbol, original_data, monomer_class} or nullopt if not found
     */
     [[nodiscard]] monomer_info_t
-    getMonomerInfo(const std::string& pdb_code) const;
+    getMonomerInfo(const std::string& pdb_code, const std::string monomer_class) const;
 
     //! Get PDB code for a monomer symbol
     [[nodiscard]] std::optional<std::string>
     getPdbCode(const std::string& symbol, const std::string& monomer_class) const;
 
+    [[nodiscard]] std::optional<std::vector<std::string>>
+    getPdbCodes(const std::string& symbol, const std::string& monomer_class) const;
+
+    MACROMolTemplateLib &getMACROMolTemplateLib() {
+        return d_macroMolTemplateLib;
+    }
+    const MACROMolTemplateLib &getMACROMolTemplateLib() const {
+        return d_macroMolTemplateLib;
+    }
+
     //! Get parsed molecule for a monomer
-    [[nodiscard]] std::shared_ptr<ROMol> getMonomer(
+    //[[nodiscard]] std::shared_ptr<ROMol> getMonomer(
+    [[nodiscard]] MACROMolTemplate *getMonomer(
         const std::string& monomer_id,
         const std::string& monomer_class) const;
 
@@ -104,7 +125,8 @@ class RDKIT_MONOMERMOL_EXPORT MonomerLibrary {
                            const std::string& pdb_code = "");
 
     //! Add a monomer with a pre-parsed molecule
-    void addMonomer(std::shared_ptr<ROMol> mol,
+    void addMonomer(std::unique_ptr<RWMol> &mol,
+                    const std::string& data,
                     const std::string& symbol,
                     const std::string& monomer_class,
                     const std::string& pdb_code = "");
@@ -116,40 +138,49 @@ class RDKIT_MONOMERMOL_EXPORT MonomerLibrary {
     // --- Global library configuration ---
 
     //! Enable/disable global library mode (default: true)
-    static void useGlobalLibrary(bool use_global);
+    //static void useGlobalLibrary(bool use_global);
 
-    //! Check if global library mode is enabled
-    static bool isUsingGlobalLibrary();
+    //! Check if the library is NOT customized
+    bool hasLocalTemplates();
+
+    void loadFromGlobalLibrary();
 
     //! Get the global singleton instance
-    static MonomerLibrary& getGlobalLibrary();
+    //static MonomerLibrary& getGlobalLibrary();
+
 
  private:
     //! Key is (symbol, monomer_class)
-    using MonomerKey = std::pair<std::string, std::string>;
+    //using MonomerKey = std::pair<std::string, std::string>;
 
-    //! Hash function for MonomerKey
-    struct MonomerKeyHash {
-        std::size_t operator()(const MonomerKey& key) const {
-            std::size_t h1 = std::hash<std::string>{}(key.first);
-            std::size_t h2 = std::hash<std::string>{}(key.second);
-            return h1 ^ (h2 << 1);
-        }
-    };
+    // //! Hash function for MonomerKey
+    // struct MonomerKeyHash {
+    //     std::size_t operator()(const MonomerKey& key) const {
+    //         std::size_t h1 = std::hash<std::string>{}(key.first);
+    //         std::size_t h2 = std::hash<std::string>{}(key.second);
+    //         return h1 ^ (h2 << 1);
+    //     }
+    // };
 
-    std::unordered_map<MonomerKey, MonomerEntry, MonomerKeyHash> d_monomers;
+    // std::unordered_map<MonomerKey, MonomerEntry, MonomerKeyHash> d_monomers;
 
     //! Index from PDB code to (symbol, monomer_class)
-    std::unordered_map<std::string, MonomerKey> d_pdbCodeIndex;
+    //std::unordered_map<std::string, MonomerKey> d_pdbCodeIndex;
 
     //! Load built-in monomer definitions
     //! TODO: this may load in a preset json or sqlite DB
     void loadBuiltinDefinitions();
 
     //! Static state for global mode
-    static bool s_useGlobalLibrary;
+    //static bool s_useGlobalLibrary
     static std::unique_ptr<MonomerLibrary> s_globalLibrary;
+    static std::unique_ptr<MACROMolTemplateLib> s_globalMACROMOLTemplateLib;
     static std::once_flag s_globalLibraryOnce;
+
+    std::unique_ptr<RDKit::MACROMolTemplateLib> d_localMacroMolTemplateLib; // used for standalone MACROMolTemplateLib
+    RDKit::MACROMolTemplateLib &d_macroMolTemplateLib;
+    
+
 };
 
 } // namespace RDKit

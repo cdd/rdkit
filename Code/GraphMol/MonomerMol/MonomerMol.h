@@ -23,6 +23,8 @@
 #include <RDGeneral/BetterEnums.h>
 #include <RDGeneral/export.h>
 #include <GraphMol/ROMol.h>
+#include <GraphMol/MACROMol.h>
+#include <GraphMol/MonomerMol/MonomerLibrary.h>
 
 namespace RDKit
 {
@@ -41,6 +43,15 @@ const std::string ATOM_LABEL{"atomLabel"};
 const std::string BRANCH_LINKAGE{"R3-R1"};
 const std::string BACKBONE_LINKAGE{"R2-R1"};
 const std::string CROSS_LINKAGE{"R3-R3"};
+const std::string BRANCH2_LINKAGE{"R1-R3"};
+const std::string BACKBONE2_LINKAGE{"R1-R2"};
+const std::string MONOMERATOM_LINKAGE{"R1-ATOM"};
+const std::string MONOMERATOM2_LINKAGE{"R2-ATOM"};
+const std::string MONOMERATOM3_LINKAGE{"R3-ATOM"};
+const std::string MONOMERATOM4_LINKAGE{"RTOM-R1"};
+const std::string MONOMERATOM5_LINKAGE{"RTOM-R2"};
+const std::string MONOMERATOM6_LINKAGE{"ATOM}-R3"};
+
 const std::string HYDROGEN_LINKAGE{"pair-pair"};
 
 // Monomer properties stored on atoms
@@ -79,17 +90,25 @@ RDKIT_MONOMERMOL_EXPORT unsigned int getResidueNumber(const Atom* atom);
     linkages between monomers. In the future I would like it to inherit from
     RWMol instead, but that will require a bit more work to handle deletions.
 */
-class RDKIT_MONOMERMOL_EXPORT MonomerMol : public ROMol {
+class RDKIT_MONOMERMOL_EXPORT MonomerMol : public RDKit::MACROMol {
+  
  public:
   // Default constructor
-  MonomerMol() : ROMol() {}
+  MonomerMol(bool useGlobalLibrary=false) : MACROMol(), d_library(*MACROMol::getTemplateLibrary()) {
+    if (useGlobalLibrary) {
+      d_library.loadFromGlobalLibrary();
+    }
+
+  }
 
   //! Constructor with custom monomer library
   /*!
     \param library  shared pointer to a MonomerLibrary instance
   */
-  explicit MonomerMol(std::shared_ptr<MonomerLibrary> library)
-      : ROMol(), d_library(std::move(library)) {}
+  explicit MonomerMol(MonomerLibrary *library, bool takeOwnership=false)
+      : MACROMol() , d_library(*MACROMol::getTemplateLibrary()) {
+        setMonomerLibrary(*library, takeOwnership );
+      }
 
   // Copy constructor from ROMol.
   /*!
@@ -99,9 +118,9 @@ class RDKIT_MONOMERMOL_EXPORT MonomerMol : public ROMol {
     \param confId if this is >=0, the resulting MonomerMol will contain only
          the specified conformer from \c other.
   */
-  MonomerMol(const ROMol &other, bool quickCopy = false, int confId = -1)
-      : ROMol(other, quickCopy, confId) {}
-  MonomerMol(const MonomerMol &other);
+  // MonomerMol(const ROMol &other, bool quickCopy = false, int confId = -1)
+  //     : MACROMol(other, quickCopy, confId) {}
+  MonomerMol(const MonomerMol &other) = delete;
   MonomerMol &operator=(const MonomerMol &other);
   MonomerMol(MonomerMol &&other) noexcept;
   MonomerMol &operator=(MonomerMol &&other) noexcept;
@@ -189,7 +208,8 @@ class RDKIT_MONOMERMOL_EXPORT MonomerMol : public ROMol {
    * @param connection_type The type of connection to add
    */
   void addConnection(size_t monomer1, size_t monomer2,
-                     const std::string &linkage);
+                     const std::string &linkage, Bond::BondType bond_type =
+                                 Bond::BondType::SINGLE);
 
   /*
    * Add a connection between an atom and a monomer in the molecule.
@@ -231,13 +251,19 @@ class RDKIT_MONOMERMOL_EXPORT MonomerMol : public ROMol {
     \param library  shared pointer to a MonomerLibrary instance,
                     or nullptr to use the global library
   */
-  void setMonomerLibrary(std::shared_ptr<MonomerLibrary> library);
+  void setMonomerLibrary(std::shared_ptr<MonomerLibrary> library, bool takeOwnership=false);
+  void setMonomerLibrary(MonomerLibrary &library, bool takeOwnership=false);
 
   //! Check if this molecule has a custom library set
-  [[nodiscard]] bool hasCustomLibrary() const { return d_library != nullptr; }
+  [[nodiscard]] bool hasLocalTemplates() { return MACROMol::getTemplateLibrary()->hasLocalTemplates();}
 
  private:
-  std::shared_ptr<MonomerLibrary> d_library;  // nullptr means use global
+  MonomerLibrary d_library; 
+
+  // std::unique_ptr<Atom> makeMonomer(std::string_view name,
+  //                                 std::string_view chain_id,
+  //                                 std::string_view monomer_class,
+  //                                 int residue_number, bool is_smiles);
 };
 
 } // namespace RDKit

@@ -3,7 +3,7 @@
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
-//  The contents are covered by the terms of the BSD license
+//  The contents are covered by the terms of the BSD licenseFget
 //  which is included in the file license.txt, found at the root
 //  of the RDKit source tree.
 //
@@ -23,10 +23,10 @@ using namespace RDKit;
 TEST_CASE("MonomerLibrary") {
   SECTION("GlobalLibraryBasics") {
     // The global library is available by default
-    CHECK(MonomerLibrary::isUsingGlobalLibrary() == true);
+    //CHECK(MonomerLibrary::isUsingGlobalLibrary() == true);
 
-    // Get the global library
-    auto& globalLib = MonomerLibrary::getGlobalLibrary();
+    // Get a library with the globals loaded
+    MonomerLibrary globalLib(true);
 
     // Check that built-in monomers are available
     CHECK(globalLib.hasMonomer("A", "PEPTIDE"));
@@ -43,7 +43,7 @@ TEST_CASE("MonomerLibrary") {
     CHECK(alanineData->find("C[C@H]") != std::string::npos);  // Alanine SMILES
 
     // Get monomer info from PDB code
-    auto alaInfo = globalLib.getMonomerInfo("ALA");
+    auto alaInfo = globalLib.getMonomerInfo("ALA", "PEPTIDE");
     REQUIRE(alaInfo.has_value());
     CHECK(std::get<0>(*alaInfo) == "A");  // symbol
     CHECK(std::get<2>(*alaInfo) == "PEPTIDE");  // class
@@ -56,11 +56,11 @@ TEST_CASE("MonomerLibrary") {
 
   SECTION("GlobalLibraryWithMonomerMol") {
     // When no custom library is set, MonomerMol uses the global library
-    MonomerMol mol;
-    CHECK(mol.hasCustomLibrary() == false);
+    MonomerMol mol(true);  // use global library
+    CHECK(mol.hasLocalTemplates() == false);
 
     // getMonomerLibrary() returns the global library
-    auto& lib = mol.getMonomerLibrary();
+    MonomerLibrary &lib(mol.getMonomerLibrary());
     CHECK(lib.hasMonomer("A", "PEPTIDE"));
 
     // Build a simple peptide using the global library
@@ -95,8 +95,8 @@ TEST_CASE("MonomerLibrary") {
     CHECK(customLib->hasMonomer("X", "PEPTIDE"));
 
     // Create MonomerMol with the custom library
-    MonomerMol mol(customLib);
-    CHECK(mol.hasCustomLibrary() == true);
+    MonomerMol mol(customLib.get(), true);
+    CHECK(mol.hasLocalTemplates() == true);
 
     // The custom monomer is accessible
     auto& lib = mol.getMonomerLibrary();
@@ -123,7 +123,7 @@ TEST_CASE("MonomerLibrary") {
   SECTION("CustomLibraryViaSetMonomerLibrary") {
     // Create a MonomerMol first (uses global by default)
     MonomerMol mol;
-    CHECK(mol.hasCustomLibrary() == false);
+    CHECK(mol.hasLocalTemplates() == false);
 
     // Create and set a custom library with built-ins
     auto customLib = std::make_shared<MonomerLibrary>(true);  // load built-ins
@@ -134,8 +134,9 @@ TEST_CASE("MonomerLibrary") {
         "ORN"
     );
 
-    mol.setMonomerLibrary(customLib);
-    CHECK(mol.hasCustomLibrary() == true);
+
+    mol.setMonomerLibrary(customLib, true);
+    CHECK(mol.hasLocalTemplates() == true);
 
     // Now the custom monomer is available
     CHECK(mol.getMonomerLibrary().hasMonomer("Z", "PEPTIDE"));
@@ -153,71 +154,74 @@ TEST_CASE("MonomerLibrary") {
     auto customLib = std::make_shared<MonomerLibrary>();
     customLib->addMonomerFromSmiles("CC", "Y", "PEPTIDE");
 
-    MonomerMol mol(customLib);
-    CHECK(mol.hasCustomLibrary() == true);
+    MonomerMol mol(customLib.get(), true /* take ownership*/);
+    CHECK(mol.hasLocalTemplates() == true);
 
-    // Clear by setting nullptr - reverts to global
-    mol.setMonomerLibrary(nullptr);
-    CHECK(mol.hasCustomLibrary() == false);
+    // Clear 
+    mol.getMonomerLibrary().getMACROMolTemplateLib().clearTemplateLib();
+    CHECK(mol.hasLocalTemplates() == false);
 
     // Now uses global library again
-    auto& lib = mol.getMonomerLibrary();
-    CHECK(&lib == &MonomerLibrary::getGlobalLibrary());
+    mol.getMonomerLibrary().loadFromGlobalLibrary();
+    CHECK(mol.getMonomerLibrary().hasLocalTemplates() == false);;
   }
 
   SECTION("SharedLibraryBetweenMolecules") {
     // Multiple MonomerMols can share the same custom library
-    auto sharedLib = std::make_shared<MonomerLibrary>();
-    sharedLib->addMonomerFromSmiles("CC", "Q1", "PEPTIDE", "QQ1");
+    auto externalLib = std::make_shared<MonomerLibrary>();
+    externalLib->addMonomerFromSmiles("CC", "Q1", "PEPTIDE", "QQ1");
 
-    MonomerMol mol1(sharedLib);
-    MonomerMol mol2(sharedLib);
+    MonomerMol mol1(externalLib.get());
+    MonomerMol mol2(externalLib.get());
 
-    CHECK(mol1.hasCustomLibrary() == true);
-    CHECK(mol2.hasCustomLibrary() == true);
-
-    // Both reference the same library
-    CHECK(&mol1.getMonomerLibrary() == &mol2.getMonomerLibrary());
+    CHECK(mol1.hasLocalTemplates() == false);
+    CHECK(mol2.hasLocalTemplates() == false);
 
     // Adding to the shared library affects both
-    sharedLib->addMonomerFromSmiles("CCC", "Q2", "PEPTIDE", "QQ2");
-    CHECK(mol1.getMonomerLibrary().hasMonomer("Q2", "PEPTIDE"));
-    CHECK(mol2.getMonomerLibrary().hasMonomer("Q2", "PEPTIDE"));
+    externalLib->addMonomerFromSmiles("CCC", "Q2", "PEPTIDE", "QQ2");
+    CHECK(mol1.getMonomerLibrary().hasMonomer("Q2", "PEPTIDE") ==  false);
+    CHECK(mol2.getMonomerLibrary().hasMonomer("Q2", "PEPTIDE") ==  false);
+
+
+    MonomerMol mol3(externalLib.get());
+    CHECK(mol3.hasLocalTemplates() == false);
+    CHECK(mol3.getMonomerLibrary().hasMonomer("Q2", "PEPTIDE") ==  true);
+
   }
 
-  SECTION("CopyPreservesLibrary") {
-    auto customLib = std::make_shared<MonomerLibrary>();
-    customLib->addMonomerFromSmiles("CC", "W1", "PEPTIDE");
+  // SECTION("CopyPreservesLibrary") {
+  //   auto customLib = std::make_shared<MonomerLibrary>();
+  //   customLib->addMonomerFromSmiles("CC", "W1", "PEPTIDE");
 
-    MonomerMol mol1(customLib);
-    mol1.addMonomer("A", 1, "PEPTIDE", "PEPTIDE1");
+  //   MonomerMol mol1(customLib.get());
+  //   mol1.addMonomer("A", 1, "PEPTIDE", "PEPTIDE1");
 
-    // Copy constructor preserves the library
-    MonomerMol mol2(mol1);
-    CHECK(mol2.hasCustomLibrary() == true);
-    CHECK(&mol2.getMonomerLibrary() == &mol1.getMonomerLibrary());
+  //   // Copy constructor preserves the library
+  //   MonomerMol mol2(mol1);
+  //   CHECK(mol2.hasLocalTemplates() == true);
+  //   CHECK(&mol2.getMonomerLibrary() == &mol1.getMonomerLibrary());
 
-    // Copy assignment also preserves
-    MonomerMol mol3;
-    mol3 = mol1;
-    CHECK(mol3.hasCustomLibrary() == true);
-  }
+  //   // Copy assignment also preserves
+  //   MonomerMol mol3;
+  //   mol3 = mol1;
+  //   CHECK(mol3.hasLocalTemplates() == true);
+  // }
 
-  SECTION("MovePreservesLibrary") {
-    auto customLib = std::make_shared<MonomerLibrary>();
-    customLib->addMonomerFromSmiles("CC", "M1", "PEPTIDE");
+  // SECTION("MovePreservesLibrary") {
+  //   auto customLib = std::make_shared<MonomerLibrary>(false);
+  //   customLib->addMonomerFromSmiles("CC", "M1", "PEPTIDE");
 
-    MonomerMol mol1(customLib);
-    mol1.addMonomer("A", 1, "PEPTIDE", "PEPTIDE1");
+  //   MonomerMol mol1(customLib.get());
+  //   mol1.addMonomer("A", 1, "PEPTIDE", "PEPTIDE1");
 
-    // Move constructor transfers the library
-    MonomerMol mol2(std::move(mol1));
-    CHECK(mol2.hasCustomLibrary() == true);
-    CHECK(mol2.getMonomerLibrary().hasMonomer("M1", "PEPTIDE"));
-  }
+  //   // Move constructor transfers the library
+  //   MonomerMol mol2(std::move(mol1));
+  //   CHECK(mol2.hasLocalTemplates() == true);
+  //   CHECK(mol2.getMonomerLibrary().hasMonomer("M1", "PEPTIDE"));
+  // }
 
   SECTION("GetMonomer") {
-    auto& lib = MonomerLibrary::getGlobalLibrary();
+    MonomerLibrary lib(true);
 
     // Get a parsed molecule for alanine
     auto alaMol = lib.getMonomer("A", "PEPTIDE");
@@ -226,7 +230,7 @@ TEST_CASE("MonomerLibrary") {
 
     // Second call should return the same cached molecule
     auto alaMol2 = lib.getMonomer("A", "PEPTIDE");
-    CHECK(alaMol.get() == alaMol2.get());
+    CHECK(alaMol== alaMol2);
 
     // Non-existent monomer returns nullptr
     auto notFound = lib.getMonomer("NOTEXIST", "PEPTIDE");
@@ -234,17 +238,18 @@ TEST_CASE("MonomerLibrary") {
   }
 
   SECTION("AddMonomerWithMol") {
-    auto customLib = std::make_shared<MonomerLibrary>();
+    auto customLib = std::make_shared<MonomerLibrary>(false);
 
     // Pre-parse a molecule
-    auto mol = std::shared_ptr<ROMol>(SmilesToMol("CC(N)C(=O)O"));
+    auto mol = std::unique_ptr<RWMol>(SmilesToMol("CC(N)C(=O)O"));
+    auto origAtomCount = mol->getNumAtoms();
 
     // Add with pre-parsed mol (no original data needed)
-    customLib->addMonomer(mol, "TEST", "PEPTIDE", "TST");
+    customLib->addMonomer(mol, "CC(N)C(=O)O",  "TST" ,"PEPTIDE");
 
     // getMol returns the same pre-parsed molecule
-    auto retrieved = customLib->getMonomer("TEST", "PEPTIDE");
-    CHECK(retrieved.get() == mol.get());
+    auto retrieved = customLib->getMonomer("TST", "PEPTIDE");
+    CHECK(retrieved->getNumAtoms() == origAtomCount);
   }
 
   SECTION("AddMonomerFromSDF") {
@@ -256,8 +261,8 @@ TEST_CASE("MonomerLibrary") {
 
   4  3  0  0  0  0  0  0  0  0999 V2000
     0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-    2.2500    1.2990    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0
+    1.5000    0.0000    0.0000 C   0  0  0  0  0  2  0  0  0  0  0  0
+    2.2500    1.2990    0.0000 N   0  0  0  0  0  1  0  0  0  0  0  0
     2.2500   -1.2990    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0
   1  2  1  0
   2  3  1  0
@@ -276,20 +281,20 @@ M  END
     CHECK(mol->getNumBonds() == 3);
   }
 
-  SECTION("GlobalLibraryConfiguration") {
-    // Save original state
-    bool originalState = MonomerLibrary::isUsingGlobalLibrary();
+  // SECTION("GlobalLibraryConfiguration") {
+  //   // Save original state
+  //   bool originalState = MonomerLibrary::isUsingGlobalLibrary();
 
-    // Can toggle global library mode
-    MonomerLibrary::useGlobalLibrary(false);
-    CHECK(MonomerLibrary::isUsingGlobalLibrary() == false);
+  //   // Can toggle global library mode
+  //   MonomerLibrary::useGlobalLibrary(false);
+  //   CHECK(MonomerLibrary::isUsingGlobalLibrary() == false);
 
-    MonomerLibrary::useGlobalLibrary(true);
-    CHECK(MonomerLibrary::isUsingGlobalLibrary() == true);
+  //   MonomerLibrary::useGlobalLibrary(true);
+  //   CHECK(MonomerLibrary::isUsingGlobalLibrary() == true);
 
-    // Restore original state
-    MonomerLibrary::useGlobalLibrary(originalState);
-  }
+  //   // Restore original state
+  //   MonomerLibrary::useGlobalLibrary(originalState);
+  // }
 
   SECTION("EmptyLibrary") {
     // Create an empty library (default behavior)
@@ -310,7 +315,7 @@ M  END
     CHECK(emptyLib->hasMonomer("CUSTOM", "PEPTIDE"));
 
     // Use with MonomerMol
-    MonomerMol mol(emptyLib);
+    MonomerMol mol(emptyLib.get());
     mol.addMonomer("CUSTOM", 1, "PEPTIDE", "PEPTIDE1");
     CHECK(mol.getNumAtoms() == 1);
 

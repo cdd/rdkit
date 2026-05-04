@@ -22,6 +22,7 @@
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
 #include <GraphMol/Substruct/SubstructMatch.h>
+#include <GraphMol/FileParsers/MACROMolUtils.h>
 
 #include "MonomerLibrary.h"
 #include "MonomerMol.h"
@@ -29,7 +30,7 @@
 namespace RDKit
 {
 
-namespace
+ namespace
 {
 
 static constexpr const char* MONOMER_IDX{"monomerIndex"};
@@ -506,7 +507,11 @@ getMonomerInfoFromAtom(const MonomerLibrary& db, const RDKit::Atom* atom)
     res_name.erase(
         std::remove_if(res_name.begin(), res_name.end(), ::isspace),
         res_name.end());
-    return db.getMonomerInfo(res_name);
+    auto res_class = res_info->getMonomerClass();
+    if (res_class == "") {
+      res_class = "PEPTIDE";
+    }
+    return db.getMonomerInfo(res_name,res_class);
 }
 
 std::unique_ptr<MonomerMol>
@@ -530,7 +535,7 @@ pdbInfoAtomisticToMM(const RDKit::ROMol& input_mol)
                                                         {"RNA", 0},
                                                         {"DNA", 0},
                                                         {"CHEM", 0}};
-    auto monomer_mol = std::make_unique<MonomerMol>();
+    auto monomer_mol = std::make_unique<MonomerMol>(true);
 
     // Access the monomer library via the MonomerMol instance
     const auto& db = monomer_mol->getMonomerLibrary();
@@ -602,4 +607,29 @@ std::unique_ptr<MonomerMol> toMonomeric(const RDKit::ROMol& atomistic_mol)
     return monomer_mol;
 }
 
-} // namespace RDKit
+// std::unique_ptr<MonomerMol> toMonomeric(const RDKit::ROMol& atomistic_mol) {
+
+
+//     if (!hasPdbResidueInfo(atomistic_mol)) {
+//         // If there is no residue information, we cannot convert to monomeric
+//         // form, so throw an error
+//         throw std::runtime_error(
+//             "No residue information found in molecule, cannot convert to "
+//             "monomeric form");
+//     }
+
+
+//   RDKit::MolToMACROParams molToMACROMolParams;
+//   std::unique_ptr<MonomerMol> monomerMol(new MonomerMol(false));
+
+//   std::unique_ptr<MonomerLibrary> templateLib(new MonomerLibrary(true));
+
+
+//   RDKit::MolToMACROMol(monomerMol.get(), atomistic_mol, templateLib->getMACROMolTemplateLib(),  molToMACROMolParams);
+
+//   monomerMol->assignChains();
+
+//   return monomerMol;
+// }
+
+} // namespace RDKit&

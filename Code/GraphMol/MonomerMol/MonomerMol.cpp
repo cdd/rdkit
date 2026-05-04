@@ -25,41 +25,6 @@ namespace RDKit
 // Helper functions
 namespace {
 
-std::unique_ptr<Atom> makeMonomer(std::string_view name,
-                                  std::string_view chain_id,
-                                  std::string_view monomer_class,
-                                  int residue_number, bool is_smiles)
-{
-    auto a = std::make_unique<::RDKit::Atom>();
-    std::string n{name};
-    // Allows monomer names show up in image renderings
-    a->setProp(RDKit::common_properties::atomLabel, n);
-    // Allows monomer names to be written to SMILES
-    a->setProp(RDKit::common_properties::smilesSymbol, n);
-    // Always start with BRANCH_MONOMER as false, will be set to
-    // true if branch linkage is made to this monomer. Will be used
-    // for rendering and monomer ordering purposes.
-    a->setProp(BRANCH_MONOMER, false);
-    // Provided monomer can be an unnamed monomer represented by a SMILES string,
-    // indicated by is_smiles=True
-    a->setProp(SMILES_MONOMER, is_smiles);
-
-    // Give canonicalization to monomers based on name
-    // TODO: Canonicalize on name and class?
-    static boost::hash<std::string> hasher;
-    a->setIsotope(hasher(n));
-    a->setNoImplicit(true);
-
-    // This is how the information about this monomer is represented
-    auto* monomer_info = new ::RDKit::AtomMonomerInfo();
-    monomer_info->setResidueNumber(residue_number);
-    monomer_info->setResidueName(n);
-    monomer_info->setChainId(std::string{chain_id});
-    monomer_info->setMonomerClass(std::string{monomer_class});
-    a->setMonomerInfo(monomer_info);
-    return a;
-}
-
 std::pair<unsigned int, unsigned int> getAttchpts(const std::string& linkage)
 {
     // in form RX-RY, returns {X, Y}
@@ -73,10 +38,72 @@ std::pair<unsigned int, unsigned int> getAttchpts(const std::string& linkage)
 
 } // anonymous namespace
 
+
+size_t MonomerMol::addMonomer(std::string_view name, int residue_number, std::string_view monomer_class,
+                              std::string_view chain_id, MonomerType monomer_type)
+
+// unsigned int MonomerMol::makeMonomer(std::string_view name,
+//                                   std::string_view chain_id,
+//                                   std::string_view monomer_class,
+//                                   int residue_number, bool is_smiles)
+{
+    // see if this is an "immediate mode" macro ref (smiles type)
+    //if so, create the template on the fly and assign the once-name to the new reference
+
+
+    std::string n{name};
+    std::string monomerClass(monomer_class);
+    //if (is_smiles) {
+    if (monomer_type == MonomerType::SMILES) {
+
+      // new name
+      std::string smiles(name);
+
+      auto &templateLib = this->d_library.getMACROMolTemplateLib();
+      n = "SM" + std::to_string(templateLib.getOwnedTemplateCount() + 1);
+
+      this->d_library.addMonomerFromSmiles(smiles, n, monomerClass); // owned by the local lib
+    }
+
+
+    //auto a = std::make_unique<::RDKit::Atom>();
+    auto newAtomId = addMacroAtom(monomerClass, n);
+    auto a = this->getAtomWithIdx(newAtomId);
+    
+    // Allows monomer names show up in image renderings
+    a->setProp(RDKit::common_properties::atomLabel, n);
+    // Allows monomer names to be written to SMILES
+    a->setProp(RDKit::common_properties::smilesSymbol, n);
+    // Always start with BRANCH_MONOMER as false, will be set to
+    // true if branch linkage is made to this monomer. Will be used
+    // for rendering and monomer ordering purposes.
+    //a->setProp(BRANCH_MONOMER, false);
+    // Provided monomer can be an unnamed monomer represented by a SMILES string,
+    // indicated by is_smiles=True
+    //a->setProp(SMILES_MONOMER, is_smiles);
+
+    // Give canonicalization to monomers based on name
+    // TODO: Canonicalize on name and class?
+    static boost::hash<std::string> hasher;
+    a->setIsotope(hasher(n));
+    a->setNoImplicit(true);
+
+    // This is how the information about this monomer is represented
+    auto* monomer_info = new ::RDKit::AtomMonomerInfo();
+    monomer_info->setResidueNumber(residue_number);
+    monomer_info->setResidueName(n);
+    monomer_info->setChainId(std::string{chain_id});
+    monomer_info->setMonomerClass(monomerClass);
+    a->setMonomerInfo(monomer_info);
+    return newAtomId;
+}
+
+
+
 // MonomerMol constructor/assignment implementations
 
-MonomerMol::MonomerMol(const MonomerMol &other)
-    : ROMol(other), d_library(other.d_library) {}
+// MonomerMol::MonomerMol(const MonomerMol &other)
+//     : MACROMol(other), d_library(other.d_library) {}
 
 MonomerMol &MonomerMol::operator=(const MonomerMol &other)
 {
@@ -84,22 +111,23 @@ MonomerMol &MonomerMol::operator=(const MonomerMol &other)
     this->clear();
     numBonds = 0;
     initFromOther(other, false, -1);
-    d_library = other.d_library;
+
+    d_library.getMACROMolTemplateLib().copyTemplateLib(other.d_library.getMACROMolTemplateLib());
   }
   return *this;
 }
 
-MonomerMol::MonomerMol(MonomerMol &&other) noexcept
-    : ROMol(std::move(other)), d_library(std::move(other.d_library)) {}
+// MonomerMol::MonomerMol(MonomerMol &&other) noexcept
+//     : MACROMol(std::move(other)), d_library(std::move(other.d_library)) {}
 
 MonomerMol &MonomerMol::operator=(MonomerMol &&other) noexcept
 {
     ROMol::operator=(std::move(other));
-    d_library = std::move(other.d_library);
+    d_library.getMACROMolTemplateLib().copyTemplateLib(other.d_library.getMACROMolTemplateLib());
     return *this;
 }
 
-MonomerMol::MonomerMol(const std::string &binStr)
+MonomerMol::MonomerMol(const std::string &binStr) : d_library(*MACROMol::getTemplateLibrary())
 {
     MolPickler::molFromPickle(binStr, *this);
 }
@@ -108,133 +136,200 @@ MonomerMol::MonomerMol(const std::string &binStr)
 
 MonomerLibrary& MonomerMol::getMonomerLibrary()
 {
-    if (d_library) {
-        return *d_library;
-    }
-    return MonomerLibrary::getGlobalLibrary();
+    // if (d_library) {
+        return d_library;
+    // }
+    //return MonomerLibrary::getGlobalLibrary();
 }
 
 const MonomerLibrary& MonomerMol::getMonomerLibrary() const
 {
-    if (d_library) {
-        return *d_library;
-    }
-    return MonomerLibrary::getGlobalLibrary();
+    // if (d_library) {
+       return d_library;
+    // }
+    //return MonomerLibrary::getGlobalLibrary();
 }
 
-void MonomerMol::setMonomerLibrary(std::shared_ptr<MonomerLibrary> library)
+void MonomerMol::setMonomerLibrary(std::shared_ptr<MonomerLibrary> library, bool takeOwnership)
 {
-    d_library = std::move(library);
+    //d_library = std::move(library);
+    d_library.getMACROMolTemplateLib().setTemplateLib(library->getMACROMolTemplateLib(), takeOwnership);
 }
 
+void MonomerMol::setMonomerLibrary(MonomerLibrary &library, bool takeOwnership)
+{
+    d_library.getMACROMolTemplateLib().setTemplateLib(library.getMACROMolTemplateLib(), takeOwnership);
+}
 // MonomerMol member function implementations
 
 void MonomerMol::addConnection(size_t monomer1, size_t monomer2,
-                               const std::string& linkage)
-{
-    if (!isMonomer(getAtomWithIdx(monomer1)) || !isMonomer(getAtomWithIdx(monomer2))) {
-        throw std::runtime_error("addConnection must be called with two monomers.");
-    }
-
-    // if bond already exists, extend linkage information using 'extra_linkage' property
-    if (auto bond = getBondBetweenAtoms(monomer1, monomer2); bond != nullptr) {
-
-        // If the linkage property isn't set, something went wrong
-        std::string existing_linkage;
-        if (!bond->getPropIfPresent(LINKAGE, existing_linkage)) {
-            throw std::runtime_error(
-                "No linkage property on bond between atom=" +
-                std::to_string(monomer1) + " and atom=" + std::to_string(monomer2));
-        }
-
-        // Make sure we're not recreating this same bond.
-        if (existing_linkage.find(linkage) != std::string::npos) {
-            throw std::runtime_error(
-                "Can't duplicate " + linkage + " bond between atom=" +
-                std::to_string(monomer1) + " and atom=" + std::to_string(monomer2));
-        }
-
-        // For now, only set 'extra linkage' on linkages that already exist as a part
-        // of the backbone
-        if (existing_linkage != BACKBONE_LINKAGE) {
-            throw std::runtime_error(
-                "Only dative bonds can have multiple linkages between atom=" +
-                std::to_string(monomer1) + " and atom=" + std::to_string(monomer2));
-        }
-
-        // Since hydrogen bonding and covalent bonds are different types of bond
-        // serializing them with the same bond type doesn't make too much sense.
-        if (linkage == HYDROGEN_LINKAGE) {
-            throw std::runtime_error(
-                "Multiple bonds can't include hydrogen bond for bond between atom=" +
-                std::to_string(monomer1) + " and atom=" + std::to_string(monomer2));
-        }
-
-        // For now, don't allow >2 additional linkages between the same
-        // two monomers
-        if (bond->hasProp(EXTRA_LINKAGE)) {
-            throw std::runtime_error(
-                "Multiple custom bonds not supported for bond between atom=" +
-                std::to_string(monomer1) + " and atom=" + std::to_string(monomer2));
-        }
-
-
-        bond->setProp(EXTRA_LINKAGE, linkage);
-    } else {
-        auto create_bond = [&, this](unsigned int first_monomer,
-                               unsigned int second_monomer,
-                               ::RDKit::Bond::BondType bond_type,
-                               const std::string& linkage_prop) {
-            const auto new_total = this->addBond(first_monomer, second_monomer, bond_type);
-            auto bond = this->getBondWithIdx(new_total - 1);
-            bond->setProp(LINKAGE, linkage_prop);
-        };
-
-        // Connections that use specific and different attachment points (such
-        // as R2-R1 or R3-R1) should be set as directional (dative) bonds so
-        // that substructure matching and canonicalization can take sequence
-        // direction into account. To ensure consistent bond directionality, we
-        // always set the direction from the higher attachment point to the
-        // lower attachment point.
-        bool set_directional_bond = false;
-        if (linkage.front() != 'p' && linkage.find('?') == std::string::npos) {
-            auto [begin_attchpt, end_attchpt] = getAttchpts(linkage);
-            if (begin_attchpt > end_attchpt) {
-                create_bond(monomer1, monomer2, ::RDKit::Bond::DATIVE, linkage);
-                set_directional_bond = true;
-            } else if (begin_attchpt < end_attchpt) {
-                auto new_linkage = "R" + std::to_string(end_attchpt) + "-R" + std::to_string(begin_attchpt);
-                create_bond(monomer2, monomer1, ::RDKit::Bond::DATIVE,
-                            new_linkage);
-                set_directional_bond = true;
-            }
-        }
-
-        if (!set_directional_bond) {
-            auto bond_type = (linkage.front() == 'p' ? ::RDKit::Bond::ZERO
-                                                     : ::RDKit::Bond::SINGLE);
-            create_bond(monomer1, monomer2, bond_type, linkage);
-        }
-
-        if (linkage == BRANCH_LINKAGE) {
-            // monomer2 is a branch monomer
-            this->getAtomWithIdx(monomer2)->setProp(BRANCH_MONOMER, true);
-        }
-    }
-}
-
-void MonomerMol::addAtomMonomerConnection(size_t atom_idx, size_t monomer_idx,
                                const std::string& linkage, Bond::BondType bond_type)
 {
-    if (!isMonomer(this->getAtomWithIdx(monomer_idx)) || isMonomer(this->getAtomWithIdx(atom_idx))) {
-        throw std::runtime_error(
-            "addAtomMonomerConnection must be called with an atom and a monomer.");
+    // PRECONDITION(isMonomer(getAtomWithIdx(monomer1)) && isMonomer(getAtomWithIdx(monomer2)), "addConnection must be called with two monomers.");
+    // if (!isMonomer(getAtomWithIdx(monomer1)) || !isMonomer(getAtomWithIdx(monomer2))) {
+    //     throw std::runtime_error("addConnection must be called with two monomers.");
+    // }
+   
+
+    std::vector<std::string> connectionLabels;
+ 
+    auto atom1 = getAtomWithIdx(monomer1);
+    auto atom2 = getAtomWithIdx(monomer2);
+
+    // if either atom is a monomer, there must be a linkage parameter
+
+    if (isMonomer(atom1 )|| isMonomer(atom2)) {
+
+        // bond must be single or hydrogen if it is between two monomers or is a monomer-atom bond
+        if (bond_type != Bond::BondType::SINGLE && bond_type == Bond::BondType::HYDROGEN) {
+            throw std::runtime_error(
+                    "Bond type to any Monomer is not SINGLE or HYDROGEN for bond between atom=" +
+                    std::to_string(monomer1) + " and atom=" + std::to_string(monomer2));
+        };
+
+        // linkage must be of the form. Ln1-ln2 .  For now one of:  R2-R1, R3-R1, R3-R3.
+        // For a hydrogen bond, the bond type is HYDROGEN.
+
+        // get the connect points from the linkage
+
+        boost::algorithm::split(connectionLabels, linkage, boost::algorithm::is_any_of("-"));
+
+        if (connectionLabels.size() != 2) {
+                throw std::runtime_error(
+                    "Linkage " + linkage + "is not of the form \"L1-L2\" for bond between atom=" +
+                    std::to_string(monomer1) + " and atom=" + std::to_string(monomer2));
+        }
+
+        // make sure there are not two bonds with the same connection labels
+        
+        for (auto bondI : boost::make_iterator_range(getAtomBonds(atom1))) {
+            auto bond = (*this)[bondI];
+
+            if (bond->getOtherAtom(atom1) != atom2) {
+                continue;  // only looking at bonds between the same two atoms
+            }
+
+            std::string tempProp1="", tempProp2= "";
+            if ((bond->getPropIfPresent(common_properties::_MolFileBondAttachPt1,tempProp1) &&
+                (tempProp1 == connectionLabels[0] || tempProp1 == connectionLabels[1])) ||
+                (bond->getPropIfPresent(common_properties::_MolFileBondAttachPt2,tempProp2) &&
+                (tempProp1 == connectionLabels[0] || tempProp1 == connectionLabels[1]))) {
+                throw std::runtime_error(
+                    "Bond with linkage " + connectionLabels[0] + " or "  + connectionLabels[1] + " already found for bond between atom=" +
+                    std::to_string(monomer1) + " and atom=" + std::to_string(monomer2));
+            }
+        }
     }
 
-    const auto new_total = this->addBond(atom_idx, monomer_idx, bond_type);
+    const auto new_total = this->addBond(monomer1, monomer2, bond_type);
     auto bond = this->getBondWithIdx(new_total - 1);
-    bond->setProp(LINKAGE, linkage);
+
+    if (isMonomer(getAtomWithIdx(monomer1)) && connectionLabels[0] != "ATOM") {
+        bond->setProp(common_properties::_MolFileBondAttachPt1, connectionLabels[0]);
+    }
+    if (isMonomer(getAtomWithIdx(monomer2)) && connectionLabels[1] != "ATOM") {
+        bond->setProp(common_properties::_MolFileBondAttachPt2, connectionLabels[1]);
+    }
+
+    // // if bond already exists, extend linkage information using 'extra_linkage' property
+    // if (auto bond = getBondBetweenAtoms(monomer1, monomer2); bond != nullptr) {
+
+    //     // If the linkage property isn't set, something went wrong
+    //     std::string existing_linkage;
+    //     if (!bond->getPropIfPresent(LINKAGE, existing_linkage)) {
+    //         throw std::runtime_error(
+    //             "No linkage property on bond between atom=" +
+    //             std::to_string(monomer1) + " and atom=" + std::to_string(monomer2));
+    //     }
+
+    //     // Make sure we're not recreating this same bond.
+    //     if (existing_linkage.find(linkage) != std::string::npos) {
+    //         throw std::runtime_error(
+    //             "Can't duplicate " + linkage + " bond between atom=" +
+    //             std::to_string(monomer1) + " and atom=" + std::to_string(monomer2));
+    //     }
+
+    //     // For now, only set 'extra linkage' on linkages that already exist as a part
+    //     // of the backbone
+    //     if (existing_linkage != BACKBONE_LINKAGE) {
+    //         throw std::runtime_error(
+    //             "Only dative bonds can have multiple linkages between atom=" +
+    //             std::to_string(monomer1) + " and atom=" + std::to_string(monomer2));
+    //     }
+
+    //     // Since hydrogen bonding and covalent bonds are different types of bond
+    //     // serializing them with the same bond type doesn't make too much sense.
+    //     if (linkage == HYDROGEN_LINKAGE) {
+    //         throw std::runtime_error(
+    //             "Multiple bonds can't include hydrogen bond for bond between atom=" +
+    //             std::to_string(monomer1) + " and atom=" + std::to_string(monomer2));
+    //     }
+
+    //     // For now, don't allow >2 additional linkages between the same
+    //     // two monomers
+    //     if (bond->hasProp(EXTRA_LINKAGE)) {
+    //         throw std::runtime_error(
+    //             "Multiple custom bonds not supported for bond between atom=" +
+    //             std::to_string(monomer1) + " and atom=" + std::to_string(monomer2));
+    //     }
+
+
+    //     bond->setProp(EXTRA_LINKAGE, linkage);
+    // } else {
+    //     auto create_bond = [&, this](unsigned int first_monomer,
+    //                            unsigned int second_monomer,
+    //                            ::RDKit::Bond::BondType bond_type,
+    //                            const std::string& linkage_prop) {
+    //         const auto new_total = this->addBond(first_monomer, second_monomer, bond_type);
+    //         auto bond = this->getBondWithIdx(new_total - 1);
+    //         bond->setProp(LINKAGE, linkage_prop);
+    //     };
+
+    //     // Connections that use specific and different attachment points (such
+    //     // as R2-R1 or R3-R1) should be set as directional (dative) bonds so
+    //     // that substructure matching and canonicalization can take sequence
+    //     // direction into account. To ensure consistent bond directionality, we
+    //     // always set the direction from the higher attachment point to the
+    //     // lower attachment point.
+    //     bool set_directional_bond = false;
+    //     if (linkage.front() != 'p' && linkage.find('?') == std::string::npos) {
+    //         auto [begin_attchpt, end_attchpt] = getAttchpts(linkage);
+    //         if (begin_attchpt > end_attchpt) {
+    //             create_bond(monomer1, monomer2, ::RDKit::Bond::DATIVE, linkage);
+    //             set_directional_bond = true;
+    //         } else if (begin_attchpt < end_attchpt) {
+    //             auto new_linkage = "R" + std::to_string(end_attchpt) + "-R" + std::to_string(begin_attchpt);
+    //             create_bond(monomer2, monomer1, ::RDKit::Bond::DATIVE,
+    //                         new_linkage);
+    //             set_directional_bond = true;
+    //         }
+    //     }
+
+    //     if (!set_directional_bond) {
+    //         auto bond_type = (linkage.front() == 'p' ? ::RDKit::Bond::ZERO
+    //                                                  : ::RDKit::Bond::SINGLE);
+    //         create_bond(monomer1, monomer2, bond_type, linkage);
+    //     }
+
+    //     if (linkage == BRANCH_LINKAGE) {
+    //         // monomer2 is a branch monomer
+    //         this->getAtomWithIdx(monomer2)->setProp(BRANCH_MONOMER, true);
+    //     }
+    // }
 }
+
+// void MonomerMol::addAtomMonomerConnection(size_t atom_idx, size_t monomer_idx,
+//                                const std::string& linkage, Bond::BondType bond_type)
+// {
+//     if (!isMonomer(this->getAtomWithIdx(monomer_idx)) || isMonomer(this->getAtomWithIdx(atom_idx))) {
+//         throw std::runtime_error(
+//             "addAtomMonomerConnection must be called with an atom and a monomer.");
+//     }
+
+//     const auto new_total = this->addBond(atom_idx, monomer_idx, bond_type);
+//     auto bond = this->getBondWithIdx(new_total - 1);
+//     bond->setProp(LINKAGE, linkage);
+// }
 
 unsigned int MonomerMol::addBond(unsigned int atomIdx1, unsigned int atomIdx2,
                             Bond::BondType bondType) {
@@ -297,16 +392,16 @@ std::vector<std::string> MonomerMol::getPolymerIds() const
     return polymer_ids;
 }
 
-size_t MonomerMol::addMonomer(std::string_view name, int residue_number, std::string_view monomer_class,
-                              std::string_view chain_id, MonomerType monomer_type)
-{
-    auto monomer = makeMonomer(name, chain_id, monomer_class, residue_number,
-                               monomer_type == MonomerType::SMILES);
-    bool update_label = true;
-    bool take_ownership = true;
-    auto new_index = addAtom(monomer.release(), update_label, take_ownership);
-    return new_index;
-}
+// size_t MonomerMol::addMonomer(std::string_view name, int residue_number, std::string_view monomer_class,
+//                               std::string_view chain_id, MonomerType monomer_type)
+// {
+//     auto monomer = makeMonomer(name, chain_id, monomer_class, residue_number,
+//                                monomer_type == MonomerType::SMILES);
+//     bool update_label = true;
+//     bool take_ownership = true;
+//     auto new_index = addAtom(monomer.release(), update_label, take_ownership);
+//     return new_index;
+// }
 
 size_t MonomerMol::addMonomer(std::string_view name, MonomerType monomer_type)
 {

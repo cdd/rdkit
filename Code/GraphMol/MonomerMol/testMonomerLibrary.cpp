@@ -189,36 +189,49 @@ TEST_CASE("MonomerLibrary") {
 
   }
 
-  // SECTION("CopyPreservesLibrary") {
-  //   auto customLib = std::make_shared<MonomerLibrary>();
-  //   customLib->addMonomerFromSmiles("CC", "W1", "PEPTIDE");
+  SECTION("CopyPreservesLibrary") {
+    auto customLib = std::make_shared<MonomerLibrary>();
+    customLib->addMonomerFromSmiles("CC", "W1", "PEPTIDE");
 
-  //   MonomerMol mol1(customLib.get());
-  //   mol1.addMonomer("A", 1, "PEPTIDE", "PEPTIDE1");
+    MonomerMol mol1(customLib.get());
+    mol1.addMonomer("A", 1, "PEPTIDE", "PEPTIDE1");
+    
+    // Copy constructor preserves the library
+    MonomerMol mol2(mol1);
 
-  //   // Copy constructor preserves the library
-  //   MonomerMol mol2(mol1);
-  //   CHECK(mol2.hasLocalTemplates() == true);
-  //   CHECK(&mol2.getMonomerLibrary() == &mol1.getMonomerLibrary());
+    customLib->addMonomerFromSmiles("CCCC", "W2", "PEPTIDE");
 
-  //   // Copy assignment also preserves
-  //   MonomerMol mol3;
-  //   mol3 = mol1;
-  //   CHECK(mol3.hasLocalTemplates() == true);
-  // }
+    CHECK(mol2.hasLocalTemplates() == false);
+    CHECK(mol2.getMonomerLibrary().getMACROMolTemplateLib().size() == mol1.getMonomerLibrary().getMACROMolTemplateLib().size());
+    CHECK(mol2.getMonomerLibrary().hasMonomer("W1", "PEPTIDE")== true);
+    CHECK(mol2.getMonomerLibrary().hasMonomer("W2", "PEPTIDE")== false);
+    
+    mol2.getMonomerLibrary().copyMonomerLib(*(customLib.get()));
+    CHECK(mol2.getMonomerLibrary().hasMonomer("W2", "PEPTIDE")== true);
 
-  // SECTION("MovePreservesLibrary") {
-  //   auto customLib = std::make_shared<MonomerLibrary>(false);
-  //   customLib->addMonomerFromSmiles("CC", "M1", "PEPTIDE");
+    // Copy assignment also preserves
+    // MonomerMol mol3;
+    // mol3 = mol1;
+    // CHECK(mol3.hasLocalTemplates() == true);
+  }
 
-  //   MonomerMol mol1(customLib.get());
-  //   mol1.addMonomer("A", 1, "PEPTIDE", "PEPTIDE1");
+  SECTION("MovePreservesLibrary") {
+    auto customLib = std::make_shared<MonomerLibrary>(false);
+    customLib->addMonomerFromSmiles("CC", "M1", "PEPTIDE");
 
-  //   // Move constructor transfers the library
-  //   MonomerMol mol2(std::move(mol1));
-  //   CHECK(mol2.hasLocalTemplates() == true);
-  //   CHECK(mol2.getMonomerLibrary().hasMonomer("M1", "PEPTIDE"));
-  // }
+    MonomerMol mol1(customLib.get());
+    mol1.addMonomer("A", 1, "PEPTIDE", "PEPTIDE1");
+
+    // Move constructor transfers the library
+    MonomerMol mol2(std::move(mol1));
+    CHECK(mol2.hasLocalTemplates() == false);
+    CHECK(mol2.getMonomerLibrary().hasMonomer("M1", "PEPTIDE"));
+
+    MonomerMol mol3 = std::move(mol2);
+    CHECK(mol3.hasLocalTemplates() == false);
+    CHECK(mol3.getMonomerLibrary().hasMonomer("M1", "PEPTIDE"));
+
+  }
 
   SECTION("GetMonomer") {
     MonomerLibrary lib(true);

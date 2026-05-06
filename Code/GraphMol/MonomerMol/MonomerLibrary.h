@@ -75,6 +75,10 @@ class RDKIT_MONOMERMOL_EXPORT MonomerLibrary{
     MonomerLibrary(MonomerLibrary&&) = default;
     MonomerLibrary& operator=(MonomerLibrary&&) = default;
 
+    void copyMonomerLib(const MonomerLibrary &libToCopy){
+        d_macroMolTemplateLib.copyTemplateLib(libToCopy.getMACROMolTemplateLib());
+    }
+
     // --- Query operations ---
 
     //! Get original data (SMILES/SDF/etc) for a monomer by its symbol and class

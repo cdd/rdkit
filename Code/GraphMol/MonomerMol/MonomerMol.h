@@ -116,14 +116,15 @@ class RDKIT_MONOMERMOL_EXPORT MonomerMol : public RDKit::MACROMol {
     \param quickCopy (optional) if this is true, the resulting MonomerMol will not
          copy any of the properties or bookmarks and conformers from \c other.
     \param confId if this is >=0, the resulting MonomerMol will contain only
-         the specified conformer from \c other.
+         the specified conformer from \c other
   */
   // MonomerMol(const ROMol &other, bool quickCopy = false, int confId = -1)
   //     : MACROMol(other, quickCopy, confId) {}
-  MonomerMol(const MonomerMol &other) = delete;
+  MonomerMol(const MonomerMol &other):  MACROMol((const MACROMol) other) , d_library(*MACROMol::getTemplateLibrary()) {
+  }
   MonomerMol &operator=(const MonomerMol &other);
-  MonomerMol(MonomerMol &&other) noexcept;
-  MonomerMol &operator=(MonomerMol &&other) noexcept;
+  MonomerMol(MonomerMol &&other) noexcept =default;
+  MonomerMol &operator=(MonomerMol &&other) noexcept = default;
   MonomerMol(const std::string &binStr); // Pickle constructor (for deserialization)
 
   //! adds an Atom (not a monomer!) to our collection, effectively making ROMol::addAtom public

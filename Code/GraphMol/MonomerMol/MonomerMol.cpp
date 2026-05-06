@@ -117,15 +117,6 @@ MonomerMol &MonomerMol::operator=(const MonomerMol &other)
   return *this;
 }
 
-// MonomerMol::MonomerMol(MonomerMol &&other) noexcept
-//     : MACROMol(std::move(other)), d_library(std::move(other.d_library)) {}
-
-MonomerMol &MonomerMol::operator=(MonomerMol &&other) noexcept
-{
-    ROMol::operator=(std::move(other));
-    d_library.getMACROMolTemplateLib().copyTemplateLib(other.d_library.getMACROMolTemplateLib());
-    return *this;
-}
 
 MonomerMol::MonomerMol(const std::string &binStr) : d_library(*MACROMol::getTemplateLibrary())
 {

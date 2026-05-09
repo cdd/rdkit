@@ -346,7 +346,7 @@ TEST_CASE("Conversions") {
   SECTION("toMonomeric1DNG") {
     std::string pdbfile = getenv("RDBASE");
     pdbfile += "/Code/GraphMol/MonomerMol/test_data/1dng.pdb";
-    auto mol = PDBFileToMol(pdbfile);
+    auto mol = std::unique_ptr<RWMol>(PDBFileToMol(pdbfile));
     auto monomer_mol = toMonomeric(*mol);
 
     CHECK(std::string(">Chain PEPTIDE1\nQAPAYEEAAEELAKS") == to_fasta(*monomer_mol));
@@ -363,7 +363,7 @@ TEST_CASE("Conversions") {
     // Example with multiple chains and a disulfide bond between chains
     std::string pdbfile = getenv("RDBASE");
     pdbfile += "/Code/GraphMol/MonomerMol/test_data/2n65.pdb";
-    auto mol = PDBFileToMol(pdbfile);
+    auto mol = std::unique_ptr<RWMol>(PDBFileToMol(pdbfile));
     auto monomer_mol = toMonomeric(*mol);
 
     CHECK(std::string(">Chain PEPTIDE1\nVARGWKRKCPLFGKGG\n>Chain PEPTIDE2\nVARGWKRKCPLFGKGG") == to_fasta(*monomer_mol));
@@ -381,10 +381,10 @@ TEST_CASE("Conversions") {
     // Example with disulfide bond between chains and within chains
     std::string pdbfile = getenv("RDBASE");
     pdbfile += "/Code/GraphMol/MonomerMol/test_data/4qaf.pdb";
-    auto mol = PDBFileToMol(pdbfile);
+    auto mol = std::unique_ptr<RWMol>(PDBFileToMol(pdbfile));
     remove_solvents(*mol); // we don't care about water or S04
 
-    auto monomer_mol = toMonomeric(*mol);
+    auto monomer_mol = toMonomeric(*(mol.get()));
 
     // There should be 4 chains
     auto polymer_ids = monomer_mol->getPolymerIds();
@@ -403,7 +403,7 @@ TEST_CASE("Conversions") {
     // Example with disulfide bond and R2-R1 cycle closure
     std::string pdbfile = getenv("RDBASE");
     pdbfile += "/Code/GraphMol/MonomerMol/test_data/5vav.pdb";
-    auto mol = PDBFileToMol(pdbfile);
+    auto mol = std::unique_ptr<RWMol>(PDBFileToMol(pdbfile));
     auto monomer_mol = toMonomeric(*mol);
     
     remove_solvents(*mol); // we don't care about water or S04

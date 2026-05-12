@@ -202,7 +202,7 @@ TEST_CASE("MonomerLibrary") {
     customLib->addMonomerFromSmiles("CCCC", "W2", "PEPTIDE");
 
     CHECK(mol2.hasLocalTemplates() == false);
-    CHECK(mol2.getMonomerLibrary().getMACROMolTemplateLib().size() == mol1.getMonomerLibrary().getMACROMolTemplateLib().size());
+    CHECK(mol2.getMonomerLibrary().getMACROMolTemplateLib().getNumMonomers() == mol1.getMonomerLibrary().getMACROMolTemplateLib().getNumMonomers());
     CHECK(mol2.getMonomerLibrary().hasMonomer("W1", "PEPTIDE")== true);
     CHECK(mol2.getMonomerLibrary().hasMonomer("W2", "PEPTIDE")== false);
     

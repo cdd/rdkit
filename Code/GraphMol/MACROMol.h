@@ -59,7 +59,7 @@ class RDKIT_GRAPHMOL_EXPORT MACROMolTemplate : public RDKit::RWMol {
 class MACROMolTemplateKey: public std::pair<std::string, std::string>{};
 
 
-class RDKIT_GRAPHMOL_EXPORT MACROMolTemplateLib : public std::vector<MACROMolTemplate *> {
+class RDKIT_GRAPHMOL_EXPORT MACROMolTemplateLib : protected std::vector<MACROMolTemplate *> {
   
     private:
 
@@ -115,6 +115,11 @@ public:
     unsigned int getOwnedTemplateCount() {
       return ownedTemplates.size();
     }
+
+    unsigned int getNumMonomers(){
+      return this->size();
+    }
+
 
 
     unsigned int getTemplateCount() const { return this->size(); }
@@ -203,7 +208,7 @@ class RDKIT_GRAPHMOL_EXPORT MACROMol : public RWMol {
 
 
   void clearTemplateLibrary() {
-    d_templateLibrary.clear();
+    d_templateLibrary.clearTemplateLib();
   }
 
   void addTemplateLibrary(MACROMolTemplateLib &lib,
@@ -216,6 +221,7 @@ class RDKIT_GRAPHMOL_EXPORT MACROMol : public RWMol {
                           bool takeOwnership = true) {
     d_templateLibrary.setTemplateLib(lib, takeOwnership);
   }
+
 
   void addTemplate(std::unique_ptr<MACROMolTemplate> &templateMol, bool takeOwnership=true) {
     PRECONDITION(templateMol, "bad template molecule");

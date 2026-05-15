@@ -538,14 +538,14 @@ pdbInfoAtomisticToMM(const RDKit::ROMol& input_mol)
     auto monomer_mol = std::make_unique<MonomerMol>(true);
 
     // Access the monomer library via the MonomerMol instance
-    const auto& db = monomer_mol->getMonomerLibrary();
+    const auto& db = monomer_mol->getGlobalLibrary();
 
     for (const auto& [chain_id, residues] : chains_and_residues) {
         // Use first residue to determine chain type. We assume that PDB data
         // is correct and there aren't multiple chain types in a single chain.
         // Default chain type is PEPTIDE if not specified.
         auto monomer_info = getMonomerInfoFromAtom(
-            db, mol.getAtomWithIdx(residues.begin()->second[0]));
+            *db, mol.getAtomWithIdx(residues.begin()->second[0]));
         auto monomer_class =
             monomer_info ? std::get<2>(*monomer_info) : std::string("PEPTIDE");
         std::string polymer_chain_id = monomer_class +
@@ -553,7 +553,7 @@ pdbInfoAtomisticToMM(const RDKit::ROMol& input_mol)
         // Assuming residues are ordered correctly
         unsigned int res_num = 1;
         for (const auto& [key, atom_idxs] : residues) {
-            monomer_info = getMonomerInfoFromAtom(db, mol.getAtomWithIdx(atom_idxs[0]));
+            monomer_info = getMonomerInfoFromAtom(*db, mol.getAtomWithIdx(atom_idxs[0]));
             bool end_of_chain = res_num == residues.size();
             unsigned int this_monomer;
             if (monomer_info &&

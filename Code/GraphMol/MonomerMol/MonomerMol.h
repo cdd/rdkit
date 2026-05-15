@@ -94,9 +94,10 @@ class RDKIT_MONOMERMOL_EXPORT MonomerMol : public RDKit::MACROMol {
   
  public:
   // Default constructor
-  MonomerMol(bool useGlobalLibrary=false) : MACROMol(), d_library(*MACROMol::getTemplateLibrary()) {
+  MonomerMol(bool useGlobalLibrary=false) : MACROMol(), d_internalLibrary(*MACROMol::getTemplateLibrary()) {
     if (useGlobalLibrary) {
-      d_library.loadFromGlobalLibrary();
+      d_globalLibrary = MonomerLibrary::getGlobalLibrary();
+      this->addTemplateLibrary(&d_globalLibrary->getMACROMolTemplateLib());
     }
 
   }
@@ -105,9 +106,9 @@ class RDKIT_MONOMERMOL_EXPORT MonomerMol : public RDKit::MACROMol {
   /*!
     \param library  shared pointer to a MonomerLibrary instance
   */
-  explicit MonomerMol(MonomerLibrary *library, bool takeOwnership=false)
-      : MACROMol() , d_library(*MACROMol::getTemplateLibrary()) {
-        setMonomerLibrary(*library, takeOwnership );
+  explicit MonomerMol(MonomerLibrary *library)
+      : MACROMol() , d_internalLibrary(*MACROMol::getTemplateLibrary()) {
+        setCustomMonomerLibrary(library );
       }
 
   // Copy constructor from ROMol.
@@ -120,7 +121,15 @@ class RDKIT_MONOMERMOL_EXPORT MonomerMol : public RDKit::MACROMol {
   */
   // MonomerMol(const ROMol &other, bool quickCopy = false, int confId = -1)
   //     : MACROMol(other, quickCopy, confId) {}
-  MonomerMol(const MonomerMol &other):  MACROMol((const MACROMol) other) , d_library(*MACROMol::getTemplateLibrary()) {
+  MonomerMol(const MonomerMol &other):  MACROMol((const MACROMol) other) , d_internalLibrary(*MACROMol::getTemplateLibrary()) {
+    if (other.hasCustomLibrary()) {
+      this->setCustomMonomerLibrary(other.getCustomLibrary());
+     //this->addTemplateLibrary(other.getCustomLibrary());
+    }
+    if (other.usingGlobalLibrary()) {
+      this->addGlobalLibrary();
+    }
+    
   }
   MonomerMol &operator=(const MonomerMol &other);
   MonomerMol(MonomerMol &&other) noexcept =default;
@@ -142,6 +151,41 @@ class RDKIT_MONOMERMOL_EXPORT MonomerMol : public RDKit::MACROMol {
                        bool takeOwnership = false) {
     return ROMol::addAtom(atom, updateLabel, takeOwnership);
   }
+
+  void addGlobalLibrary() {
+    if (d_globalLibrary != nullptr) {
+      return;  // already loaded
+    }
+    
+    d_globalLibrary = MonomerLibrary::getGlobalLibrary();
+    this->addTemplateLibrary(&d_globalLibrary->getMACROMolTemplateLib());
+
+  }
+
+  bool usingGlobalLibrary() const {
+    return d_globalLibrary != nullptr;
+  }
+
+  unsigned int getNumberCustomTemplates() const {
+    if (d_customLibrary == nullptr) {
+      return 0;
+    }
+    return d_customLibrary->getMACROMolTemplateLib().getNumTemplates();
+  }
+
+  unsigned int getNumberGlobalTemplates() const{
+    if (d_globalLibrary == nullptr) {
+      return 0;
+    }
+    return d_globalLibrary->getMACROMolTemplateLib().getNumTemplates();
+  }
+
+  unsigned int getNumberInternalTemplates() const {
+
+    return d_internalLibrary.getMACROMolTemplateLib().getNumTemplates();
+  }
+
+
 
   //! adds a Bond to our collection
   /*!
@@ -240,8 +284,6 @@ class RDKIT_MONOMERMOL_EXPORT MonomerMol : public RDKit::MACROMol {
 
   //! Get the monomer library for this molecule
   /*!
-    Returns the instance library if one has been set, otherwise returns
-    the global library.
     \return reference to the MonomerLibrary
   */
   MonomerLibrary& getMonomerLibrary();
@@ -252,14 +294,20 @@ class RDKIT_MONOMERMOL_EXPORT MonomerMol : public RDKit::MACROMol {
     \param library  shared pointer to a MonomerLibrary instance,
                     or nullptr to use the global library
   */
-  void setMonomerLibrary(std::shared_ptr<MonomerLibrary> library, bool takeOwnership=false);
-  void setMonomerLibrary(MonomerLibrary &library, bool takeOwnership=false);
+  void setCustomMonomerLibrary(MonomerLibrary *library);
 
-  //! Check if this molecule has a custom library set
-  [[nodiscard]] bool hasLocalTemplates() { return MACROMol::getTemplateLibrary()->hasLocalTemplates();}
+  bool hasCustomLibrary() const {return d_customLibrary != nullptr; }
+
+  MonomerLibrary *getCustomLibrary() const { return d_customLibrary; }
+  MonomerLibrary *getGlobalLibrary() const { return d_globalLibrary; }
+
+  //! Check if this molecule has a local library templates
+  [[nodiscard]] bool hasLocalTemplates() { return d_internalLibrary.getMACROMolTemplateLib().getNumTemplates() > 0;}
 
  private:
-  MonomerLibrary d_library; 
+  MonomerLibrary d_internalLibrary; // the internal library for MACROMol.   for MononmerMol, this only contains templates from immediate mode (smiles-based templates)
+  MonomerLibrary *d_globalLibrary=nullptr;  // pointer to the global library if loaded (Owned globally)
+  MonomerLibrary *d_customLibrary=nullptr;  // pointer to a customer library (owned outside of the MonomerMol)
 
   // std::unique_ptr<Atom> makeMonomer(std::string_view name,
   //                                 std::string_view chain_id,

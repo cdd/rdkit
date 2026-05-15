@@ -522,7 +522,7 @@ void MonomerLibrary::addMonomer(std::unique_ptr<RWMol> &templateMol,
     
     }
     auto newTemplate = std::unique_ptr<MACROMolTemplate>(new MACROMolTemplate(templateMol, monomer_class, templateNames, otherAttrs));
-    d_macroMolTemplateLib.addTemplate(newTemplate, true /* take ownership */);
+    d_macroMolTemplateLib.addTemplate(newTemplate);
 
 
     // MonomerEntry entry{
@@ -615,32 +615,9 @@ bool MonomerLibrary::hasMonomer(const std::string& symbol,
 }
 
 // Static methods for global library management
-// void MonomerLibrary::useGlobalLibrary(bool use_global) {
-//     s_useGlobalLibrary = use_global;
-// }
 
-bool MonomerLibrary::hasLocalTemplates() {
-    return d_macroMolTemplateLib.hasLocalTemplates();
-}
-
-// MonomerLibrary& MonomerLibrary::getGlobalLibrary() {
-//     std::call_once(s_globalLibraryOnce, []() {
-//         //s_globalLibrary = std::make_unique<MonomerLibrary>(true);  // global always has built-ins
-
-//         s_globalMACROMOLTemplateLib = std::make_unique<MACROMolTemplateLib>();
-
-//         s_globalLibrary = std::make_unique<MonomerLibrary>(*(s_globalMACROMOLTemplateLib.get()));
-//         s_globalLibrary->loadBuiltinDefinitions();
-
-//     });
-//     return *s_globalLibrary;
-// }
-
-
-void MonomerLibrary::loadFromGlobalLibrary(){
+MonomerLibrary *MonomerLibrary::getGlobalLibrary(){
     std::call_once(s_globalLibraryOnce, []() {
-        //s_globalLibrary = std::make_unique<MonomerLibrary>(true);  // global always has built-ins
-
         s_globalMACROMOLTemplateLib = std::make_unique<MACROMolTemplateLib>();
 
         s_globalLibrary = std::make_unique<MonomerLibrary>(*(s_globalMACROMOLTemplateLib.get()));
@@ -648,7 +625,7 @@ void MonomerLibrary::loadFromGlobalLibrary(){
 
     });
 
-    this->getMACROMolTemplateLib().setTemplateLib(*(s_globalMACROMOLTemplateLib.get()));
+    return s_globalLibrary.get();
 
 }
 

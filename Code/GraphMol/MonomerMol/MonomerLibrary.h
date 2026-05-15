@@ -48,19 +48,12 @@ class RDKIT_MONOMERMOL_EXPORT MonomerLibrary{
     using monomer_info_t = std::optional<std::tuple<std::string, std::string, std::string>>;
 
 
-    //MonomerLibrary() : d_macroMolTemplateLib(MonomerLibrary::().getMACROMolTemplateLib()) {};
-
     //! Constructor
     /*!
-        \param loadBuiltins If true, loads built-in monomer definitions.
-                            If false (default), creates an empty library.
     */
-    explicit MonomerLibrary(bool loadBuiltins = false) 
+    explicit MonomerLibrary() 
             : d_localMacroMolTemplateLib(std::unique_ptr<RDKit::MACROMolTemplateLib>(new RDKit::MACROMolTemplateLib())),
             d_macroMolTemplateLib(*(d_localMacroMolTemplateLib.get())) {
-        if (loadBuiltins) {
-            loadFromGlobalLibrary();
-        }
     }
 
     //! Constructor with path to database/json file (future use)
@@ -141,36 +134,11 @@ class RDKIT_MONOMERMOL_EXPORT MonomerLibrary{
 
     // --- Global library configuration ---
 
-    //! Enable/disable global library mode (default: true)
-    //static void useGlobalLibrary(bool use_global);
-
-    //! Check if the library is NOT customized
-    bool hasLocalTemplates();
-
-    void loadFromGlobalLibrary();
-
     //! Get the global singleton instance
-    //static MonomerLibrary& getGlobalLibrary();
 
+    static MonomerLibrary *getGlobalLibrary();
 
  private:
-    //! Key is (symbol, monomer_class)
-    //using MonomerKey = std::pair<std::string, std::string>;
-
-    // //! Hash function for MonomerKey
-    // struct MonomerKeyHash {
-    //     std::size_t operator()(const MonomerKey& key) const {
-    //         std::size_t h1 = std::hash<std::string>{}(key.first);
-    //         std::size_t h2 = std::hash<std::string>{}(key.second);
-    //         return h1 ^ (h2 << 1);
-    //     }
-    // };
-
-    // std::unordered_map<MonomerKey, MonomerEntry, MonomerKeyHash> d_monomers;
-
-    //! Index from PDB code to (symbol, monomer_class)
-    //std::unordered_map<std::string, MonomerKey> d_pdbCodeIndex;
-
     //! Load built-in monomer definitions
     //! TODO: this may load in a preset json or sqlite DB
     void loadBuiltinDefinitions();
@@ -180,6 +148,7 @@ class RDKIT_MONOMERMOL_EXPORT MonomerLibrary{
     static std::unique_ptr<MonomerLibrary> s_globalLibrary;
     static std::unique_ptr<MACROMolTemplateLib> s_globalMACROMOLTemplateLib;
     static std::once_flag s_globalLibraryOnce;
+
 
     std::unique_ptr<RDKit::MACROMolTemplateLib> d_localMacroMolTemplateLib; // used for standalone MACROMolTemplateLib
     RDKit::MACROMolTemplateLib &d_macroMolTemplateLib;

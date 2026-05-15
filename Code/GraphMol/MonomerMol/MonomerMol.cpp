@@ -42,10 +42,6 @@ std::pair<unsigned int, unsigned int> getAttchpts(const std::string& linkage)
 size_t MonomerMol::addMonomer(std::string_view name, int residue_number, std::string_view monomer_class,
                               std::string_view chain_id, MonomerType monomer_type)
 
-// unsigned int MonomerMol::makeMonomer(std::string_view name,
-//                                   std::string_view chain_id,
-//                                   std::string_view monomer_class,
-//                                   int residue_number, bool is_smiles)
 {
     // see if this is an "immediate mode" macro ref (smiles type)
     //if so, create the template on the fly and assign the once-name to the new reference
@@ -59,10 +55,9 @@ size_t MonomerMol::addMonomer(std::string_view name, int residue_number, std::st
       // new name
       std::string smiles(name);
 
-      auto &templateLib = this->d_library.getMACROMolTemplateLib();
-      n = "SM" + std::to_string(templateLib.getOwnedTemplateCount() + 1);
+      n = "SM" + std::to_string(this->d_internalLibrary.getMACROMolTemplateLib().getNumTemplates() + 1);
 
-      this->d_library.addMonomerFromSmiles(smiles, n, monomerClass); // owned by the local lib
+      this->d_internalLibrary.addMonomerFromSmiles(smiles, n, monomerClass); // owned by the local lib
     }
 
 
@@ -102,9 +97,6 @@ size_t MonomerMol::addMonomer(std::string_view name, int residue_number, std::st
 
 // MonomerMol constructor/assignment implementations
 
-// MonomerMol::MonomerMol(const MonomerMol &other)
-//     : MACROMol(other), d_library(other.d_library) {}
-
 MonomerMol &MonomerMol::operator=(const MonomerMol &other)
 {
   if (this != &other) {
@@ -112,13 +104,21 @@ MonomerMol &MonomerMol::operator=(const MonomerMol &other)
     numBonds = 0;
     initFromOther(other, false, -1);
 
-    d_library.getMACROMolTemplateLib().copyTemplateLib(other.d_library.getMACROMolTemplateLib());
+    d_internalLibrary.getMACROMolTemplateLib().copyTemplateLib(other.d_internalLibrary.getMACROMolTemplateLib());
   }
   return *this;
 }
 
+void MonomerMol::setCustomMonomerLibrary(MonomerLibrary *library)
+{
+    d_customLibrary = library;
+    this->addTemplateLibrary(&library->getMACROMolTemplateLib());
+}
 
-MonomerMol::MonomerMol(const std::string &binStr) : d_library(*MACROMol::getTemplateLibrary())
+
+
+
+MonomerMol::MonomerMol(const std::string &binStr) : d_internalLibrary(*MACROMol::getTemplateLibrary())
 {
     MolPickler::molFromPickle(binStr, *this);
 }
@@ -127,40 +127,20 @@ MonomerMol::MonomerMol(const std::string &binStr) : d_library(*MACROMol::getTemp
 
 MonomerLibrary& MonomerMol::getMonomerLibrary()
 {
-    // if (d_library) {
-        return d_library;
-    // }
-    //return MonomerLibrary::getGlobalLibrary();
+        return d_internalLibrary;
 }
 
 const MonomerLibrary& MonomerMol::getMonomerLibrary() const
 {
-    // if (d_library) {
-       return d_library;
-    // }
-    //return MonomerLibrary::getGlobalLibrary();
+       return d_internalLibrary;
 }
 
-void MonomerMol::setMonomerLibrary(std::shared_ptr<MonomerLibrary> library, bool takeOwnership)
-{
-    //d_library = std::move(library);
-    d_library.getMACROMolTemplateLib().setTemplateLib(library->getMACROMolTemplateLib(), takeOwnership);
-}
 
-void MonomerMol::setMonomerLibrary(MonomerLibrary &library, bool takeOwnership)
-{
-    d_library.getMACROMolTemplateLib().setTemplateLib(library.getMACROMolTemplateLib(), takeOwnership);
-}
 // MonomerMol member function implementations
 
 void MonomerMol::addConnection(size_t monomer1, size_t monomer2,
                                const std::string& linkage, Bond::BondType bond_type)
-{
-    // PRECONDITION(isMonomer(getAtomWithIdx(monomer1)) && isMonomer(getAtomWithIdx(monomer2)), "addConnection must be called with two monomers.");
-    // if (!isMonomer(getAtomWithIdx(monomer1)) || !isMonomer(getAtomWithIdx(monomer2))) {
-    //     throw std::runtime_error("addConnection must be called with two monomers.");
-    // }
-   
+{   
 
     std::vector<std::string> connectionLabels;
  
@@ -309,19 +289,6 @@ void MonomerMol::addConnection(size_t monomer1, size_t monomer2,
     // }
 }
 
-// void MonomerMol::addAtomMonomerConnection(size_t atom_idx, size_t monomer_idx,
-//                                const std::string& linkage, Bond::BondType bond_type)
-// {
-//     if (!isMonomer(this->getAtomWithIdx(monomer_idx)) || isMonomer(this->getAtomWithIdx(atom_idx))) {
-//         throw std::runtime_error(
-//             "addAtomMonomerConnection must be called with an atom and a monomer.");
-//     }
-
-//     const auto new_total = this->addBond(atom_idx, monomer_idx, bond_type);
-//     auto bond = this->getBondWithIdx(new_total - 1);
-//     bond->setProp(LINKAGE, linkage);
-// }
-
 unsigned int MonomerMol::addBond(unsigned int atomIdx1, unsigned int atomIdx2,
                             Bond::BondType bondType) {
   // if the atom indices are bad, the next two calls will catch that.
@@ -382,17 +349,6 @@ std::vector<std::string> MonomerMol::getPolymerIds() const
     }
     return polymer_ids;
 }
-
-// size_t MonomerMol::addMonomer(std::string_view name, int residue_number, std::string_view monomer_class,
-//                               std::string_view chain_id, MonomerType monomer_type)
-// {
-//     auto monomer = makeMonomer(name, chain_id, monomer_class, residue_number,
-//                                monomer_type == MonomerType::SMILES);
-//     bool update_label = true;
-//     bool take_ownership = true;
-//     auto new_index = addAtom(monomer.release(), update_label, take_ownership);
-//     return new_index;
-// }
 
 size_t MonomerMol::addMonomer(std::string_view name, MonomerType monomer_type)
 {

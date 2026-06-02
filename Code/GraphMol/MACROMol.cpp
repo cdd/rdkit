@@ -59,10 +59,12 @@ MACROMolTemplate::MACROMolTemplate(std::unique_ptr<RWMol> &mol,
   init(className, templateNames, templateAttrs);
 }
 
+
 MACROMolTemplate::MACROMolTemplate(const MACROMolTemplate &other)
     : RWMol(other) {
   d_mainSgroupIdx = UINT_MAX;
 }
+
 
 MACROMolTemplate::MACROMolTemplate(std::unique_ptr<RWMol> &mol,
                                    std::string className,
@@ -179,9 +181,9 @@ void RDKit::MACROMol::addMacroBond(unsigned int fromAtomIdx,
 void MACROMolTemplateLib::addTemplate(std::unique_ptr<MACROMolTemplate> &templateMolToAdd) {
     PRECONDITION(templateMolToAdd, "bad template molecule");
 
-    this->push_back(std::move(templateMolToAdd));
+    d_templates.push_back(std::move(templateMolToAdd));
 
-    auto templateMol = this->back().get();
+    auto templateMol = d_templates.back().get();
     std::string templateClass;
     std::vector<std::string> templateNames;
     templateMol->getPropIfPresent<std::string>(
@@ -192,7 +194,7 @@ void MACROMolTemplateLib::addTemplate(std::unique_ptr<MACROMolTemplate> &templat
     for (auto templateName : templateNames){
       MACROMolTemplateKey key(std::pair(templateClass, templateName));
 
-      d_keyToIndex[key] = this->size() - 1;
+      d_keyToIndex[key] = d_templates.size() - 1;
     }
   }
 

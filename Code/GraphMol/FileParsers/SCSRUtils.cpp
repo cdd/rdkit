@@ -336,7 +336,7 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRDataStream(
   auto tempMol =
       RDKit::v2::FileParsers::MolFromMolDataStream(inStream, line, localParams);
   auto res = std::unique_ptr<RDKit::MACROMol>(new RDKit::MACROMol(tempMol));
-  res->updatePropertyCache(false);
+  //res->updatePropertyCache(false);
 
   // now get all of the templates
 
@@ -420,7 +420,7 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRDataStream(
           templateMol, templateClass, templateNames, otherTokens));
       // update the property cache now, while the template is still mutable, so
       // downstream consumers (which see it as const) can substructure-match it
-      newTemplate->updatePropertyCache(false);
+      //newTemplate->updatePropertyCache(false);
 
       res->addTemplate(newTemplate);
       templateMol = nullptr;

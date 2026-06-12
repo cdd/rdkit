@@ -149,6 +149,9 @@ class RDKIT_GRAPHMOL_EXPORT MACROMol : public RWMol {
     return &d_templateLibrary;
   }
 
+ MACROMolTemplateLib *getTemplateLibrary() {
+    return &d_templateLibrary;
+  }
    // the following adds a template to the internal libraty for this MACROMol
   void addTemplate(std::unique_ptr<MACROMolTemplate> &templateMol) {
     PRECONDITION(templateMol, "bad template molecule");

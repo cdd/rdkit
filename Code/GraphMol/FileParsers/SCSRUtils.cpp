@@ -19,71 +19,15 @@
 #include <RDGeneral/FileParseException.h>
 #include <RDGeneral/BadFileException.h>
 #include <GraphMol/FileParsers/SCSRUtils.h>
-#include <GraphMol/MACROMol.h>
-#include <GraphMol/FileParsers/MACROMolUtils.h>
+#include <GraphMol/MacroMol.h>
+#include <GraphMol/FileParsers/MacroMolUtils.h>
 
 namespace RDKit {
 
-class SCSRHbondData {
- public:
-  std::string oldAttachLabel;
-  std::vector<bool> donorFlags;
-  SCSRHbondData() : oldAttachLabel("") {}
-  SCSRHbondData(const std::string &oldAttachLabel)
-      : oldAttachLabel(oldAttachLabel) {}
 
-  SCSRHbondData(const SCSRHbondData &oldOne)
-      : oldAttachLabel(oldOne.oldAttachLabel), donorFlags(oldOne.donorFlags) {}
+  
 
-  SCSRHbondData &operator=(const SCSRHbondData &other) {
-    if (this == &other) {
-      return *this;
-    }
-    oldAttachLabel = other.oldAttachLabel;
-    donorFlags = other.donorFlags;
-    return *this;
-  }
-};
-
-struct HydrogenBondConnection {
-  unsigned int d_templateAtomIdx;
-  bool d_isDonor;
-
-  HydrogenBondConnection(unsigned int templateAtomIdx, bool isDonor)
-      : d_templateAtomIdx(templateAtomIdx), d_isDonor(isDonor) {}
-};
-
-struct BondToAdd {
-  unsigned int d_beginAtomIdx;
-  unsigned int d_endAtomIdx;
-  std::string d_attachPt1;
-  std::string d_attachPt2;
-  BondToAdd(unsigned int beginAtomIdx, unsigned int endAtomIdx,
-            const std::string &attachPt1, const std::string &attachPt2)
-      : d_beginAtomIdx(beginAtomIdx),
-        d_endAtomIdx(endAtomIdx),
-        d_attachPt1(attachPt1),
-        d_attachPt2(attachPt2) {}
-  auto getBeginAtomIdx() const { return d_beginAtomIdx; }
-  auto getEndAtomIdx() const { return d_endAtomIdx; }
-  auto getAttachPt1() const { return d_attachPt1; }
-  auto getAttachPt2() const { return d_attachPt2; }
-};
-
-struct HbondQueryData {
-  std::string d_smarts;
-  std::string d_name;
-  std::vector<HydrogenBondConnection> d_hBondConnections;
-  std::shared_ptr<ROMol> dp_mol;
-  HbondQueryData(const std::string &smarts, const std::string &name,
-                 std::vector<HydrogenBondConnection> hBondConnections)
-      : d_smarts(smarts),
-        d_name(name),
-        d_hBondConnections(hBondConnections),
-        dp_mol{SmartsToMol(smarts)} {}
-};
-
-void makeHydrogenBonds(unsigned int atom1Idx, unsigned int atom2Idx,
+void SCSRUtils::makeHydrogenBonds(unsigned int atom1Idx, unsigned int atom2Idx,
                        std::vector<bool> donorFlags1,
                        std::vector<bool> donorFlags2,
                        std::vector<BondToAdd> &hBondsToAdd) {
@@ -187,13 +131,13 @@ void makeHydrogenBonds(unsigned int atom1Idx, unsigned int atom2Idx,
   return;
 }
 
-void skipSpaces(const char *&linePtr) {
+void SCSRUtils::skipSpaces(const char *&linePtr) {
   while (*linePtr == ' ') {
     ++linePtr;  // skip spaces
   }
 }
 
-std::string getToken(const char *&linePtr, char delim) {
+std::string SCSRUtils::getToken(const char *&linePtr, char delim) {
   skipSpaces(linePtr);
   unsigned int charCount = 0;
   while (linePtr[charCount] && linePtr[charCount] != delim) {
@@ -207,7 +151,7 @@ std::string getToken(const char *&linePtr, char delim) {
   return res;
 }
 
-std::string getQuotedToken(const char *&linePtr) {
+std::string SCSRUtils::getQuotedToken(const char *&linePtr) {
   skipSpaces(linePtr);
   std::string res;
   if (*linePtr != '"') {
@@ -234,7 +178,7 @@ std::string getQuotedToken(const char *&linePtr) {
   return res;
 }
 
-void parseTemplateLine(std::string lineStr,
+void SCSRUtils::parseTemplateLine(std::string lineStr,
                        unsigned int &line,  std::string &templateClass, std::vector<std::string> &templateNames, std::vector<std::pair<std::string,std::string>> &otherTokens) {
 
   // TEMPLATE 1 AA/Cya/Cya/ NATREPLACE=AA/A COMMENT=comment
@@ -319,12 +263,10 @@ void parseTemplateLine(std::string lineStr,
   return;
 }
 
-
-
-std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRDataStream(
+std::unique_ptr<RDKit::MacroMol> SCSRUtils::MacroMolFromSCSRDataStream(
     std::istream &inStream, unsigned int &line,
     const RDKit::v2::FileParsers::MolFileParserParams &params,
-    const SCSRBaseHbondOptions scsrBaseHbondOptions) {
+    const SCSRUtils::SCSRBaseHbondOptions scsrBaseHbondOptions) {
   bool chiralityPossible = false;
   if (inStream.eof()) {
     return nullptr;
@@ -335,8 +277,7 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRDataStream(
 
   auto tempMol =
       RDKit::v2::FileParsers::MolFromMolDataStream(inStream, line, localParams);
-  auto res = std::unique_ptr<RDKit::MACROMol>(new RDKit::MACROMol(tempMol));
-  res->updatePropertyCache(false);
+  auto res = std::unique_ptr<RDKit::MacroMol>(new RDKit::MacroMol(tempMol));
 
   // now get all of the templates
 
@@ -416,9 +357,8 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRDataStream(
       RDKit::FileParserUtils::finishMolProcessing(
           templateMol.get(), chiralityPossible, tempParams);
 
-      std::unique_ptr<MACROMolTemplate> newTemplate(new MACROMolTemplate(
+      std::unique_ptr<MacroMolTemplate> newTemplate(new MacroMolTemplate(
           templateMol, templateClass, templateNames, otherTokens));
-      newTemplate->updatePropertyCache(false);
 
       res->addTemplate(newTemplate);
       templateMol = nullptr;
@@ -451,7 +391,7 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRDataStream(
   for (unsigned int atomIdx = 0; atomIdx < atomCount; ++atomIdx) {
     auto atom = res->getAtomWithIdx(atomIdx);
 
-    auto templateMol = res->atomIdxToTemplatePtr(atomIdx);
+    auto templateMol = res->getTemplate(atomIdx);
     if (templateMol == nullptr) {
       continue;  // no template for this atom - regular atom
     }
@@ -481,7 +421,7 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRDataStream(
   }
 
   // now fix the bonds.   SCSR format has the connection points for macro
-  // atoms defined in the main mol atoms, while MACROMol has that
+  // atoms defined in the main mol atoms, while MacroMol has that
   // information in the bonds.
   // H-bonds are even trickier.  SCSR can have a hydrogen
   // bond to a BASE tempate instance, but not have the connection
@@ -490,7 +430,7 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRDataStream(
   // have connection info in the macro atom in the main mol, and have one
   // or more SAP entries in the template with the same name.
   //
-  // MACROMols require that every connection from or to
+  // MacroMols require that every connection from or to
   // a template atom have a single uniquely nameed connection point in the
   // template definition (e.g. Hb1, Hb2, Hb3).
   //
@@ -502,14 +442,14 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRDataStream(
   // involved in an h-bond. fix the template to have the standard hbond
   // attachment names (Hb1, Hb2, Hb3)
 
-  std::map<MACROMolTemplate *, SCSRHbondData> baseTemplateHbondData;
+  std::map<MacroMolTemplate *, SCSRHbondData> baseTemplateHbondData;
 
   for (auto bond : res->bonds()) {
     if (bond->hasProp(common_properties::_MolFileBondAttachPt1) ||
         bond->hasProp(common_properties::_MolFileBondAttachPt2)) {
       std::ostringstream errout;
       errout
-          << "MACROMol style bond connections found in an SCSR file/block for bond "
+          << "MacroMol style bond connections found in an SCSR file/block for bond "
           << bond->getIdx();
       throw RDKit::FileParseException(errout.str());
     }
@@ -525,7 +465,7 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRDataStream(
       auto otherAtomId =
           (atomToCheck == atom1) ? atom2->getIdx() : atom1->getIdx();
 
-      auto templatePtr = res->atomIdxToTemplatePtr(atomToCheck->getIdx());
+      auto templatePtr = res->getMutableTemplate(atomToCheck->getIdx());
       if (templatePtr == nullptr) {
         continue;  // not a template atom
       }
@@ -583,8 +523,8 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRDataStream(
     bool sapsChanged = false;
     for (auto &sap : saps) {
       if (sap.id == hbondData.second.oldAttachLabel) {
-        if (scsrBaseHbondOptions == SCSRBaseHbondOptions::UseSapOne ||
-            scsrBaseHbondOptions == SCSRBaseHbondOptions::UseSapAll) {
+        if (scsrBaseHbondOptions == SCSRUtils::SCSRBaseHbondOptions::UseSapOne ||
+            scsrBaseHbondOptions == SCSRUtils::SCSRBaseHbondOptions::UseSapAll) {
           auto isDonor =
               templateMol->getAtomWithIdx(sap.aIdx)->getTotalNumHs() > 0;
 
@@ -603,7 +543,20 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRDataStream(
 
     // now for automatic h-bond site detection
 
-    if (scsrBaseHbondOptions == SCSRBaseHbondOptions::Auto) {
+    struct HbondQueryData {
+      std::string d_smarts;
+      std::string d_name;
+      std::vector<HydrogenBondConnection> d_hBondConnections;
+      std::shared_ptr<ROMol> dp_mol;
+      HbondQueryData(const std::string &smarts, const std::string &name,
+                      std::vector<HydrogenBondConnection> hBondConnections)
+          : d_smarts(smarts),
+              d_name(name),
+              d_hBondConnections(hBondConnections),
+              dp_mol{SmartsToMol(smarts)} {}
+    };
+
+    if (scsrBaseHbondOptions == SCSRUtils::SCSRBaseHbondOptions::Auto) {
       static const std::vector<HbondQueryData> hbondQueries = {
           {"[NH]1C=NC2=C1N=C([NH2])[NH]C2=O",
            "Guanine",
@@ -625,8 +578,6 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRDataStream(
            "Inosine",
            {HydrogenBondConnection(7, true),
             HydrogenBondConnection(9, false)}}};
-
-      templateMol->updatePropertyCache(false);
 
       for (const auto &querySmi : hbondQueries) {
         RDKit::SubstructMatchParameters params;
@@ -653,8 +604,8 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRDataStream(
     if (sapsChanged) {
       templateMol->getMainSgroup()->clearAttachPoints();
       for (auto &newSap : newSaps) {
-        templateMol->getMainSgroup()->addAttachPoint(newSap.aIdx, newSap.lvIdx,
-                                                     newSap.id);
+        templateMol->getMainSgroup()->addAttachPoint(newSap.aIdx,
+                                                         newSap.lvIdx, newSap.id);
       }
     }
   }
@@ -667,9 +618,8 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRDataStream(
     auto atom2 = bond->getEndAtom();
     auto atom1Idx = atom1->getIdx();
     auto atom2Idx = atom2->getIdx();
-
-    auto templatePtr1 = res->atomIdxToTemplatePtr(atom1Idx);
-    auto templatePtr2 = res->atomIdxToTemplatePtr(atom2Idx);
+    auto templatePtr1 = res->getMutableTemplate(atom1Idx);
+    auto templatePtr2 = res->getMutableTemplate(atom2Idx);
 
     if (bond->getBondType() == Bond::BondType::HYDROGEN &&
         templatePtr1 != nullptr && templatePtr2 != nullptr &&
@@ -677,7 +627,7 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRDataStream(
         baseTemplateHbondData.contains(templatePtr2)) {
       // hydrogen bond between base template atoms
 
-      if (SCSRBaseHbondOptions::Ignore != scsrBaseHbondOptions) {
+      if (SCSRUtils::SCSRBaseHbondOptions::Ignore != scsrBaseHbondOptions) {
         auto donorFlags1 = baseTemplateHbondData[templatePtr1].donorFlags;
         auto donorFlags2 = baseTemplateHbondData[templatePtr2].donorFlags;
 
@@ -696,7 +646,7 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRDataStream(
         auto otherAtomId =
             (atomToCheck == atom1) ? atom2->getIdx() : atom1->getIdx();
 
-        if (res->atomIdxToTemplatePtr(atomToCheck->getIdx()) == nullptr) {
+        if (res->getTemplate(atomToCheck->getIdx()) == nullptr) {
           continue;  // not a template atom
         }
 
@@ -777,13 +727,13 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRDataStream(
 //  Read an SCSR molecule from a string
 //
 //------------------------------------------------
-std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRBlock(
+std::unique_ptr<RDKit::MacroMol> SCSRUtils::MacroMolFromSCSRBlock(
     const std::string &molBlock,
     const RDKit::v2::FileParsers::MolFileParserParams &params,
-    const SCSRBaseHbondOptions scsrBaseHbondOptions) {
+    const SCSRUtils::SCSRBaseHbondOptions scsrBaseHbondOptions) {
   std::istringstream inStream(molBlock);
   unsigned int line = 0;
-  return MACROMolFromSCSRDataStream(inStream, line, params,
+  return MacroMolFromSCSRDataStream(inStream, line, params,
                                     scsrBaseHbondOptions);
 }
 
@@ -792,10 +742,10 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRBlock(
 //  Read an SCSR molecule from a file
 //
 //------------------------------------------------
-std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRFile(
+std::unique_ptr<RDKit::MacroMol> SCSRUtils::MacroMolFromSCSRFile(
     const std::string &fName,
     const RDKit::v2::FileParsers::MolFileParserParams &params,
-    const SCSRBaseHbondOptions scsrBaseHbondOptions) {
+    const SCSRUtils::SCSRBaseHbondOptions scsrBaseHbondOptions) {
   std::ifstream inStream(fName.c_str());
   if (!inStream || (inStream.bad())) {
     std::ostringstream errout;
@@ -804,48 +754,48 @@ std::unique_ptr<RDKit::MACROMol> MACROMolFromSCSRFile(
   }
   if (!inStream.eof()) {
     unsigned int line = 0;
-    return MACROMolFromSCSRDataStream(inStream, line, params,
+    return MacroMolFromSCSRDataStream(inStream, line, params,
                                       scsrBaseHbondOptions);
   } else {
-    return std::unique_ptr<RDKit::MACROMol>();
+    return std::unique_ptr<RDKit::MacroMol>();
   }
 }
 
-std::unique_ptr<RDKit::RWMol> MolFromSCSRDataStream(
+std::unique_ptr<RDKit::RWMol> SCSRUtils::MolFromSCSRDataStream(
     std::istream &inStream, unsigned int &line,
     const RDKit::v2::FileParsers::MolFileParserParams &molFileParserParams,
-    const RDKit::MolFromMACROMolParams &molFromMACROMolParams,
-    const SCSRBaseHbondOptions scsrBaseHbondOptions) {
-  auto macroMol = RDKit::MACROMolFromSCSRDataStream(
+    const RDKit::MolFromMacroMolParams &molFromMacroMolParams,
+    const SCSRUtils::SCSRBaseHbondOptions scsrBaseHbondOptions) {
+  auto macroMol = SCSRUtils::MacroMolFromSCSRDataStream(
       inStream, line, molFileParserParams, scsrBaseHbondOptions);
-  return MolFromMACROMol(macroMol.get(), molFileParserParams,
-                         molFromMACROMolParams);
+  return MolFromMacroMol(macroMol.get(), molFileParserParams,
+                         molFromMacroMolParams);
 }
 
-std::unique_ptr<RDKit::RWMol> MolFromSCSRBlock(
+std::unique_ptr<RDKit::RWMol> SCSRUtils::MolFromSCSRBlock(
     const std::string &molBlock,
     const RDKit::v2::FileParsers::MolFileParserParams &molFileParserParams,
-    const RDKit::MolFromMACROMolParams &molFromMACROMolParams,
-    const SCSRBaseHbondOptions scsrBaseHbondOptions) {
-  auto macroMol = RDKit::MACROMolFromSCSRBlock(molBlock, molFileParserParams,
+    const RDKit::MolFromMacroMolParams &molFromMacroMolParams,
+    const SCSRUtils::SCSRBaseHbondOptions scsrBaseHbondOptions) {
+  auto macroMol = SCSRUtils::MacroMolFromSCSRBlock(molBlock, molFileParserParams,
                                                scsrBaseHbondOptions);
-  return MolFromMACROMol(macroMol.get(), molFileParserParams,
-                         molFromMACROMolParams);
+  return MolFromMacroMol(macroMol.get(), molFileParserParams,
+                         molFromMacroMolParams);
 }
 
-std::unique_ptr<RDKit::RWMol> MolFromSCSRFile(
+std::unique_ptr<RDKit::RWMol> SCSRUtils::MolFromSCSRFile(
     const std::string &fName,
     const RDKit::v2::FileParsers::MolFileParserParams &molFileParserParams,
-    const RDKit::MolFromMACROMolParams &molFromMACROMolParams,
-    const SCSRBaseHbondOptions scsrBaseHbondOptions) {
-  auto macroMol = RDKit::MACROMolFromSCSRFile(fName, molFileParserParams,
+    const RDKit::MolFromMacroMolParams &molFromMacroMolParams,
+    const SCSRUtils::SCSRBaseHbondOptions scsrBaseHbondOptions) {
+  auto macroMol = SCSRUtils::MacroMolFromSCSRFile(fName, molFileParserParams,
                                               scsrBaseHbondOptions);
-  auto res = MolFromMACROMol(macroMol.get(), molFileParserParams,
-                             molFromMACROMolParams);
+  auto res = MolFromMacroMol(macroMol.get(), molFileParserParams,
+                             molFromMacroMolParams);
   return res;
 }
 
-std::string MACROMolToSCSRMolBlock(MACROMol &macroMol,
+std::string SCSRUtils::MacroMolToSCSRMolBlock(MacroMol &macroMol,
                                    const RDKit::MolWriterParams &params,
                                    int confId, bool keepBaseHbondInfo) {
   RDKit::Utils::LocaleSwitcher switcher;
@@ -867,14 +817,14 @@ std::string MACROMolToSCSRMolBlock(MACROMol &macroMol,
 
   // for each BASE tempate, the list of
   // h-bond connection point names to fix
-  std::map<MACROMolTemplate *, std::vector<std::string>> templateHbondConnections;
+  std::map<const MacroMolTemplate *, std::vector<std::string>> templateHbondConnections;
 
   // for each BASE tempate, the list of
   // h-bond connection point name BASES to fix
   // for sets of hbond connections like Hb1, Hb2, Hb3, this would be "Hb"
   // THis allows us to change all such connections even when only one or two
   // are used in the main mol
-  std::map<MACROMolTemplate *, std::vector<std::string>> templateHbondConnectionBases;
+  std::map<const MacroMolTemplate *, std::vector<std::string>> templateHbondConnectionBases;
 
   std::vector<std::pair<unsigned int, unsigned int>>
       hBonds;  // the bonds to keep (re-add).
@@ -930,7 +880,7 @@ std::string MACROMolToSCSRMolBlock(MACROMol &macroMol,
 
         // mark which templates need to be fixed so the attach points are "Hb"
 
-        auto templatePtr = macroMol.atomIdxToTemplatePtr(atomToCheck->getIdx());
+        auto templatePtr = macroMol.getTemplate(atomToCheck->getIdx());
         if (!templateHbondConnections.contains(templatePtr)) {
           templateHbondConnections[templatePtr] = std::vector<std::string>();
         }
@@ -1004,9 +954,9 @@ std::string MACROMolToSCSRMolBlock(MACROMol &macroMol,
   // now write out all of the templates
 
   res += "M  V30 BEGIN TEMPLATE\n";
-  for (unsigned int templateId = 0; templateId < macroMol.getNumTemplates();
-       ++templateId) {
-    auto macroMolTemplate = macroMol.getTemplate(templateId);
+  unsigned int templateId = 0;
+  for (const auto &templatePtr : *macroMol.getTemplateLibrary()) {
+    auto macroMolTemplate = templatePtr.get();
     std::string templateClass;
     std::vector<std::string> templateNames;
     std::string natReplace = "";
@@ -1043,8 +993,9 @@ std::string MACROMolToSCSRMolBlock(MACROMol &macroMol,
     // copy template mol so we can modify it for output without affecting the
     // original, if needed
 
-    RWMol *molToUse = macroMolTemplate;
-    std::unique_ptr<RWMol> tMol;
+    // work on a copy: prepareMol mutates the mol, and the template is const
+    std::unique_ptr<RWMol> tMol(new RWMol(*macroMolTemplate));
+    RWMol *molToUse = tMol.get();
 
     // check to see if the template need to be modified for hbonds
     // connections. if we are keeping them, they are changed to "Hb" if not
@@ -1052,9 +1003,6 @@ std::string MACROMolToSCSRMolBlock(MACROMol &macroMol,
 
     if (templateHbondConnections.contains(macroMolTemplate) ||
         templateHbondConnectionBases.contains(macroMolTemplate)) {
-      tMol.reset(new RWMol(*macroMolTemplate));
-      molToUse = tMol.get();
-
       auto &hbondConnections = templateHbondConnections[macroMolTemplate];
       auto &hbondConnectionBases = templateHbondConnectionBases[macroMolTemplate];
       auto &sgroups = RDKit::getSubstanceGroups(*(tMol.get()));
@@ -1103,6 +1051,7 @@ std::string MACROMolToSCSRMolBlock(MACROMol &macroMol,
     prepareMol(*molToUse, localParams, aromaticBonds);
     res += FileParserUtils::getV3000CTAB(*molToUse, aromaticBonds, confId,
                                          localParams.precision);
+    ++templateId;
   }
 
   res += "M  V30 END TEMPLATE\n";
@@ -1111,7 +1060,7 @@ std::string MACROMolToSCSRMolBlock(MACROMol &macroMol,
   return res;
 }
 
-void MACROMolToSCSRMolFile(RDKit::MACROMol &macroMol, const std::string &fName,
+void SCSRUtils::MacroMolToSCSRMolFile(RDKit::MacroMol &macroMol, const std::string &fName,
                            const RDKit::MolWriterParams &params, int confId) {
   auto *outStream = new std::ofstream(fName.c_str());
   if (!(*outStream) || outStream->bad()) {
@@ -1120,7 +1069,7 @@ void MACROMolToSCSRMolFile(RDKit::MACROMol &macroMol, const std::string &fName,
     errout << "Bad output file " << fName;
     throw BadFileException(errout.str());
   }
-  std::string outString = MACROMolToSCSRMolBlock(macroMol, params, confId);
+  std::string outString = MacroMolToSCSRMolBlock(macroMol, params, confId);
   *outStream << outString;
   delete outStream;
 }

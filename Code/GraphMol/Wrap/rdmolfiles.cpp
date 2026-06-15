@@ -25,7 +25,7 @@
 #include <GraphMol/FileParsers/FileParsers.h>
 #include <GraphMol/FileParsers/FileParserUtils.h>
 #include <GraphMol/FileParsers/SCSRUtils.h>
-#include <GraphMol/FileParsers/MACROMolUtils.h>
+#include <GraphMol/FileParsers/MacroMolUtils.h>
 #include <GraphMol/FileParsers/SequenceParsers.h>
 #include <GraphMol/FileParsers/SequenceWriters.h>
 #include <GraphMol/FileParsers/PNGParser.h>
@@ -161,12 +161,12 @@ ROMol *MolFromMolBlockHelper(python::object imolBlock, bool sanitize,
 RDKit::ROMol *MolFromSCSRBlockHelper(const std::string &molBlock, bool sanitize,
                                      bool removeHs, python::object pyParams,
                                      python::object pyParams2) {
-  RDKit::SCSRBaseHbondOptions scsrBaseHbondOptions;
-  RDKit::MolFromMACROMolParams macroMolParams;
+  SCSRUtils::SCSRBaseHbondOptions scsrBaseHbondOptions;
+  RDKit::MolFromMacroMolParams macroMolParams;
   if (pyParams) {
-    macroMolParams = python::extract<RDKit::MolFromMACROMolParams>(pyParams);
+    macroMolParams = python::extract<RDKit::MolFromMacroMolParams>(pyParams);
     scsrBaseHbondOptions =
-        python::extract<RDKit::SCSRBaseHbondOptions>(pyParams2);
+        python::extract<SCSRUtils::SCSRBaseHbondOptions>(pyParams2);
   }
   std::istringstream inStream(molBlock);
   unsigned int line = 0;
@@ -175,7 +175,7 @@ RDKit::ROMol *MolFromSCSRBlockHelper(const std::string &molBlock, bool sanitize,
     params.sanitize = sanitize;
     params.removeHs = removeHs;
     params.strictParsing = false;
-    auto mol = MolFromSCSRDataStream(inStream, line, params, macroMolParams,
+    auto mol = SCSRUtils::MolFromSCSRDataStream(inStream, line, params, macroMolParams,
                                      scsrBaseHbondOptions);
 
     return static_cast<ROMol *>(mol.release());
@@ -191,19 +191,19 @@ RDKit::ROMol *MolFromSCSRFileHelper(const std::string &molFilename,
                                     bool sanitize, bool removeHs,
                                     python::object pyParams,
                                     python::object pyParams2) {
-  RDKit::SCSRBaseHbondOptions scsrBaseHbondOptions;
-  RDKit::MolFromMACROMolParams macroMolParams;
+  SCSRUtils::SCSRBaseHbondOptions scsrBaseHbondOptions;
+  RDKit::MolFromMacroMolParams macroMolParams;
   if (pyParams) {
-    macroMolParams = python::extract<RDKit::MolFromMACROMolParams>(pyParams);
+    macroMolParams = python::extract<RDKit::MolFromMacroMolParams>(pyParams);
     scsrBaseHbondOptions =
-        python::extract<RDKit::SCSRBaseHbondOptions>(pyParams2);
+        python::extract<SCSRUtils::SCSRBaseHbondOptions>(pyParams2);
   }
   try {
     RDKit::v2::FileParsers::MolFileParserParams params;
     params.sanitize = sanitize;
     params.removeHs = removeHs;
     params.strictParsing = false;
-    auto mol = RDKit::MolFromSCSRFile(molFilename, params, macroMolParams,
+    auto mol = SCSRUtils::MolFromSCSRFile(molFilename, params, macroMolParams,
                                       scsrBaseHbondOptions);
 
     return static_cast<ROMol *>(mol.release());
@@ -218,7 +218,7 @@ RDKit::ROMol *MolFromSCSRFileHelper(const std::string &molFilename,
   return static_cast<ROMol *>(nullptr);
 }
 
-RDKit::MACROMol *MACROMolFromSCSRBlockHelper(const std::string &molBlock,
+RDKit::MacroMol *MacroMolFromSCSRBlockHelper(const std::string &molBlock,
                                              bool sanitize, bool removeHs) {
   std::istringstream inStream(molBlock);
   unsigned int line = 0;
@@ -227,27 +227,27 @@ RDKit::MACROMol *MACROMolFromSCSRBlockHelper(const std::string &molBlock,
     params.sanitize = sanitize;
     params.removeHs = removeHs;
     params.strictParsing = false;
-    auto scsrMol = RDKit::MACROMolFromSCSRDataStream(inStream, line, params);
+    auto scsrMol = SCSRUtils::MacroMolFromSCSRDataStream(inStream, line, params);
 
-    return static_cast<MACROMol *>(scsrMol.release());
+    return static_cast<MacroMol *>(scsrMol.release());
 
   } catch (RDKit::FileParseException &e) {
     BOOST_LOG(rdWarningLog) << e.what() << std::endl;
   } catch (...) {
   }
-  return static_cast<MACROMol *>(nullptr);
+  return static_cast<MacroMol *>(nullptr);
 }
 
-RDKit::MACROMol *MACROMolFromSCSRFileHelper(const std::string &molFilename,
+RDKit::MacroMol *MacroMolFromSCSRFileHelper(const std::string &molFilename,
                                             bool sanitize, bool removeHs) {
   try {
     RDKit::v2::FileParsers::MolFileParserParams params;
     params.sanitize = sanitize;
     params.removeHs = removeHs;
     params.strictParsing = false;
-    auto mol = RDKit::MACROMolFromSCSRFile(molFilename, params);
+    auto mol = SCSRUtils::MacroMolFromSCSRFile(molFilename, params);
 
-    return static_cast<MACROMol *>(mol.release());
+    return static_cast<MacroMol *>(mol.release());
 
   } catch (RDKit::BadFileException &e) {
     PyErr_SetString(PyExc_IOError, e.what());
@@ -256,7 +256,7 @@ RDKit::MACROMol *MACROMolFromSCSRFileHelper(const std::string &molFilename,
     BOOST_LOG(rdWarningLog) << e.what() << std::endl;
   } catch (...) {
   }
-  return static_cast<RDKit::MACROMol *>(nullptr);
+  return static_cast<RDKit::MacroMol *>(nullptr);
 }
 
 ROMol *MolFromMrvFile(const std::string &molFilename, bool sanitize,
@@ -1257,16 +1257,16 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
           "precision of coordinates (only available in V3000)(default=false)")
       .def("__setattr__", &safeSetattr);
 
-  python::class_<RDKit::MolFromMACROMolParams, boost::noncopyable>(
-      "MolFromMACROMolParams",
-      "Parameters controlling conversion of an MACROMol to a Mol")
+  python::class_<RDKit::MolFromMacroMolParams, boost::noncopyable>(
+      "MolFromMacroMolParams",
+      "Parameters controlling conversion of an MacroMol to a Mol")
       .def_readwrite(
           "includeLeavingGroups",
-          &RDKit::MolFromMACROMolParams::includeLeavingGroups,
+          &RDKit::MolFromMacroMolParams::includeLeavingGroups,
           "include leaving groups atoms if not substited at that position")
       .def_readwrite(
           "macroTemplateNames",
-          &RDKit::MolFromMACROMolParams::macroTemplateNames,
+          &RDKit::MolFromMacroMolParams::macroTemplateNames,
           "If True, the first template name in the Sgroup is used as the Sgroup label")
       .def("__setattr__", &safeSetattr);
 
@@ -1283,14 +1283,14 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
           This only make sense when sanitization is done.\n\
           Defaults to true.\n\
     \n\
-        - molFromMACROMolParams : molFromMACROMolParams to control conversion\n\
+        - molFromMacroMolParams : molFromMacroMolParams to control conversion\n\
     \n RETURNS :\n\
     \n a Mol object, None on failure.\n\
     \n ";
   python::def("MolFromSCSRBlock", RDKit::MolFromSCSRBlockHelper,
               (python::arg("molBlock"), python::arg("sanitize") = true,
                python::arg("removeHs") = true,
-               python::arg("molFromMACROMolParams") = python::object(),
+               python::arg("molFromMacroMolParams") = python::object(),
                python::arg("scsrBaseHbondOptions") = python::object()),
               docString.c_str(),
               python::return_value_policy<python::manage_new_object>());
@@ -1308,14 +1308,14 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
           This only make sense when sanitization is done.\n\
           Defaults to true.\n\
     \n\
-        - MolFromMACROMolParams : MolFromMACROMolParams to control conversion\n\
+        - MolFromMacroMolParams : MolFromMacroMolParams to control conversion\n\
     \n RETURNS :\n\
     \n a Mol object, None on failure.\n\
     \n ";
   python::def("MolFromSCSRFile", RDKit::MolFromSCSRFileHelper,
               (python::arg("filename"), python::arg("sanitize") = true,
                python::arg("removeHs") = true,
-               python::arg("MolFromMACROMolParams") = python::object(),
+               python::arg("MolFromMacroMolParams") = python::object(),
                python::arg("scsrBaseHbondOptions") = python::object()),
               docString.c_str(),
               python::return_value_policy<python::manage_new_object>());
@@ -1335,14 +1335,14 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
     \n RETURNS :\n\
     \n a Mol object, None on failure.\n\
     \n ";
-  python::def("MACROMolFromSCSRBlock", RDKit::MACROMolFromSCSRBlockHelper,
+  python::def("MacroMolFromSCSRBlock", RDKit::MacroMolFromSCSRBlockHelper,
               (python::arg("molBlock"), python::arg("sanitize") = true,
                python::arg("removeHs") = true),
               docString.c_str(),
               python::return_value_policy<python::manage_new_object>());
 
   docString =
-      "Construct an MACROMol molecule from an SCSR Mol file.\n\n\
+      "Construct an MacroMol molecule from an SCSR Mol file.\n\n\
       ARGUMENTS:\n\
     \n\
         - filename: string containing the SCSR filename\n\
@@ -1356,7 +1356,7 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
     \n RETURNS :\n\
     \n a Mol object, None on failure.\n\
     \n ";
-  python::def("MACROMolFromSCSRFile", RDKit::MACROMolFromSCSRFileHelper,
+  python::def("MacroMolFromSCSRFile", RDKit::MacroMolFromSCSRFileHelper,
               (python::arg("filename"), python::arg("sanitize") = true,
                python::arg("removeHs") = true),
               docString.c_str(),
@@ -1996,11 +1996,11 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
       .value("CX_ALL_BUT_COORDS",
              RDKit::SmilesWrite::CXSmilesFields::CX_ALL_BUT_COORDS);
 
-  python::enum_<RDKit::SCSRBaseHbondOptions>("SCSRBaseHbondOptions")
-      .value("Ignore", RDKit::SCSRBaseHbondOptions::Ignore)
-      .value("UseSapAll", RDKit::SCSRBaseHbondOptions::UseSapAll)
-      .value("UseSapOne", RDKit::SCSRBaseHbondOptions::UseSapOne)
-      .value("Auto", RDKit::SCSRBaseHbondOptions::Auto);
+  python::enum_<SCSRUtils::SCSRBaseHbondOptions>("SCSRBaseHbondOptions")
+      .value("Ignore", SCSRUtils::SCSRBaseHbondOptions::Ignore)
+      .value("UseSapAll", SCSRUtils::SCSRBaseHbondOptions::UseSapAll)
+      .value("UseSapOne", SCSRUtils::SCSRBaseHbondOptions::UseSapOne)
+      .value("Auto", SCSRUtils::SCSRBaseHbondOptions::Auto);
 
   python::enum_<RDKit::MACROTemplateNames>("MACROTemplateNames")
       .value("UseFirstName", RDKit::MACROTemplateNames::UseFirstName)

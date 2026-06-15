@@ -26,10 +26,8 @@
 namespace RDKit {
 
 // Static member definitions
-std::unique_ptr<MonomerLibrary> MonomerLibrary::s_globalLibrary;
-std::unique_ptr<MACROMolTemplateLib> MonomerLibrary::s_globalMACROMOLTemplateLib
-;
-std::once_flag MonomerLibrary::s_globalLibraryOnce;
+std::unique_ptr<MacroMolTemplateLib> GlobalMonomerLibrary::s_globalLibrary;
+std::once_flag GlobalMonomerLibrary::s_globalLibraryOnce;
 
 // Built-in monomer definitions (symbol -> SMILES)
 namespace {
@@ -120,150 +118,28 @@ const std::list<std::tuple<std::string, std::string, std::string, std::string>> 
      "CE2:10.pdbName. CD2:11.pdbName. N  :12.pdbName. H  :13.pdbName. OXT|"}
 };
 
-// PDB three-letter code to single-letter symbol mapping
-// const std::unordered_map<std::string, std::string> pdb_to_symbol({
-//     {"ALA", "A"}, // Alanine
-//     {"ARG", "R"}, // Arginine
-//     {"ASH", "D"}, // Protonated Aspartic
-//     {"ASN", "N"}, // Asparagine
-//     {"ASP", "D"}, // Aspartic acid
-//     {"CYS", "C"}, // Cysteine
-//     {"GLN", "Q"}, // Glutamine
-//     {"GLU", "E"}, // Glutamic
-//     {"GLY", "G"}, // Glycine
-//     {"HIS", "H"}, // Histidine
-//     {"ILE", "I"}, // Isoleucine
-//     {"LEU", "L"}, // Leucine
-//     {"LYS", "K"}, // Lysine
-//     {"MET", "M"}, // Methionine
-//     {"PHE", "F"}, // Phenylalanine
-//     {"PRO", "P"}, // Proline
-//     {"SER", "S"}, // Serine
-//     {"THR", "T"}, // Threonine
-//     {"TRP", "W"}, // Tryptophan
-//     {"TYR", "Y"}, // Tyrosine
-//     {"VAL", "V"}, // Valine
-//     {"ARN", "R"}, // Neutral-Arginine
-//     {"GLH", "E"}, // Protonated Glutamic
-//     {"HID", "H"}, // Histidine (protonated at delta N)
-//     {"HIE", "H"}, // Histidine (protonated at epsilon N)
-//     {"HIP", "H"}, // Histidine (protonated at both N)
-//     {"HSD", "H"}, // Histidine (protonated at delta N, CHARMM name)
-//     {"HSE", "H"}, // Histidine (protonated at epsilon N, CHARMM name)
-//     {"HSP", "H"}, // Histidine (protonated at both N, CHARMM name)
-//     {"LYN", "K"}, // Protonated Lysine
-//     {"SRO", "S"}, // Ionized Serine
-//     {"THO", "T"}, // Ionized Threonine
-//     {"TYO", "Y"}, // Ionized Tyrosine
-//     {"SEC", "U"}, // Selenocysteine
-//     {"PYL", "O"}, // Pyrrolysine
-//     {"XXX", "X"} // Unknown
-// });
-
-// Single-letter symbol to canonical PDB code mapping
-// const std::unordered_map<std::string, std::string> symbol_to_pdb({
-//     {"A", "ALA"}, // Alanine
-//     {"R", "ARG"}, // Arginine
-//     {"N", "ASN"}, // Asparagine
-//     {"D", "ASP"}, // Aspartic acid
-//     {"C", "CYS"}, // Cysteine
-//     {"Q", "GLN"}, // Glutamine
-//     {"E", "GLU"}, // Glutamic acid
-//     {"G", "GLY"}, // Glycine
-//     {"H", "HIS"}, // Histidine
-//     {"I", "ILE"}, // Isoleucine
-//     {"L", "LEU"}, // Leucine
-//     {"K", "LYS"}, // Lysine
-//     {"M", "MET"}, // Methionine
-//     {"F", "PHE"}, // Phenylalanine
-//     {"P", "PRO"}, // Proline
-//     {"S", "SER"}, // Serine
-//     {"T", "THR"}, // Threonine
-//     {"W", "TRP"}, // Tryptophan
-//     {"Y", "TYR"}, // Tyrosine
-//     {"V", "VAL"}, // Valine
-//     {"U", "SEC"}, // Selenocysteine
-//     {"O", "PYL"}  // Pyrrolysine
-// });
 
 } // anonymous namespace
 
-// MonomerLibrary implementation
-// MonomerLibrary::MonomerLibrary (bool loadBuiltins) {
-//     if (loadBuiltins) {
-//         //loadBuiltinDefinitions();
 
-//         auto &globalLib = MonomerLibrary::getGlobalLibrary();
-
-
-//         for (auto globalTemplate : globalLib) {
-//             this->addTemplate(globalTemplate);   // NOT owned by this lib, but still owned by the global lib
-//         }
-//     }
-// }
-
-// MonomerLibrary::MonomerLibrary ([[maybe_unused]] std::string_view database_path) {
-//     // TODO: Load from database/JSON file
-//     //loadBuiltinDefinitions();
-
-//     auto &globalLib = MonomerLibrary::getGlobalLibrary();
-
-
-//     for (auto globalTemplate : globalLib) {
-//         this->addTemplate(globalTemplate);   // NOT owned by this lib, but still owned by the global lib
-//     }
-// }
-
-MonomerLibrary::~MonomerLibrary() = default;
-
-void MonomerLibrary::loadBuiltinDefinitions() {
+void GlobalMonomerLibrary::loadBuiltinDefinitions() {
     // Load all built-in peptide monomers. default PEPTIDE to begin
     for (const auto& [symbol, monomerClass, pdbCodes, data] : builtin_monomer_data) {
 
 
-        addMonomerFromSmiles(data, symbol, monomerClass, pdbCodes);
+        addMonomerFromSmiles(*s_globalLibrary.get(), data, symbol, monomerClass, pdbCodes);
         //addMonomerFromSmiles(data, symbol, "PEPTIDE", symbol_to_pdb.count(symbol) ? symbol_to_pdb.at(symbol) : "");
                                           
             
-        // MonomerEntry entry{
-        //     symbol,
-        //     data,
-        //     std::shared_ptr<ROMol>(SmilesToMol(data, 0, false)),
-        //     "PEPTIDE",
-        //     symbol_to_pdb.count(symbol) ? symbol_to_pdb.at(symbol) : ""
-        // };
-        // d_monomers[key] = std::move(entry);
-
-        // Add to PDB code index
-
-        // MonomerKey key{symbol, "PEPTIDE"};
-
-        // if (symbol_to_pdb.count(symbol)) {
-        //     d_pdbCodeIndex[symbol_to_pdb.at(symbol)] = key;
-        // }
     }
-
-    // // Add reverse mappings from PDB codes (for variants like HID, HIE, etc.)
-    // for (const auto& [pdb_code, symbol] : pdb_to_symbol) {
-    //     if (d_pdbCodeIndex.find(pdb_code) == d_pdbCodeIndex.end()) {
-    //         // Map variant PDB codes to the canonical symbol
-    //         d_pdbCodeIndex[pdb_code] = {symbol, "PEPTIDE"};
-    //     }
-    // }
- 
 }
 
-std::optional<std::string> MonomerLibrary::getMonomerData(
+std::optional<std::string> getMonomerData(
+    const MacroMolTemplateLib &macroMolLib, 
     const std::string& monomer_id,
-    const std::string& monomer_class) const {
-    // MonomerKey key{monomer_id, monomer_class};
-    // auto it = d_monomers.find(key);
-    // if (it != d_monomers.end()) {
-    //     return it->second.original_data;
-    // }
-    // return std::nullopt;
+    const std::string& monomer_class) {
 
-     auto templateMol = this->getMACROMolTemplateLib().getTemplate(monomer_class, monomer_id);
+     auto templateMol = macroMolLib.find(monomer_class, monomer_id);
      std::string originalData;
       
     if (templateMol->getPropIfPresent("OriginalData", originalData)) {
@@ -273,26 +149,12 @@ std::optional<std::string> MonomerLibrary::getMonomerData(
 
 }
 
-MonomerLibrary::monomer_info_t
-MonomerLibrary::getMonomerInfo(const std::string& symbol, const std::string monomer_class) const {
-    // auto it = d_pdbCodeIndex.find(pdb_code);
-    // if (it != d_pdbCodeIndex.end()) {
-    //     // const auto& [symbol, monomer_class] = it->second;
-        // auto monomer_it = d_monomers.find(it->second);
-        // if (monomer_it != d_monomers.end()) {
-        //     return std::make_tuple(
-        //         symbol,
-        //         monomer_it->second.original_data,
-        //         monomer_class
-        //     );
-        // }
-
-        // auto symbol = it->second.first;
-        // auto monomer_class = it->second.second;
+monomer_info_t
+getMonomerInfo(const MacroMolTemplateLib &macroMolLib, const std::string& symbol, const std::string monomer_class) {
         
         std::string originalData= "";
         std::vector<std::string> templateNames;
-        auto templateMol = this->getMACROMolTemplateLib().getTemplate(monomer_class, symbol);
+        auto templateMol = macroMolLib.find(monomer_class, symbol);
         if(templateMol ) {
 
             templateMol->getPropIfPresent("OriginalData", originalData);
@@ -310,15 +172,9 @@ MonomerLibrary::getMonomerInfo(const std::string& symbol, const std::string mono
 }
 
 std::optional<std::string>
-MonomerLibrary::getPdbCode(const std::string& symbol,
-                           const std::string& monomer_class) const {
-    // MonomerKey key{symbol, monomer_class};
-    // auto it = d_monomers.find(key);
-    // if (it != d_monomers.end() && !it->second.pdb_code.empty()) {
-    //     return it->second.pdb_code;
-    // }
-
-    auto pdbCodes = getPdbCodes(symbol, monomer_class);
+getPdbCode(const MacroMolTemplateLib &macroMolLib, const std::string& symbol,
+                           const std::string& monomer_class) {
+    auto pdbCodes = getPdbCodes(macroMolLib, symbol, monomer_class);
     
     if (pdbCodes && pdbCodes->size() > 0) {
         return pdbCodes->at(0);  // just the first one
@@ -329,10 +185,10 @@ MonomerLibrary::getPdbCode(const std::string& symbol,
 
 
 std::optional<std::vector<std::string>> 
-MonomerLibrary::getPdbCodes(const std::string& symbol,
-                           const std::string& monomer_class) const {
+getPdbCodes(const MacroMolTemplateLib &macroMolLib, const std::string& symbol,
+                           const std::string& monomer_class) {
   
-    auto templateMol = this->getMACROMolTemplateLib().getTemplate(monomer_class, symbol);
+    auto templateMol = macroMolLib.find(monomer_class, symbol);
     std::vector<std::string >pdbCodes;
     std::string pdbCodesStr;
     if (templateMol->getPropIfPresent("PDBCodes", pdbCodesStr)){
@@ -342,28 +198,8 @@ MonomerLibrary::getPdbCodes(const std::string& symbol,
     return std::nullopt;
 }
 
-//std::shared_ptr<ROMol> MonomerLibrary::getMonomer(
-RDKit::MACROMolTemplate *MonomerLibrary::getMonomer(
-    const std::string& monomer_id,
-    const std::string& monomer_class) const {
-
-    // MonomerKey key{monomer_id, monomer_class};
-    // auto it = d_monomers.find(key);
-    // if (it != d_monomers.end()) {
-    //     return it->second.mol;
-    // }
-    // return nullptr;
-
-    if (!this->hasMonomer(monomer_id, monomer_class )) {
-        return nullptr;
-    }
-
-    return this->d_macroMolTemplateLib.getTemplate(monomer_class, monomer_id);
-    
-}
-
-
-void MonomerLibrary::addMonomer(std::unique_ptr<RWMol> &templateMol,
+void addMonomer(MacroMolTemplateLib &macroMolLib, 
+                                std::unique_ptr<RWMol> &templateMol,
                                 const std::string& data,
                                 const std::string& symbol,
                                 const std::string& monomer_class,
@@ -521,107 +357,42 @@ void MonomerLibrary::addMonomer(std::unique_ptr<RWMol> &templateMol,
         }
     
     }
-    auto newTemplate = std::unique_ptr<MACROMolTemplate>(new MACROMolTemplate(templateMol, monomer_class, templateNames, otherAttrs));
-    d_macroMolTemplateLib.addTemplate(newTemplate);
-
-
-    // MonomerEntry entry{
-    //     symbol,
-    //     data,
-    //     std::shared_ptr<ROMol>(SmilesToMol(data, 0, false)),
-    //     "PEPTIDE",
-    //     symbol_to_pdb.count(symbol) ? symbol_to_pdb.at(symbol) : ""
-    // };
-    // d_monomers[key] = std::move(entry);
-
-    // Add to PDB code index
-
-    // MonomerKey key{symbol, monomer_class};
-
-    // if (symbol_to_pdb.count(symbol)) {
-    //     d_pdbCodeIndex[symbol_to_pdb.at(symbol)] = key;
-    // }
-
-
-    //d_monomers[key] = std::move(entry);
-
-    // if (!pdb_codes.empty()) {
-    //     d_pdbCodeIndex[pdb_code] = key;
-    // }
+    auto newTemplate = std::unique_ptr<MacroMolTemplate>(new MacroMolTemplate(templateMol, monomer_class, templateNames, otherAttrs));
+    macroMolLib.addTemplate(newTemplate);
 }
 
-
-void MonomerLibrary::addMonomerFromSmiles(const std::string& smiles,                                        
+void addMonomerFromSmiles(MacroMolTemplateLib &macroMolLib,
+                                          const std::string& smiles,                                        
                                           const std::string& symbol,
                                           const std::string& monomer_class,
                                           const std::string& pdb_codes) {
-    //MonomerKey key{symbol, monomer_class};
-    // MonomerEntry entry{
-    //     symbol,
-    //     smiles,
-    //     std::shared_ptr<ROMol>(SmilesToMol(smiles, 0, false)),
-    //     monomer_class,
-    //     pdb_code
-    // };
     auto templateMol(std::unique_ptr<RDKit::RWMol>(SmilesToMol(smiles, 0, false)));
    
-    addMonomer(templateMol, smiles, symbol, monomer_class, pdb_codes);
+    addMonomer(macroMolLib, templateMol, smiles, symbol, monomer_class, pdb_codes);
 }
 
-void MonomerLibrary::addMonomerFromSDF(const std::string& sdf_data,
+void addMonomerFromSDF(MacroMolTemplateLib &macroMolLib,
+                                       const std::string& sdf_data,
                                        const std::string& symbol,
                                        const std::string& monomer_class,
                                        const std::string& pdb_codes) {
-    // MonomerKey key{symbol, monomer_class};
-    // MonomerEntry entry{
-    //     symbol,
-    //     sdf_data,
-    //     std::shared_ptr<ROMol>(MolBlockToMol(sdf_data, false, false)),
-    //     monomer_class,
-    //     pdb_code
-    // };
-    // d_monomers[key] = std::move(entry);
-
-    // if (!pdb_code.empty()) {
-    //     d_pdbCodeIndex[pdb_code] = key;
-    // }
-
     auto templateMol(std::unique_ptr<RDKit::RWMol>(MolBlockToMol(sdf_data, false, false)));
-    addMonomer(templateMol, sdf_data, symbol, monomer_class, pdb_codes);
+    addMonomer(macroMolLib, templateMol, sdf_data, symbol, monomer_class, pdb_codes);
 }
 
-// void MonomerLibrary::addMonomer(std::shared_ptr<ROMol> mol,
+// bool hasMonomer( MacroMolTemplateLib &macroMolLib,
 //                                 const std::string& symbol,
-//                                 const std::string& monomer_class,
-//                                 const std::string& pdb_code) {
-//     MonomerKey key{symbol, monomer_class};
-//     MonomerEntry entry{
-//         symbol,
-//         "",  // no original data
-//         std::move(mol),
-//         monomer_class,
-//         pdb_code
-//     };
-//     d_monomers[key] = std::move(entry);
-
-//     if (!pdb_code.empty()) {
-//         d_pdbCodeIndex[pdb_code] = key;
-//     }
+//                                 const std::string& monomer_class) {
+//     return macroMolLib.contains(monomer_class, symbol);
 // }
-
-bool MonomerLibrary::hasMonomer(const std::string& symbol,
-                                const std::string& monomer_class) const {
-    return d_macroMolTemplateLib.libContains(monomer_class, symbol);
-}
 
 // Static methods for global library management
 
-MonomerLibrary *MonomerLibrary::getGlobalLibrary(){
+MacroMolTemplateLib *GlobalMonomerLibrary::getGlobalLibrary(){
     std::call_once(s_globalLibraryOnce, []() {
-        s_globalMACROMOLTemplateLib = std::make_unique<MACROMolTemplateLib>();
+        s_globalLibrary = std::make_unique<MacroMolTemplateLib>();
 
-        s_globalLibrary = std::make_unique<MonomerLibrary>(*(s_globalMACROMOLTemplateLib.get()));
-        s_globalLibrary->loadBuiltinDefinitions();
+        GlobalMonomerLibrary::loadBuiltinDefinitions();
 
     });
 

@@ -166,6 +166,10 @@ class RDKIT_GRAPHMOL_EXPORT MacroMol : public RWMol {
     return &d_templateLibrary;
   }
 
+   MacroMolTemplateLib *getTemplateLibrary() {
+    return &d_templateLibrary;
+  }
+
    // the following adds a template to the internal libraty for this MacroMol
   void addTemplate(std::unique_ptr<MacroMolTemplate> &templateMol) {
     PRECONDITION(templateMol, "bad template molecule");
@@ -176,9 +180,6 @@ class RDKIT_GRAPHMOL_EXPORT MacroMol : public RWMol {
 
   unsigned int addMacroAtom(std::string className, std::string templateName);
 
-  void addMacroBond(unsigned int fromAtomIdx, unsigned int toAtomIdx,
-                    Bond::BondType bondType, std::string fromConnectionPoint,
-                    std::string toConnectionPoint);
 
 };
 typedef boost::shared_ptr<MacroMol> MacroMol_SPTR;

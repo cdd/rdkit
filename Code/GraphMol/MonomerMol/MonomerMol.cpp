@@ -39,7 +39,7 @@ std::pair<unsigned int, unsigned int> getAttchpts(const std::string& linkage)
 } // anonymous namespace
 
 
-size_t MonomerMol::addMonomer(std::string_view name, int residue_number, std::string_view monomer_class,
+size_t addMonomer(MacroMol &macroMol, std::string_view name, int residue_number, std::string_view monomer_class,
                               std::string_view chain_id, MonomerType monomer_type)
 
 {
@@ -55,15 +55,15 @@ size_t MonomerMol::addMonomer(std::string_view name, int residue_number, std::st
       // new name
       std::string smiles(name);
 
-      n = "SM" + std::to_string(this->d_internalLibrary.getMACROMolTemplateLib().getNumTemplates() + 1);
+      n = "SM" + std::to_string(macroMol.getTemplateLibrary()->size() + 1);
 
-      this->d_internalLibrary.addMonomerFromSmiles(smiles, n, monomerClass); // owned by the local lib
+      addMonomerFromSmiles(*macroMol.getTemplateLibrary(), smiles, n, monomerClass); // owned by the local lib
     }
 
 
     //auto a = std::make_unique<::RDKit::Atom>();
-    auto newAtomId = addMacroAtom(monomerClass, n);
-    auto a = this->getAtomWithIdx(newAtomId);
+    auto newAtomId = macroMol.addMacroAtom(monomerClass, n);
+    auto a = macroMol.getAtomWithIdx(newAtomId);
     
     // Allows monomer names show up in image renderings
     a->setProp(RDKit::common_properties::atomLabel, n);
@@ -93,59 +93,14 @@ size_t MonomerMol::addMonomer(std::string_view name, int residue_number, std::st
     return newAtomId;
 }
 
-
-
-// MonomerMol constructor/assignment implementations
-
-MonomerMol &MonomerMol::operator=(const MonomerMol &other)
-{
-  if (this != &other) {
-    this->clear();
-    numBonds = 0;
-    initFromOther(other, false, -1);
-
-    d_internalLibrary.getMACROMolTemplateLib().copyTemplateLib(other.d_internalLibrary.getMACROMolTemplateLib());
-  }
-  return *this;
-}
-
-void MonomerMol::setCustomMonomerLibrary(MonomerLibrary *library)
-{
-    d_customLibrary = library;
-    this->addTemplateLibrary(&library->getMACROMolTemplateLib());
-}
-
-
-
-
-MonomerMol::MonomerMol(const std::string &binStr) : d_internalLibrary(*MACROMol::getTemplateLibrary())
-{
-    MolPickler::molFromPickle(binStr, *this);
-}
-
-// MonomerLibrary access implementations
-
-MonomerLibrary& MonomerMol::getMonomerLibrary()
-{
-        return d_internalLibrary;
-}
-
-const MonomerLibrary& MonomerMol::getMonomerLibrary() const
-{
-       return d_internalLibrary;
-}
-
-
-// MonomerMol member function implementations
-
-void MonomerMol::addConnection(size_t monomer1, size_t monomer2,
+void addConnection(MacroMol &macroMol, size_t monomer1, size_t monomer2,
                                const std::string& linkage, Bond::BondType bond_type)
 {   
 
     std::vector<std::string> connectionLabels;
  
-    auto atom1 = getAtomWithIdx(monomer1);
-    auto atom2 = getAtomWithIdx(monomer2);
+    auto atom1 = macroMol.getAtomWithIdx(monomer1);
+    auto atom2 = macroMol.getAtomWithIdx(monomer2);
 
     // if either atom is a monomer, there must be a linkage parameter
 
@@ -173,8 +128,8 @@ void MonomerMol::addConnection(size_t monomer1, size_t monomer2,
 
         // make sure there are not two bonds with the same connection labels
         
-        for (auto bondI : boost::make_iterator_range(getAtomBonds(atom1))) {
-            auto bond = (*this)[bondI];
+        for (auto bondI : boost::make_iterator_range(macroMol.getAtomBonds(atom1))) {
+            auto bond = macroMol[bondI];
 
             if (bond->getOtherAtom(atom1) != atom2) {
                 continue;  // only looking at bonds between the same two atoms
@@ -192,154 +147,21 @@ void MonomerMol::addConnection(size_t monomer1, size_t monomer2,
         }
     }
 
-    const auto new_total = this->addBond(monomer1, monomer2, bond_type);
-    auto bond = this->getBondWithIdx(new_total - 1);
+    const auto new_total = macroMol.addBond(monomer1, monomer2, bond_type);
+    auto bond = macroMol.getBondWithIdx(new_total - 1);
 
-    if (isMonomer(getAtomWithIdx(monomer1)) && connectionLabels[0] != "ATOM") {
+    //if (isMonomer(macroMol.getAtomWithIdx(monomer1)) && connectionLabels[0] != "ATOM") {
         bond->setProp(common_properties::_MolFileBondAttachPt1, connectionLabels[0]);
-    }
-    if (isMonomer(getAtomWithIdx(monomer2)) && connectionLabels[1] != "ATOM") {
+    //}
+    //if (isMonomer(macroMol.getAtomWithIdx(monomer2)) && connectionLabels[1] != "ATOM") {
         bond->setProp(common_properties::_MolFileBondAttachPt2, connectionLabels[1]);
-    }
-
-    // // if bond already exists, extend linkage information using 'extra_linkage' property
-    // if (auto bond = getBondBetweenAtoms(monomer1, monomer2); bond != nullptr) {
-
-    //     // If the linkage property isn't set, something went wrong
-    //     std::string existing_linkage;
-    //     if (!bond->getPropIfPresent(LINKAGE, existing_linkage)) {
-    //         throw std::runtime_error(
-    //             "No linkage property on bond between atom=" +
-    //             std::to_string(monomer1) + " and atom=" + std::to_string(monomer2));
-    //     }
-
-    //     // Make sure we're not recreating this same bond.
-    //     if (existing_linkage.find(linkage) != std::string::npos) {
-    //         throw std::runtime_error(
-    //             "Can't duplicate " + linkage + " bond between atom=" +
-    //             std::to_string(monomer1) + " and atom=" + std::to_string(monomer2));
-    //     }
-
-    //     // For now, only set 'extra linkage' on linkages that already exist as a part
-    //     // of the backbone
-    //     if (existing_linkage != BACKBONE_LINKAGE) {
-    //         throw std::runtime_error(
-    //             "Only dative bonds can have multiple linkages between atom=" +
-    //             std::to_string(monomer1) + " and atom=" + std::to_string(monomer2));
-    //     }
-
-    //     // Since hydrogen bonding and covalent bonds are different types of bond
-    //     // serializing them with the same bond type doesn't make too much sense.
-    //     if (linkage == HYDROGEN_LINKAGE) {
-    //         throw std::runtime_error(
-    //             "Multiple bonds can't include hydrogen bond for bond between atom=" +
-    //             std::to_string(monomer1) + " and atom=" + std::to_string(monomer2));
-    //     }
-
-    //     // For now, don't allow >2 additional linkages between the same
-    //     // two monomers
-    //     if (bond->hasProp(EXTRA_LINKAGE)) {
-    //         throw std::runtime_error(
-    //             "Multiple custom bonds not supported for bond between atom=" +
-    //             std::to_string(monomer1) + " and atom=" + std::to_string(monomer2));
-    //     }
-
-
-    //     bond->setProp(EXTRA_LINKAGE, linkage);
-    // } else {
-    //     auto create_bond = [&, this](unsigned int first_monomer,
-    //                            unsigned int second_monomer,
-    //                            ::RDKit::Bond::BondType bond_type,
-    //                            const std::string& linkage_prop) {
-    //         const auto new_total = this->addBond(first_monomer, second_monomer, bond_type);
-    //         auto bond = this->getBondWithIdx(new_total - 1);
-    //         bond->setProp(LINKAGE, linkage_prop);
-    //     };
-
-    //     // Connections that use specific and different attachment points (such
-    //     // as R2-R1 or R3-R1) should be set as directional (dative) bonds so
-    //     // that substructure matching and canonicalization can take sequence
-    //     // direction into account. To ensure consistent bond directionality, we
-    //     // always set the direction from the higher attachment point to the
-    //     // lower attachment point.
-    //     bool set_directional_bond = false;
-    //     if (linkage.front() != 'p' && linkage.find('?') == std::string::npos) {
-    //         auto [begin_attchpt, end_attchpt] = getAttchpts(linkage);
-    //         if (begin_attchpt > end_attchpt) {
-    //             create_bond(monomer1, monomer2, ::RDKit::Bond::DATIVE, linkage);
-    //             set_directional_bond = true;
-    //         } else if (begin_attchpt < end_attchpt) {
-    //             auto new_linkage = "R" + std::to_string(end_attchpt) + "-R" + std::to_string(begin_attchpt);
-    //             create_bond(monomer2, monomer1, ::RDKit::Bond::DATIVE,
-    //                         new_linkage);
-    //             set_directional_bond = true;
-    //         }
-    //     }
-
-    //     if (!set_directional_bond) {
-    //         auto bond_type = (linkage.front() == 'p' ? ::RDKit::Bond::ZERO
-    //                                                  : ::RDKit::Bond::SINGLE);
-    //         create_bond(monomer1, monomer2, bond_type, linkage);
-    //     }
-
-    //     if (linkage == BRANCH_LINKAGE) {
-    //         // monomer2 is a branch monomer
-    //         this->getAtomWithIdx(monomer2)->setProp(BRANCH_MONOMER, true);
-    //     }
-    // }
+    //}
 }
 
-unsigned int MonomerMol::addBond(unsigned int atomIdx1, unsigned int atomIdx2,
-                            Bond::BondType bondType) {
-  // if the atom indices are bad, the next two calls will catch that.
-  auto beginAtom = getAtomWithIdx(atomIdx1);
-  auto endAtom = getAtomWithIdx(atomIdx2);
-  PRECONDITION(atomIdx1 != atomIdx2, "attempt to add self-bond");
-  PRECONDITION(!(boost::edge(atomIdx1, atomIdx2, d_graph).second),
-               "bond already exists");
-
-  auto *b = new Bond(bondType);
-  b->setOwningMol(this);
-  if (bondType == Bond::AROMATIC) {
-    b->setIsAromatic(1);
-    //
-    // assume that aromatic bonds connect aromatic atoms
-    //   This is relevant for file formats like MOL, where there
-    //   is no such thing as an aromatic atom, but bonds can be
-    //   marked aromatic.
-    //
-    beginAtom->setIsAromatic(1);
-    endAtom->setIsAromatic(1);
-  }
-  auto [which, ok] = boost::add_edge(atomIdx1, atomIdx2, d_graph);
-  d_graph[which] = b;
-  ++numBonds;
-  b->setIdx(numBonds - 1);
-  b->setBeginAtomIdx(atomIdx1);
-  b->setEndAtomIdx(atomIdx2);
-
-  // the valence values on the begin and end atoms need to be updated:
-  beginAtom->clearPropertyCache();
-  endAtom->clearPropertyCache();
-
-  // we're in a batch edit, and at least one of the bond ends is scheduled
-  // for deletion, so mark the new bond for deletion too:
-  if (dp_delAtoms &&
-      ((atomIdx1 < dp_delAtoms->size() && dp_delAtoms->test(atomIdx1)) ||
-       (atomIdx2 < dp_delAtoms->size() && dp_delAtoms->test(atomIdx2)))) {
-    if (dp_delBonds->size() < numBonds) {
-      dp_delBonds->resize(numBonds);
-    }
-    dp_delBonds->set(numBonds - 1);
-  }
-
-  return numBonds;
-}
-
-std::vector<std::string> MonomerMol::getPolymerIds() const
+std::vector<std::string> getPolymerIds(MacroMol &macroMol)
 {
     std::vector<std::string> polymer_ids;
-    for (auto atom : atoms()) {
+    for (auto atom : macroMol.atoms()) {
         auto id = getPolymerId(atom);
         // in vector to preseve order of polymers
         if (std::find(polymer_ids.begin(), polymer_ids.end(), id) ==
@@ -350,34 +172,34 @@ std::vector<std::string> MonomerMol::getPolymerIds() const
     return polymer_ids;
 }
 
-size_t MonomerMol::addMonomer(std::string_view name, MonomerType monomer_type)
+size_t addMonomer(MacroMol &macroMol,std::string_view name, MonomerType monomer_type)
 {
-    if (getNumAtoms() == 0) {
+    if (macroMol.getNumAtoms() == 0) {
         throw std::invalid_argument(
             "No atoms in molecule to determine chain ID");
     }
-    const auto* last_monomer = getAtomWithIdx(getNumAtoms() - 1);
+    const auto* last_monomer = macroMol.getAtomWithIdx(macroMol.getNumAtoms() - 1);
     const auto chain_id = getPolymerId(last_monomer);
     const auto residue_number = getResidueNumber(last_monomer) + 1;
     const auto monomer_class = last_monomer->getMonomerInfo()->getMonomerClass();
-    return addMonomer(name, residue_number, monomer_class, chain_id, monomer_type);
+    return addMonomer(macroMol, name, residue_number, monomer_class, chain_id, monomer_type);
 }
 
-Chain MonomerMol::getPolymer(std::string_view polymer_id) const
+Chain getPolymer(const MacroMol &macroMol, std::string_view polymer_id)
 {
     std::vector<unsigned int> chain_atoms;
-    for (auto atom : atoms()) {
+    for (auto atom : macroMol.atoms()) {
         if (getPolymerId(atom) == polymer_id) {
             chain_atoms.push_back(atom->getIdx());
         }
     }
     std::sort(chain_atoms.begin(), chain_atoms.end(),
-              [this](unsigned int a, unsigned int b) {
-                  return getResidueNumber(getAtomWithIdx(a)) <
-                         getResidueNumber(getAtomWithIdx(b));
+              [macroMol](unsigned int a, unsigned int b) {
+                  return getResidueNumber(macroMol.getAtomWithIdx(a)) <
+                         getResidueNumber(macroMol.getAtomWithIdx(b));
               });
     std::vector<unsigned int> chain_bonds;
-    for (auto bond : bonds()) {
+    for (auto bond : macroMol.bonds()) {
         if (getPolymerId(bond->getBeginAtom()) == polymer_id &&
             getPolymerId(bond->getEndAtom()) == polymer_id) {
             chain_bonds.push_back(bond->getIdx());
@@ -386,7 +208,7 @@ Chain MonomerMol::getPolymer(std::string_view polymer_id) const
 
     // Annotations stored as a COP substance group ("heavy chain", "light chain")
     std::string annotation{};
-    for (const auto& sg : ::RDKit::getSubstanceGroups(*this)) {
+    for (const auto& sg : ::RDKit::getSubstanceGroups(macroMol)) {
         if ((sg.getProp<std::string>("TYPE") != "COP") ||
             !sg.hasProp(ANNOTATION) || !sg.hasProp("ID")) {
             continue;
@@ -398,5 +220,12 @@ Chain MonomerMol::getPolymer(std::string_view polymer_id) const
     }
     return {chain_atoms, chain_bonds, annotation};
 }
+
+void addGlobalLibrary(MacroMol &macroMol) {
+    
+    auto lobalLibrary = GlobalMonomerLibrary::getGlobalLibrary();
+    macroMol.getTemplateLibrary()->copyTemplateLib(*lobalLibrary);
+
+  }
 
 } // namespace RDKit

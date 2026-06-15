@@ -14,7 +14,7 @@
 #include <RDGeneral/Invariant.h>
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/FileParsers/FileParsers.h>
-#include <GraphMol/FileParsers/MACROMolUtils.h>
+#include <GraphMol/FileParsers/MacroMolUtils.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <RDGeneral/FileParseException.h>
@@ -39,7 +39,7 @@ using namespace RDKit;
 /*
  * Temporary, simple FASTA parser to show how to use the MonomerMol
 */
-static std::string to_fasta(const MonomerMol& mol)
+static std::string to_fasta(const MacroMol& mol)
 {
     // make a set of all the chains in the molecule
     std::set<std::string> chains;
@@ -54,7 +54,7 @@ static std::string to_fasta(const MonomerMol& mol)
         }
         first = false;
         fasta << ">Chain " << chain_id << "\n"; // add title
-        auto chain = mol.getPolymer(chain_id);
+        auto chain = getPolymer(mol,chain_id);
         for (auto atom : chain.atoms) {
             // Really there should be a lookup to ensure that these are all 1 letter
             // And a sort by residue number & connectivity
@@ -150,41 +150,45 @@ static bool same_roundtrip_mol(const RDKit::ROMol& original,
 TEST_CASE("FASTAConversions") {
   SECTION("SIMPLE") {
     // Build MonomerMol with a single chain
-    MonomerMol monomer_mol;
-    monomer_mol.addMonomer("R", 1, "PEPTIDE", "PEPTIDE1");
-    monomer_mol.addMonomer("D");
-    monomer_mol.addMonomer("K");
-    monomer_mol.addMonomer("I");
-    monomer_mol.addMonomer("T");
+    MacroMol macroMol;
+    addGlobalLibrary(macroMol);
 
-    monomer_mol.addConnection(0, 1, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(1, 2, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(2, 3, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(3, 4, BACKBONE_LINKAGE);
+    addMonomer(macroMol, "R", 1, "PEPTIDE", "PEPTIDE1");
+    addMonomer(macroMol, "D");
+    addMonomer(macroMol, "K");
+    addMonomer(macroMol, "I");
+    addMonomer(macroMol, "T");
 
-    CHECK(monomer_mol.getNumAtoms() == 5);
-    CHECK(monomer_mol.getNumBonds() == 4);
-    CHECK(std::string(">Chain PEPTIDE1\nRDKIT") == to_fasta(monomer_mol));
+    addConnection(macroMol,0, 1, BACKBONE_LINKAGE);
+    addConnection(macroMol,1, 2, BACKBONE_LINKAGE);
+    addConnection(macroMol,2, 3, BACKBONE_LINKAGE);
+    addConnection(macroMol,3, 4, BACKBONE_LINKAGE);
+
+    CHECK(macroMol.getNumAtoms() == 5);
+    CHECK(macroMol.getNumBonds() == 4);
+    CHECK(std::string(">Chain PEPTIDE1\nRDKIT") == to_fasta(macroMol));
   }
 
   SECTION("MultipleChains") {
     // Build MonomerMol with two chains
-    MonomerMol monomer_mol;
-    auto midx1 = monomer_mol.addMonomer("R", 1, "PEPTIDE", "A");
-    auto midx2 = monomer_mol.addMonomer("D");
+    MacroMol macroMol;
+    addGlobalLibrary(macroMol);
 
-    auto midx3 = monomer_mol.addMonomer("K", 1, "PEPTIDE", "B");
-    auto midx4 = monomer_mol.addMonomer("I");
-    auto midx5 = monomer_mol.addMonomer("T");
+    auto midx1 = addMonomer(macroMol, "R", 1, "PEPTIDE", "A");
+    auto midx2 = addMonomer(macroMol, "D");
 
-    monomer_mol.addConnection(midx1, midx2, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx3, midx4, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx4, midx5, BACKBONE_LINKAGE);
+    auto midx3 = addMonomer(macroMol, "K", 1, "PEPTIDE", "B");
+    auto midx4 = addMonomer(macroMol, "I");
+    auto midx5 = addMonomer(macroMol, "T");
 
-    CHECK(monomer_mol.getNumAtoms() == 5);
-    CHECK(monomer_mol.getNumBonds() == 3);
+    addConnection(macroMol, midx1, midx2, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx3, midx4, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx4, midx5, BACKBONE_LINKAGE);
 
-    CHECK(std::string(">Chain A\nRD\n>Chain B\nKIT") == to_fasta(monomer_mol));
+    CHECK(macroMol.getNumAtoms() == 5);
+    CHECK(macroMol.getNumBonds() == 3);
+
+    CHECK(std::string(">Chain A\nRD\n>Chain B\nKIT") == to_fasta(macroMol));
   }
 
   SECTION("UsingSequenceReader") {
@@ -194,9 +198,9 @@ TEST_CASE("FASTAConversions") {
     CHECK(atomistic_mol);
 
     // PDB info is used to convert the atomistic sturcture into a MonomerMol
-    auto monomer_mol = toMonomeric(*atomistic_mol);
+    auto macroMol = toMonomeric(*atomistic_mol);
 
-    CHECK(std::string(">Chain PEPTIDE1\nCGCGAATTACCGCG") == to_fasta(*monomer_mol));
+    CHECK(std::string(">Chain PEPTIDE1\nCGCGAATTACCGCG") == to_fasta(*macroMol));
     delete atomistic_mol;
   }
 }
@@ -206,18 +210,19 @@ TEST_CASE("Conversions") {
     std::string seq = "CGCGA";
     auto atomistic_mol = SequenceToMol(seq);
 
-    MonomerMol monomer_mol(true);
-    auto midx1 = monomer_mol.addMonomer("C", 1, "PEPTIDE", "PEPTIDE1");
-    auto midx2 = monomer_mol.addMonomer("G");
-    auto midx3 = monomer_mol.addMonomer("C");
-    auto midx4 = monomer_mol.addMonomer("G");
-    auto midx5 = monomer_mol.addMonomer("A");
+    MacroMol macroMol;
+    addGlobalLibrary(macroMol);
+    auto midx1 = addMonomer(macroMol, "C", 1, "PEPTIDE", "PEPTIDE1");
+    auto midx2 = addMonomer(macroMol, "G");
+    auto midx3 = addMonomer(macroMol, "C");
+    auto midx4 = addMonomer(macroMol, "G");
+    auto midx5 = addMonomer(macroMol, "A");
 
-    monomer_mol.addConnection(midx1, midx2, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx2, midx3, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx3, midx4, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx4, midx5, BACKBONE_LINKAGE);
-    auto atomistic_mol2 = toAtomistic(monomer_mol);
+    addConnection(macroMol, midx1, midx2, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx2, midx3, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx3, midx4, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx4, midx5, BACKBONE_LINKAGE);
+    auto atomistic_mol2 = toAtomistic(macroMol);
     
     // atomistic structure is same as using sequence parser
     std::string smi1 = MolToSmiles(*atomistic_mol);
@@ -229,17 +234,18 @@ TEST_CASE("Conversions") {
 
   SECTION("toAtomisticWithBranch") {
     // This is equivalent to HELM string "PEPTIDE1{A.D(C)P}$$$$"
-    MonomerMol monomer_mol(true);
-    auto midx1 = monomer_mol.addMonomer("A", 1, "PEPTIDE", "PEPTIDE1");
-    auto midx2 = monomer_mol.addMonomer("D");
-    auto midx3 = monomer_mol.addMonomer("C");
-    auto midx4 = monomer_mol.addMonomer("P");
+    MacroMol macroMol;
+    addGlobalLibrary(macroMol);
+    auto midx1 = addMonomer(macroMol, "A", 1, "PEPTIDE", "PEPTIDE1");
+    auto midx2 = addMonomer(macroMol, "D");
+    auto midx3 = addMonomer(macroMol, "C");
+    auto midx4 = addMonomer(macroMol, "P");
 
-    monomer_mol.addConnection(midx1, midx2, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx2, midx3, BRANCH_LINKAGE);
-    monomer_mol.addConnection(midx2, midx4, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx1, midx2, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx2, midx3, BRANCH_LINKAGE);
+    addConnection(macroMol, midx2, midx4, BACKBONE_LINKAGE);
 
-    std::string smi = MolToSmiles(*toAtomistic(monomer_mol));
+    std::string smi = MolToSmiles(*toAtomistic(macroMol));
     CHECK(smi == "C[C@H](N)C(=O)N[C@@H](CC(=O)N[C@@H](CS)C(=O)O)C(=O)N1CCC[C@H]1C(=O)O");
   }
 
@@ -248,21 +254,23 @@ TEST_CASE("Conversions") {
     std::string helm = "PEPTIDE1{C.A.A.A.C}$PEPTIDE1,PEPTIDE1,1:R3-5:R3$$$V2.0";
     auto atomistic_mol = HELMToMol(helm);
 
-    MonomerMol monomer_mol(true);
-    auto midx1 = monomer_mol.addMonomer("C", 1, "PEPTIDE", "PEPTIDE1");
-    auto midx2 = monomer_mol.addMonomer("A");
-    auto midx3 = monomer_mol.addMonomer("A");
-    auto midx4 = monomer_mol.addMonomer("A");
-    auto midx5 = monomer_mol.addMonomer("C");
+    MacroMol macroMol;
+    addGlobalLibrary(macroMol);
+    
+    auto midx1 = addMonomer(macroMol, "C", 1, "PEPTIDE", "PEPTIDE1");
+    auto midx2 = addMonomer(macroMol, "A");
+    auto midx3 = addMonomer(macroMol, "A");
+    auto midx4 = addMonomer(macroMol, "A");
+    auto midx5 = addMonomer(macroMol, "C");
 
-    monomer_mol.addConnection(midx1, midx2, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx2, midx3, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx3, midx4, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx4, midx5, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx1, midx5, CROSS_LINKAGE);
+    addConnection(macroMol, midx1, midx2, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx2, midx3, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx3, midx4, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx4, midx5, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx1, midx5, CROSS_LINKAGE);
 
     std::string smi1 = MolToSmiles(*atomistic_mol);
-    std::string smi2 = MolToSmiles(*toAtomistic(monomer_mol));
+    std::string smi2 = MolToSmiles(*toAtomistic(macroMol));
     CHECK(smi1 == smi2);
     delete atomistic_mol;
   }
@@ -271,27 +279,28 @@ TEST_CASE("Conversions") {
     std::string helm = "PEPTIDE1{F.Y.K.A.R.L}$PEPTIDE1,PEPTIDE1,6:R2-1:R1$$$V2.0";
     auto atomistic_mol = HELMToMol(helm);
 
-    MonomerMol monomer_mol(true);
-    auto midx1 = monomer_mol.addMonomer("F", 1, "PEPTIDE", "PEPTIDE1");
-    auto midx2 = monomer_mol.addMonomer("Y");
-    auto midx3 = monomer_mol.addMonomer("K");
-    auto midx4 = monomer_mol.addMonomer("A");
-    auto midx5 = monomer_mol.addMonomer("R");
-    auto midx6 = monomer_mol.addMonomer("L");
-    monomer_mol.addConnection(midx1, midx2, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx2, midx3, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx3, midx4, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx4, midx5, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx5, midx6, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx6, midx1, BACKBONE_LINKAGE);
+    MacroMol macroMol;
+    addGlobalLibrary(macroMol);
+    auto midx1 = addMonomer(macroMol, "F", 1, "PEPTIDE", "PEPTIDE1");
+    auto midx2 = addMonomer(macroMol, "Y");
+    auto midx3 = addMonomer(macroMol, "K");
+    auto midx4 = addMonomer(macroMol, "A");
+    auto midx5 = addMonomer(macroMol, "R");
+    auto midx6 = addMonomer(macroMol, "L");
+    addConnection(macroMol, midx1, midx2, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx2, midx3, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx3, midx4, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx4, midx5, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx5, midx6, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx6, midx1, BACKBONE_LINKAGE);
 
-    CHECK(monomer_mol.getNumAtoms() == 6);
-    CHECK(monomer_mol.getNumBonds() == 6);
+    CHECK(macroMol.getNumAtoms() == 6);
+    CHECK(macroMol.getNumBonds() == 6);
 
 
     
     std::string smi1 = MolToSmiles(*atomistic_mol);
-    auto mol2 = toAtomistic(monomer_mol);
+    auto mol2 = toAtomistic(macroMol);
     std::string smi2 = MolToSmiles(*(mol2.get()));
     CHECK(smi1 == smi2);
     delete atomistic_mol;
@@ -303,42 +312,44 @@ TEST_CASE("Conversions") {
 
 
     // toAtomistic should still work even when monomers are added out of order
-    MonomerMol monomer_mol(true);
-    auto midx1 = monomer_mol.addMonomer("A", 1, "PEPTIDE", "PEPTIDE1");
-    auto midx2 = monomer_mol.addMonomer("K");
-    auto midx3 = monomer_mol.addMonomer("Y");
-    auto midx4 = monomer_mol.addMonomer("F");
-    auto midx5 = monomer_mol.addMonomer("L");
-    auto midx6 = monomer_mol.addMonomer("R");
-    monomer_mol.addConnection(midx4, midx3, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx3, midx2, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx2, midx1, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx1, midx6, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx6, midx5, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx5, midx4, BACKBONE_LINKAGE);
-    monomer_mol.assignChains();
+    MacroMol macroMol;
+    addGlobalLibrary(macroMol);
+    auto midx1 = addMonomer(macroMol, "A", 1, "PEPTIDE", "PEPTIDE1");
+    auto midx2 = addMonomer(macroMol, "K");
+    auto midx3 = addMonomer(macroMol, "Y");
+    auto midx4 = addMonomer(macroMol, "F");
+    auto midx5 = addMonomer(macroMol, "L");
+    auto midx6 = addMonomer(macroMol, "R");
+    addConnection(macroMol, midx4, midx3, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx3, midx2, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx2, midx1, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx1, midx6, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx6, midx5, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx5, midx4, BACKBONE_LINKAGE);
+    assignChains(macroMol);
 
-    CHECK(monomer_mol.getNumAtoms() == 6);
-    CHECK(monomer_mol.getNumBonds() == 6);
+    CHECK(macroMol.getNumAtoms() == 6);
+    CHECK(macroMol.getNumBonds() == 6);
 
     std::string smi1 = MolToSmiles(*atomistic_mol);
-    std::string smi2 = MolToSmiles(*toAtomistic(monomer_mol));
+    std::string smi2 = MolToSmiles(*toAtomistic(macroMol));
     CHECK(smi1 == smi2);
     delete atomistic_mol;
   }
 
   SECTION("toAtomisticSmilesMonomer") {
     // This is equivelent to HELM string "PEPTIDE1{A.[O=C([C@H]1CCCN1[*:1])[*:2]].P}$$$$"
-    MonomerMol monomer_mol(true);
-    auto midx1 = monomer_mol.addMonomer("A", 1, "PEPTIDE", "PEPTIDE1");
-    auto midx2 = monomer_mol.addMonomer("O=C([C@H]1CCCN1[*:1])[*:2]", MonomerType::SMILES);
-    auto midx3 = monomer_mol.addMonomer("P");
-    monomer_mol.addConnection(midx1, midx2, BACKBONE_LINKAGE);
-    monomer_mol.addConnection(midx2, midx3, BACKBONE_LINKAGE);
-    monomer_mol.assignChains();
-    CHECK(monomer_mol.getNumAtoms() == 3);
-    CHECK(monomer_mol.getNumBonds() == 2);
-    auto atomistic_mol = toAtomistic(monomer_mol);
+    MacroMol macroMol;
+    addGlobalLibrary(macroMol);
+    auto midx1 = addMonomer(macroMol, "A", 1, "PEPTIDE", "PEPTIDE1");
+    auto midx2 = addMonomer(macroMol, "O=C([C@H]1CCCN1[*:1])[*:2]", MonomerType::SMILES);
+    auto midx3 = addMonomer(macroMol, "P");
+    addConnection(macroMol, midx1, midx2, BACKBONE_LINKAGE);
+    addConnection(macroMol, midx2, midx3, BACKBONE_LINKAGE);
+    assignChains(macroMol);
+    CHECK(macroMol.getNumAtoms() == 3);
+    CHECK(macroMol.getNumBonds() == 2);
+    auto atomistic_mol = toAtomistic(macroMol);
     std::string smi1 = MolToSmiles(*atomistic_mol);
     CHECK(smi1 == "C[C@H](N)C(=O)N1CCC[C@@H]1C(=O)N1CCC[C@H]1C(=O)O");
   }
@@ -356,7 +367,7 @@ TEST_CASE("Conversions") {
     auto roundtrip = toAtomistic(*monomer_mol);
     neutralize_atoms(*mol);
     neutralize_atoms(*roundtrip);
-    CHECK(same_roundtrip_mol(*mol, *roundtrip, monomer_mol->getPolymerIds().size()));
+    CHECK(same_roundtrip_mol(*mol, *roundtrip, getPolymerIds(*monomer_mol.get()).size()));
   }
 
   SECTION("toMonomeric2N65") {
@@ -374,7 +385,7 @@ TEST_CASE("Conversions") {
     neutralize_atoms(*mol);
     auto resolved_his = resolve_his(*mol);
     neutralize_atoms(*roundtrip);
-    CHECK(same_roundtrip_mol(*resolved_his, *roundtrip, monomer_mol->getPolymerIds().size()));
+    CHECK(same_roundtrip_mol(*resolved_his, *roundtrip, getPolymerIds(*monomer_mol).size()));
   }
 
   SECTION("toMonomeric4QAF") {
@@ -387,7 +398,7 @@ TEST_CASE("Conversions") {
     auto monomer_mol = toMonomeric(*(mol.get()));
 
     // There should be 4 chains
-    auto polymer_ids = monomer_mol->getPolymerIds();
+    auto polymer_ids = getPolymerIds(*monomer_mol);
     CHECK(polymer_ids.size() == 4);
 
     CHECK(monomer_mol->getNumAtoms() == 395);
@@ -417,6 +428,6 @@ TEST_CASE("Conversions") {
     auto roundtrip = toAtomistic(*monomer_mol);
     neutralize_atoms(*mol);
     neutralize_atoms(*roundtrip);
-    CHECK(same_roundtrip_mol(*mol, *roundtrip, monomer_mol->getPolymerIds().size()));
+    CHECK(same_roundtrip_mol(*mol, *roundtrip, getPolymerIds(*monomer_mol).size()));
   }
 }

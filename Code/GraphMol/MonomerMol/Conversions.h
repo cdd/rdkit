@@ -6,6 +6,7 @@
 #pragma once
 
 #include <RDGeneral/export.h>
+#include "MonomerMol.h"
 
 #include <memory>
 
@@ -21,7 +22,7 @@ class MonomerMol;
  * @param atomistic_mol Atomistic molecule to convert to MonomerMol
  * @return MonomerMol
  */
-RDKIT_MONOMERMOL_EXPORT std::unique_ptr<MonomerMol>
+RDKIT_MONOMERMOL_EXPORT std::unique_ptr<MacroMol>
 toMonomeric(const ROMol& atomistic_mol);
 
 /**
@@ -32,6 +33,6 @@ toMonomeric(const ROMol& atomistic_mol);
  * @return Atomistic molecule
  */
 RDKIT_MONOMERMOL_EXPORT std::unique_ptr<RWMol>
-toAtomistic(const MonomerMol& monomer_mol);
+toAtomistic(const MacroMol& macroMol);
 
 } // namespace RDKit

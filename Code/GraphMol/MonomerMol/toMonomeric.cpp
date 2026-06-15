@@ -22,7 +22,7 @@
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
 #include <GraphMol/Substruct/SubstructMatch.h>
-#include <GraphMol/FileParsers/MACROMolUtils.h>
+#include <GraphMol/FileParsers/MacroMolUtils.h>
 
 #include "MonomerLibrary.h"
 #include "MonomerMol.h"
@@ -420,7 +420,7 @@ int getAttchpt(const RDKit::Atom& monomer, const RDKit::Bond& bond,
     }
 }
 
-void detectLinkages(MonomerMol& monomer_mol,
+void detectLinkages(MacroMol &macroMol,
                     const RDKit::RWMol& atomistic_mol)
 {
     // Find all linkages between monomers (used when PDB residue info is
@@ -440,14 +440,14 @@ void detectLinkages(MonomerMol& monomer_mol,
 
         // Check if this is already present as a backbone linkage
         if (begin_monomer_idx == end_monomer_idx ||
-            monomer_mol.getBondBetweenAtoms(begin_monomer_idx,
+            macroMol.getBondBetweenAtoms(begin_monomer_idx,
                                             end_monomer_idx) != nullptr) {
             continue;
         }
 
         const auto begin_monomer =
-            monomer_mol.getAtomWithIdx(begin_monomer_idx);
-        const auto end_monomer = monomer_mol.getAtomWithIdx(end_monomer_idx);
+            macroMol.getAtomWithIdx(begin_monomer_idx);
+        const auto end_monomer = macroMol.getAtomWithIdx(end_monomer_idx);
 
         auto begin_attchpt = getAttchpt(*begin_monomer, *bond, atomistic_mol);
         auto end_attchpt = getAttchpt(*end_monomer, *bond, atomistic_mol);
@@ -482,23 +482,23 @@ void detectLinkages(MonomerMol& monomer_mol,
         // Backbone connections (R2-R1) should be added in that order when
         // possible.
         if (begin_attchpt == 2 && end_attchpt == 1) {
-            monomer_mol.addConnection(begin_monomer_idx, end_monomer_idx,
+            addConnection(macroMol, begin_monomer_idx, end_monomer_idx,
                           "R2-R1");
         } else if (begin_attchpt == 1 && end_attchpt == 2) {
-            monomer_mol.addConnection(end_monomer_idx, begin_monomer_idx,
+            addConnection(macroMol, end_monomer_idx, begin_monomer_idx,
                           "R2-R1");
         } else if (begin_monomer_idx < end_monomer_idx) {
-            monomer_mol.addConnection(begin_monomer_idx, end_monomer_idx,
+            addConnection(macroMol, begin_monomer_idx, end_monomer_idx,
                           "R" + std::to_string(begin_attchpt) + "-R" + std::to_string(end_attchpt));
         } else {
-            monomer_mol.addConnection(end_monomer_idx, begin_monomer_idx,
+            addConnection(macroMol, end_monomer_idx, begin_monomer_idx,
                           "R" + std::to_string(end_attchpt) + "-R" + std::to_string(begin_attchpt));
         }
     }
 }
 
-MonomerLibrary::monomer_info_t
-getMonomerInfoFromAtom(const MonomerLibrary& db, const RDKit::Atom* atom)
+monomer_info_t
+getMonomerInfoFromAtom(const MacroMolTemplateLib& db, const RDKit::Atom* atom)
 {
     // This comes from something like a PDB or MAE file
     auto res_info = dynamic_cast<const RDKit::AtomPDBResidueInfo*>(
@@ -511,10 +511,10 @@ getMonomerInfoFromAtom(const MonomerLibrary& db, const RDKit::Atom* atom)
     if (res_class == "") {
       res_class = "PEPTIDE";
     }
-    return db.getMonomerInfo(res_name,res_class);
+    return getMonomerInfo(db, res_name,res_class);
 }
 
-std::unique_ptr<MonomerMol>
+std::unique_ptr<MacroMol>
 pdbInfoAtomisticToMM(const RDKit::ROMol& input_mol)
 {
     // A couple preprocessing steps; remove waters and neutralize atoms
@@ -535,10 +535,11 @@ pdbInfoAtomisticToMM(const RDKit::ROMol& input_mol)
                                                         {"RNA", 0},
                                                         {"DNA", 0},
                                                         {"CHEM", 0}};
-    auto monomer_mol = std::make_unique<MonomerMol>(true);
+    auto macroMol = std::make_unique<MacroMol>();
+    addGlobalLibrary(*macroMol);
 
     // Access the monomer library via the MonomerMol instance
-    const auto& db = monomer_mol->getGlobalLibrary();
+    auto db = macroMol->getTemplateLibrary();
 
     for (const auto& [chain_id, residues] : chains_and_residues) {
         // Use first residue to determine chain type. We assume that PDB data
@@ -561,12 +562,12 @@ pdbInfoAtomisticToMM(const RDKit::ROMol& input_mol)
                 // Standard residue in monomer DB, Verify that the fragment
                 // labeled as the residue matches what is in the monomer
                 // database
-                this_monomer = monomer_mol->addMonomer(std::get<0>(*monomer_info),
+                this_monomer = addMonomer(*macroMol.get(), std::get<0>(*monomer_info),
                                           res_num, monomer_class, polymer_chain_id);
             } else {
                 auto smiles = getMonomerSmiles(mol, atom_idxs, chain_id, key,
                                                res_num, end_of_chain);
-                this_monomer = monomer_mol->addMonomer(smiles, res_num,
+                this_monomer = addMonomer(*macroMol.get(), smiles, res_num,
                                           monomer_class, polymer_chain_id, MonomerType::SMILES);
             }
 
@@ -578,8 +579,8 @@ pdbInfoAtomisticToMM(const RDKit::ROMol& input_mol)
             ++res_num;
         }
     }
-    detectLinkages(*monomer_mol, mol);
-    return monomer_mol;
+    detectLinkages(*macroMol, mol);
+    return macroMol;
 }
 
 bool hasPdbResidueInfo(const RDKit::ROMol& mol)
@@ -593,7 +594,7 @@ bool hasPdbResidueInfo(const RDKit::ROMol& mol)
 }
 } // unnamed namespace
 
-std::unique_ptr<MonomerMol> toMonomeric(const RDKit::ROMol& atomistic_mol)
+std::unique_ptr<MacroMol> toMonomeric(const RDKit::ROMol& atomistic_mol)
 {
     if (!hasPdbResidueInfo(atomistic_mol)) {
         // If there is no residue information, we cannot convert to monomeric
@@ -602,34 +603,11 @@ std::unique_ptr<MonomerMol> toMonomeric(const RDKit::ROMol& atomistic_mol)
             "No residue information found in molecule, cannot convert to "
             "monomeric form");
     }
-    auto monomer_mol = pdbInfoAtomisticToMM(atomistic_mol);
-    monomer_mol->assignChains();
-    return monomer_mol;
+    auto macroMol = pdbInfoAtomisticToMM(atomistic_mol);
+    assignChains(*macroMol.get());
+    return macroMol;
 }
 
-// std::unique_ptr<MonomerMol> toMonomeric(const RDKit::ROMol& atomistic_mol) {
 
-
-//     if (!hasPdbResidueInfo(atomistic_mol)) {
-//         // If there is no residue information, we cannot convert to monomeric
-//         // form, so throw an error
-//         throw std::runtime_error(
-//             "No residue information found in molecule, cannot convert to "
-//             "monomeric form");
-//     }
-
-
-//   RDKit::MolToMACROParams molToMACROMolParams;
-//   std::unique_ptr<MonomerMol> monomerMol(new MonomerMol(false));
-
-//   std::unique_ptr<MonomerLibrary> templateLib(new MonomerLibrary(true));
-
-
-//   RDKit::MolToMACROMol(monomerMol.get(), atomistic_mol, templateLib->getMACROMolTemplateLib(),  molToMACROMolParams);
-
-//   monomerMol->assignChains();
-
-//   return monomerMol;
-// }
 
 } // namespace RDKit&

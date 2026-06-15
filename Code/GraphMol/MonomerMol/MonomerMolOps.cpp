@@ -60,14 +60,14 @@ void setResidueNumber(Atom* atom, int residue_number) {
     monomer_info->setResidueNumber(residue_number);
 }
 
-bool isValidChain(const MonomerMol& monomer_mol, std::string_view polymer_id) {
+bool isValidChain(const MacroMol &macroMol, std::string_view polymer_id) {
     // Check that the residue ordering is valid for this polymer. The residues
     // should be in connectivity order
-    const auto chain = monomer_mol.getPolymer(polymer_id);
+    const auto chain = getPolymer(macroMol,polymer_id);
     auto last_residue = chain.atoms[0];
     for (size_t i = 1; i < chain.atoms.size(); ++i) {
         const auto bond =
-            monomer_mol.getBondBetweenAtoms(last_residue, chain.atoms[i]);
+            macroMol.getBondBetweenAtoms(last_residue, chain.atoms[i]);
         if (bond == nullptr) {
             return false;
         }
@@ -92,18 +92,18 @@ bool isValidChain(const MonomerMol& monomer_mol, std::string_view polymer_id) {
     return true;
 }
 
-Atom* findChainBegin(MonomerMol& monomer_mol) {
+Atom* findChainBegin(MacroMol &macroMol) {
     // Find the beginning of the chain by starting at an arbirtary atom
     // and following the backbone backwards until the 'source' (beginning of the
     // chain) is found. If the beginning of the chain is in a cycle, then the
     // last discovered atom will be made the beginning of the chain.
-    std::vector<bool> seen(monomer_mol.getNumAtoms(), 0);
-    auto chain_begin = monomer_mol.getAtomWithIdx(0);
+    std::vector<bool> seen(macroMol.getNumAtoms(), 0);
+    auto chain_begin = macroMol.getAtomWithIdx(0);
     bool updated = true;
     while (updated) {
         updated = false;
         seen[chain_begin->getIdx()] = true;
-        for (const auto bond : monomer_mol.atomBonds(chain_begin)) {
+        for (const auto bond : macroMol.atomBonds(chain_begin)) {
             
             //auto linkage = bond->getProp<std::string>(LINKAGE);
             auto linkage = getLinkage(bond);
@@ -129,16 +129,16 @@ Atom* findChainBegin(MonomerMol& monomer_mol) {
     return chain_begin;
 }
 
-void orderResidues(MonomerMol& monomer_mol) {
+void orderResidues(MacroMol &macroMol) {
     // Currently assumes that all monomers are in the same chain. We will
     // eventually want to order residues on a per-chain basis.
 
     // Find the beginning of the chain (must be a backbone monomer)
-    auto chain_begin = findChainBegin(monomer_mol);
+    auto chain_begin = findChainBegin(macroMol);
 
     // Now re-order the residues beginning at chain_begin
     std::vector<Atom*> queue;
-    std::vector<bool> visited(monomer_mol.getNumAtoms(), 0);
+    std::vector<bool> visited(macroMol.getNumAtoms(), 0);
     queue.push_back(chain_begin);
     visited[chain_begin->getIdx()] = true;
 
@@ -153,7 +153,7 @@ void orderResidues(MonomerMol& monomer_mol) {
         // backbone monomers, which is more specific then a regular BFS
         // ordering. For example: A.B(X)C should be ordered as A, B, X, C
         // instead of A, B, C, X
-        for (const auto bond : monomer_mol.atomBonds(current)) {
+        for (const auto bond : macroMol.atomBonds(current)) {
             if (bond->getEndAtom() == current ||
                 visited[bond->getOtherAtom(current)->getIdx()]) {
                 continue;
@@ -175,32 +175,32 @@ void orderResidues(MonomerMol& monomer_mol) {
 
 } // anonymous namespace
 
-void MonomerMol::assignChains() {
+void assignChains(MacroMol &macroMol) {
     // Currently, orderResidues only works when there is a single chain
-    auto chain_ids = getPolymerIds();
-    if (chain_ids.size() == 1 && !isValidChain(*this, chain_ids[0])) {
-        orderResidues(*this);
+    auto chain_ids = getPolymerIds(macroMol);
+    if (chain_ids.size() == 1 && !isValidChain(macroMol, chain_ids[0])) {
+        orderResidues(macroMol);
     }
 
     // Determine and mark the 'connection bonds'
-    if (!getRingInfo()->isInitialized()) {
-        MolOps::findSSSR(*this, nullptr, /*includeDativeBonds = */ true);
+    if (!macroMol.getRingInfo()->isInitialized()) {
+        MolOps::findSSSR(macroMol, nullptr, /*includeDativeBonds = */ true);
     }
     // get atom rings that belong to a single polymer
-    const auto& bnd_rings = getRingInfo()->bondRings();
+    const auto& bnd_rings = macroMol.getRingInfo()->bondRings();
 
     for (const auto& ring : bnd_rings) {
-        if (std::ranges::all_of(ring, [this](const auto& idx) {
-                auto begin_at = getBondWithIdx(idx)->getBeginAtom();
-                auto end_at = getBondWithIdx(idx)->getEndAtom();
+        if (std::ranges::all_of(ring, [macroMol](const auto& idx) {
+                auto begin_at = macroMol.getBondWithIdx(idx)->getBeginAtom();
+                auto end_at = macroMol.getBondWithIdx(idx)->getEndAtom();
                 return getPolymerId(begin_at) == getPolymerId(end_at);
             })) {
             // break this ring -- find bond between residue #s with largest
             // difference
-            unsigned int connection_bond = getNumBonds();
+            unsigned int connection_bond = macroMol.getNumBonds();
             int max_diff = 0;
             for (const auto& idx : ring) {
-                const auto bond = getBondWithIdx(idx);
+                const auto bond = macroMol.getBondWithIdx(idx);
                 auto begin_at = bond->getBeginAtom();
                 auto end_at = bond->getEndAtom();
                 int diff =
@@ -210,9 +210,9 @@ void MonomerMol::assignChains() {
                     max_diff = std::abs(diff);
                 }
             }
-            if (connection_bond != getNumBonds()) {
-                std::string linkage = getLinkage(getBondWithIdx(connection_bond));
-                getBondWithIdx(connection_bond)
+            if (connection_bond != macroMol.getNumBonds()) {
+                std::string linkage = getLinkage(macroMol.getBondWithIdx(connection_bond));
+                macroMol.getBondWithIdx(connection_bond)
                     ->setProp(EXTRA_LINKAGE, linkage);
             } else {
                 // temporary error handling
@@ -220,7 +220,7 @@ void MonomerMol::assignChains() {
             }
         }
     }
-    for (auto bond : bonds()) {
+    for (auto bond : macroMol.bonds()) {
         if (getPolymerId(bond->getBeginAtom()) !=
             getPolymerId(bond->getEndAtom())) {
             std::string linkage = getLinkage(bond);

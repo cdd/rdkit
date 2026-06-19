@@ -15,6 +15,7 @@
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/FileParsers/FileParsers.h>
 #include <GraphMol/FileParsers/MacroMolUtils.h>
+#include <GraphMol/FileParsers/ScsrUtils.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <RDGeneral/FileParseException.h>
@@ -23,6 +24,7 @@
 #include <GraphMol/Chirality.h>
 
 #include <GraphMol/FileParsers/SequenceParsers.h>
+#include <GraphMol/FileParsers/SequenceWriters.h>
 
 #include <GraphMol/MonomerMol/Conversions.h>
 #include <GraphMol/MonomerMol/MonomerMol.h>
@@ -254,6 +256,9 @@ TEST_CASE("Conversions") {
     std::string helm = "PEPTIDE1{C.A.A.A.C}$PEPTIDE1,PEPTIDE1,1:R3-5:R3$$$V2.0";
     auto atomistic_mol = HELMToMol(helm);
 
+    auto helmOut = MolToHELM(*atomistic_mol);
+    std::cout << helmOut << std::endl;
+
     MacroMol macroMol;
     addGlobalLibrary(macroMol);
     
@@ -271,6 +276,14 @@ TEST_CASE("Conversions") {
 
     std::string smi1 = MolToSmiles(*atomistic_mol);
     std::string smi2 = MolToSmiles(*toAtomistic(macroMol));
+    SmilesParserParams ps;
+    auto plainAtomistic = SmilesToMol(smi1, ps);
+
+    auto helmOutPlain = MolToHELM(*plainAtomistic);
+    delete plainAtomistic;
+
+    std::cout << helmOutPlain << std::endl;
+
     CHECK(smi1 == smi2);
     delete atomistic_mol;
   }
@@ -430,4 +443,41 @@ TEST_CASE("Conversions") {
     neutralize_atoms(*roundtrip);
     CHECK(same_roundtrip_mol(*mol, *roundtrip, getPolymerIds(*monomer_mol).size()));
   }
+}
+
+TEST_CASE("SCSR_TO_HELM") {
+  SECTION("basic") {
+
+    std::string rdbase = getenv("RDBASE");
+    std::string fName = rdbase +
+                        "/Code/GraphMol/FileParsers/test_data/macromols/PepTla.mol";
+    
+    RDKit::v2::FileParsers::MolFileParserParams pp;
+    pp.sanitize = true;
+    pp.removeHs = false;
+    pp.strictParsing = true;
+
+    std::unique_ptr<RDKit::RWMol> mol;
+    RDKit::v2::FileParsers::MolFileParserParams params;
+    RDKit::MolFromMacroMolParams molFromMacroMolParams;
+    molFromMacroMolParams.includeLeavingGroups = true;
+
+    REQUIRE_NOTHROW(mol = SCSRUtils::MolFromSCSRFile(fName, params,molFromMacroMolParams,  SCSRUtils::SCSRBaseHbondOptions::Auto));
+
+    // MacroMol macroMol;
+    // addGlobalLibrary(macroMol);
+
+    MolToMACROParams molToMacroMolParams;
+    auto templates = GlobalMonomerLibrary::getGlobalLibrary();
+    auto res = std::unique_ptr<MacroMol>(new MacroMol());
+    auto macroMol = MolToMacroMol(*mol, *templates, molToMacroMolParams);
+
+    auto molOut = SCSRUtils::MacroMolToSCSRMolBlock(*macroMol);
+    mol = SCSRUtils::MolFromSCSRBlock(molOut, params,molFromMacroMolParams,  SCSRUtils::SCSRBaseHbondOptions::Auto);
+     
+    
+
+    
+  }
+
 }

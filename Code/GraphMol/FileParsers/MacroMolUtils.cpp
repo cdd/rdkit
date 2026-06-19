@@ -857,8 +857,9 @@ void MolToMacroMol(MacroMol *res,
       }
     }
     queryMol->commitBatchEdit();
-    auto queryOut = RDKit::MolToMolBlock(*queryMol);
 
+
+    queryMol->commitBatchEdit();
     // find all occurrences of the template in the molecule
 
     MolOps::sanitizeMol(*queryMol);

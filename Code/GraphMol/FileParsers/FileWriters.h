@@ -28,6 +28,7 @@ struct RDKIT_FILEPARSERS_EXPORT MolWriterParams {
                                    are too large)*/
   unsigned int precision = 6; /**< precision of coordinates (only available in
                                    V3000)*/
+  bool writeEndMolLine = true; /**< write the M  END at the end - not done when writing SCSR files */
 };
 
 // \brief generates an MDL mol block for a molecule
@@ -238,6 +239,12 @@ RDKIT_FILEPARSERS_EXPORT void MolToPDBFile(const ROMol &mol,
                                            const std::string &fname,
                                            int confId = -1,
                                            unsigned int flavor = 0);
+
+RDKIT_FILEPARSERS_EXPORT void prepareMol(
+    RWMol &trwmol, const MolWriterParams &params,
+    boost::dynamic_bitset<> &aromaticBonds);
+
+
 
 }  // namespace RDKit
 

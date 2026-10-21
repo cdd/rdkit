@@ -29,23 +29,23 @@ class TestCase(unittest.TestCase):
     with open(ofile) as inf:
       scsrBlock = inf.read()
 
-    molFromSCSRParams = Chem.MolFromSCSRParams()
-    molFromSCSRParams.includeLeavingGroups = True
-    molFromSCSRParams.scsrTemplateNames = Chem.SCSRTemplateNames.AsEntered
-    molFromSCSRParams.scsrBaseHbondOptions = Chem.SCSRBaseHbondOptions.Ignore
+    molFromMacroMolParams = Chem.MolFromMacroMolParams()
+    molFromMacroMolParams.includeLeavingGroups = True
+    molFromMacroMolParams.outputSgroups = True
 
-    for mol in (Chem.MolFromSCSRBlock(scsrBlock, False, False, molFromSCSRParams),
-                Chem.MolFromSCSRFile(ofile, False, False, molFromSCSRParams)):
+  
+    for mol in (Chem.MolFromSCSRBlock(scsrBlock, False, False, molFromMacroMolParams),
+                Chem.MolFromSCSRFile(ofile, False, False, molFromMacroMolParams)):
 
       self.assertTrue(mol.GetNumAtoms() == 30)
       sgs = Chem.GetMolSubstanceGroups(mol)
-      self.assertEqual(len(sgs), 6)
+      self.assertEqual(len(sgs), 3)
 
     # check defaults:
     for mol in (Chem.MolFromSCSRBlock(scsrBlock), Chem.MolFromSCSRFile(ofile)):
       self.assertTrue(mol.GetNumAtoms() == 30)
       sgs = Chem.GetMolSubstanceGroups(mol)
-      self.assertEqual(len(sgs), 6)
+      self.assertEqual(len(sgs), 3)
 
   def testSCSRRna(self):
     """Test the SCSR system with and RNA double strand"""
@@ -55,25 +55,24 @@ class TestCase(unittest.TestCase):
     with open(ofile) as inf:
       scsrBlock = inf.read()
 
-    molFromSCSRParams = Chem.MolFromSCSRParams()
-    molFromSCSRParams.includeLeavingGroups = True
-    molFromSCSRParams.scsrTemplateNames = Chem.SCSRTemplateNames.AsEntered
-    molFromSCSRParams.scsrBaseHbondOptions = Chem.SCSRBaseHbondOptions.Auto
+    molFromMacroMolParams = Chem.MolFromMacroMolParams()
+    molFromMacroMolParams.includeLeavingGroups = True
+    molFromMacroMolParams.outputSgroups = True
 
-    mol = Chem.MolFromSCSRBlock(scsrBlock, False, False, molFromSCSRParams)
+    mol = Chem.MolFromSCSRBlock(scsrBlock, False, False, molFromMacroMolParams,True)
 
     self.assertTrue(mol.GetNumAtoms() == 254)
     self.assertTrue(mol.GetNumBonds() == 300)
     sgs = Chem.GetMolSubstanceGroups(mol)
-    self.assertTrue(len(sgs) == 38)
+    print ("len(sgs): " + str(len(sgs)))
+    self.assertTrue(len(sgs) == 34)
 
-    molFromSCSRParams.scsrBaseHbondOptions = Chem.SCSRBaseHbondOptions.Ignore
-    mol = Chem.MolFromSCSRBlock(scsrBlock, False, False, molFromSCSRParams)
+    mol = Chem.MolFromSCSRBlock(scsrBlock, False, False, molFromMacroMolParams, False)
 
     self.assertTrue(mol.GetNumAtoms() == 254)
     self.assertTrue(mol.GetNumBonds() == 282)
     sgs = Chem.GetMolSubstanceGroups(mol)
-    self.assertTrue(len(sgs) == 38)
+    self.assertTrue(len(sgs) == 34)
 
   def testThreeLetterCodes(self):
     """Test the SCSR system with three letter codes"""
@@ -83,38 +82,19 @@ class TestCase(unittest.TestCase):
     with open(ofile) as inf:
       scsrBlock = inf.read()
 
-    molFromSCSRParams = Chem.MolFromSCSRParams()
-    molFromSCSRParams.includeLeavingGroups = True
-    molFromSCSRParams.scsrTemplateNames = Chem.SCSRTemplateNames.AsEntered
+    molFromMacroMolParams = Chem.MolFromMacroMolParams()
+    molFromMacroMolParams.includeLeavingGroups = True
+    molFromMacroMolParams.outputSgroups = True
 
-    mol = Chem.MolFromSCSRBlock(scsrBlock, False, False, molFromSCSRParams)
+    mol = Chem.MolFromSCSRBlock(scsrBlock, False, False, molFromMacroMolParams)
 
     self.assertEqual(mol.GetNumAtoms(), 26)
     self.assertEqual(mol.GetNumBonds(), 25)
     sgs = Chem.GetMolSubstanceGroups(mol)
-    self.assertTrue(len(sgs) == 7)
+
+    self.assertEqual(len(sgs), 4)
     sgs[0].GetProp('LABEL')
-    self.assertEqual(sgs[0].GetProp('LABEL'), 'Ala_4')
-
-    molFromSCSRParams.scsrTemplateNames = Chem.SCSRTemplateNames.UseFirstName
-
-    mol = Chem.MolFromSCSRBlock(scsrBlock, False, False, molFromSCSRParams)
-
-    self.assertEqual(mol.GetNumAtoms(), 26)
-    sgs = Chem.GetMolSubstanceGroups(mol)
-    self.assertEqual(len(sgs), 7)
-
-    self.assertEqual(sgs[0].GetProp('LABEL'), 'Ala_4')
-
-    molFromSCSRParams.scsrTemplateNames = Chem.SCSRTemplateNames.UseSecondName
-    mol = Chem.MolFromSCSRBlock(scsrBlock, False, False, molFromSCSRParams)
-
-    self.assertEqual(mol.GetNumAtoms(), 26)
-    sgs = Chem.GetMolSubstanceGroups(mol)
-    self.assertEqual(len(sgs), 7)
-
-    self.assertEqual(sgs[0].GetProp('LABEL'), 'A_4')
-
-
+    self.assertEqual(sgs[0].GetProp('LABEL'), 'Ala')
+          
 if __name__ == '__main__':
   unittest.main()

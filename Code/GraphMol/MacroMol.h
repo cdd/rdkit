@@ -36,6 +36,7 @@ class RDKIT_GRAPHMOL_EXPORT MacroMol : public RWMol {
   MacroMol &operator=(const MacroMol &other);
   MacroMol(MacroMol &&other) noexcept = default;
   MacroMol &operator=(MacroMol &&other) noexcept = default;
+  explicit MacroMol(std::unique_ptr<RWMol> &rwMol);
 
   //! Replaces the local template library and takes ownership of it.
   /*!
@@ -48,6 +49,9 @@ class RDKIT_GRAPHMOL_EXPORT MacroMol : public RWMol {
   MacroMolTemplateLibrary &getLocalTemplateLibrary();
   //! Returns this molecule's local template library.
   const MacroMolTemplateLibrary &getLocalTemplateLibrary() const;
+
+  void addLocalTemplate(
+      std::unique_ptr<MacroMolTemplate> macroMolTemplate);
 
   //! Checks that every macro atom resolves in the local template library.
   /*!

@@ -15,6 +15,7 @@
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/SubstanceGroup.h>
 #include <RDGeneral/FileParseException.h>
+#include <GraphMol/Conformer.h>
 
 #include <map>
 #include <memory>
@@ -39,6 +40,14 @@ struct BuildState {
   RWMol &result;
   std::map<unsigned int, unsigned int> atomToResultAtom;
   std::map<unsigned int, ExpandedMacroAtom> macroAtoms;
+  std::map<const MacroMolTemplate *, RDGeom::Point3D> templateCentroids;
+
+  // map from final atom to an Sgroup Id
+  std::map<const unsigned int,unsigned int> endAtomToSgroup; 
+  double maxSize;
+  const Conformer *conf;
+  std::unique_ptr<Conformer> newConf = nullptr;
+
 };
 
 bool getMacroAtomDetails(const Atom &atom, MacroAtomDetails &info) {
@@ -60,7 +69,7 @@ const MacroMolTemplate *findTemplate(
   return templ;
 }
 
-void addBondCopy(RWMol &result, const Bond &oldBond,
+unsigned int addBondCopy(RWMol &result, const Bond &oldBond,
                  unsigned int beginAtomIdx, unsigned int endAtomIdx,
                  Bond::BondType bondType) {
   auto *newBond = new Bond(bondType);
@@ -68,12 +77,12 @@ void addBondCopy(RWMol &result, const Bond &oldBond,
   newBond->setEndAtomIdx(endAtomIdx);
   newBond->setBondDir(oldBond.getBondDir());
   newBond->updateProps(oldBond, false);
-  result.addBond(newBond, true);
+  return result.addBond(newBond, true);
 }
 
-void addBondCopy(RWMol &result, const Bond &oldBond,
+unsigned int addBondCopy(RWMol &result, const Bond &oldBond,
                  unsigned int beginAtomIdx, unsigned int endAtomIdx) {
-  addBondCopy(result, oldBond, beginAtomIdx, endAtomIdx,
+  return addBondCopy(result, oldBond, beginAtomIdx, endAtomIdx,
               oldBond.getBondType());
 }
 
@@ -81,6 +90,11 @@ void copyRegularAtom(BuildState &state, const Atom &atom) {
   auto *newAtom = new Atom(atom);
   state.atomToResultAtom[atom.getIdx()] =
       state.result.addAtom(newAtom, true, true);
+  if (state.conf != nullptr) {
+    state.newConf->setAtomPos(newAtom->getIdx(),
+            state.conf->getAtomPos(atom.getIdx()) * state.maxSize);
+  }
+
 }
 
 std::set<int> findUsedAttachPoints(const MacroMol &macroMol,
@@ -108,10 +122,12 @@ std::set<int> findUsedAttachPoints(const MacroMol &macroMol,
 }
 
 std::set<unsigned int> findLeavingAtomsToSkip(
-    const MacroMolTemplate &templ, const std::set<int> &usedAttachPoints) {
+    const MacroMolTemplate &templ, const std::set<int> &usedAttachPoints,
+    const MolFromMacroMolParams &molFromMacroMolParams) {
   std::set<unsigned int> atomsToSkip;
   for (const auto &leavingGroup : templ.getLeavingGroups()) {
-    if (usedAttachPoints.find(leavingGroup.attachPoint) !=
+    if (!molFromMacroMolParams.includeLeavingGroups ||
+      usedAttachPoints.find(leavingGroup.attachPoint) !=
         usedAttachPoints.end()) {
       atomsToSkip.insert(leavingGroup.atomIdxs.begin(),
                          leavingGroup.atomIdxs.end());
@@ -130,7 +146,13 @@ void rememberTemplateAttachPoints(ExpandedMacroAtom &expanded,
 
 void copyTemplateAtoms(BuildState &state, ExpandedMacroAtom &expanded,
                        const MacroMolTemplate &templ,
-                       const std::set<unsigned int> &atomsToSkip) {
+                       const std::set<unsigned int> &atomsToSkip,
+                      RDGeom::Point3D  coordOffset) {
+
+  if (state.newConf) {
+    state.newConf->resize(state.newConf->getNumAtoms() + templ.getMol().getNumAtoms() - atomsToSkip.size());
+  }
+
   for (const auto *oldAtom : templ.getMol().atoms()) {
     if (atomsToSkip.find(oldAtom->getIdx()) != atomsToSkip.end()) {
       continue;
@@ -139,6 +161,12 @@ void copyTemplateAtoms(BuildState &state, ExpandedMacroAtom &expanded,
     auto *newAtom = new Atom(*oldAtom);
     expanded.templateToResultAtom[oldAtom->getIdx()] =
         state.result.addAtom(newAtom, true, true);
+    if (state.newConf) {
+      state.newConf->setAtomPos(
+          newAtom->getIdx(),
+          coordOffset +
+              templ.getMol().getConformer().getAtomPos(oldAtom->getIdx()));
+    }
   }
 }
 
@@ -167,29 +195,31 @@ void copyMainSgroup(BuildState &state, const ExpandedMacroAtom &expanded,
   std::vector<unsigned int> resultMainAtoms;
   resultMainAtoms.reserve(templ.getMainAtomIdxs().size());
   for (const auto templateAtomIdx : templ.getMainAtomIdxs()) {
-    resultMainAtoms.push_back(
-        expanded.templateToResultAtom.at(templateAtomIdx));
+    auto resultAtomIdx = expanded.templateToResultAtom.at(templateAtomIdx);
+    resultMainAtoms.push_back(resultAtomIdx);
+    state.endAtomToSgroup[resultAtomIdx] = getSubstanceGroups(state.result).size();
   }
-  mainSgroup.setAtoms(std::move(resultMainAtoms));
 
   for (const auto &leavingGroup : templ.getLeavingGroups()) {
-    const auto resultAttachAtom =
-        expanded.templateToResultAtom.at(leavingGroup.attachAtomIdx);
-    int resultLeavingAtom = -1;
     const auto leavingAtom =
         expanded.templateToResultAtom.find(leavingGroup.leavingAtomIdx);
     if (leavingAtom != expanded.templateToResultAtom.end()) {
-      resultLeavingAtom = static_cast<int>(leavingAtom->second);
+      resultMainAtoms.push_back(leavingAtom->second);
+      state.endAtomToSgroup[leavingAtom->second] = getSubstanceGroups(state.result).size();
     }
-    mainSgroup.addAttachPoint(resultAttachAtom, resultLeavingAtom,
-                              std::to_string(leavingGroup.attachPoint));
+                              
   }
+
+
+  mainSgroup.setAtoms(std::move(resultMainAtoms));
+
   addSubstanceGroup(state.result, std::move(mainSgroup));
 }
 
 void copyMacroAtom(BuildState &state, const MacroMol &macroMol,
                    const MacroMolTemplateLibrary &templates, const Atom &atom,
-                   const MacroAtomDetails &info) {
+                   const MacroAtomDetails &info,
+                   const MolFromMacroMolParams &molFromMacroMolParams) {
   const auto *templ = findTemplate(templates, info);
   if (!templ) {
     throw FileParseException("No template found for macro atom " +
@@ -199,22 +229,33 @@ void copyMacroAtom(BuildState &state, const MacroMol &macroMol,
   ExpandedMacroAtom expanded;
   expanded.usedAttachPoints = findUsedAttachPoints(macroMol, atom);
   const auto atomsToSkip =
-      findLeavingAtomsToSkip(*templ, expanded.usedAttachPoints);
+      findLeavingAtomsToSkip(*templ, expanded.usedAttachPoints, molFromMacroMolParams);
+
+  RDGeom::Point3D coordOffset;
+  if (state.conf) {
+    coordOffset = (state.conf->getAtomPos(atom.getIdx()) * state.maxSize) -
+                      state.templateCentroids[templ];
+  }
 
   rememberTemplateAttachPoints(expanded, *templ);
-  copyTemplateAtoms(state, expanded, *templ, atomsToSkip);
+  copyTemplateAtoms(state, expanded, *templ, atomsToSkip, coordOffset);
   copyTemplateBonds(state, expanded, *templ);
-  copyMainSgroup(state, expanded, *templ);
+
+  if (molFromMacroMolParams.outputSgroups) {
+    copyMainSgroup(state, expanded, *templ);
+  }
 
   state.macroAtoms[atom.getIdx()] = expanded;
 }
 
 void copyAtoms(BuildState &state, const MacroMol &macroMol,
-               const MacroMolTemplateLibrary &templates) {
+               const MacroMolTemplateLibrary &templates,
+               const MolFromMacroMolParams &molFromMacroMolParams) {
   for (const auto *atom : macroMol.atoms()) {
     MacroAtomDetails info;
     if (getMacroAtomDetails(*atom, info)) {
-      copyMacroAtom(state, macroMol, templates, *atom, info);
+      copyMacroAtom(state, macroMol, templates, *atom, info,
+               molFromMacroMolParams);
     } else {
       copyRegularAtom(state, *atom);
     }
@@ -238,7 +279,7 @@ unsigned int getResultAtomForBond(const BuildState &state, const Atom &atom,
   return expanded.templateToResultAtom.at(attachPoint->second);
 }
 
-void copyMacroMolBonds(BuildState &state, const MacroMol &macroMol) {
+void copyMacroMolBonds(BuildState &state, const MacroMol &macroMol, bool outputSgroups) {
   for (const auto *oldBond : macroMol.bonds()) {
     const auto *macroBondInfo = oldBond->getMacroBondInfo();
     if (!macroBondInfo) {
@@ -255,8 +296,25 @@ void copyMacroMolBonds(BuildState &state, const MacroMol &macroMol) {
           state, *oldBond->getBeginAtom(), bondInfo.beginAttachPt);
       const auto endAtomIdx = getResultAtomForBond(
           state, *oldBond->getEndAtom(), bondInfo.endAttachPt);
-      addBondCopy(state.result, *oldBond, beginAtomIdx, endAtomIdx,
-                  static_cast<Bond::BondType>(bondInfo.bondType));
+          
+      auto newBondIndex = addBondCopy(state.result, *oldBond, beginAtomIdx, endAtomIdx,
+                  static_cast<Bond::BondType>(bondInfo.bondType)) - 1;
+
+      if (outputSgroups) {
+        if (state.endAtomToSgroup.contains(beginAtomIdx)){
+          auto sgroupId =  state.endAtomToSgroup[beginAtomIdx];
+          getSubstanceGroups(state.result)[sgroupId].addBondWithIdx(newBondIndex);
+        }
+
+        if (state.endAtomToSgroup.contains(endAtomIdx)) {
+
+          auto sgroupId =  state.endAtomToSgroup[endAtomIdx];
+          getSubstanceGroups(state.result)[sgroupId].addBondWithIdx(newBondIndex);
+        }
+      }
+
+
+
     }
   }
 }
@@ -264,15 +322,107 @@ void copyMacroMolBonds(BuildState &state, const MacroMol &macroMol) {
 }  // namespace
 
 std::unique_ptr<RWMol> MolFromMacroMol(
-    const MacroMol &macroMol, const MacroMolTemplateLibrary &templates) {
+    const MacroMol &macroMol, const MacroMolTemplateLibrary &templates, 
+    const RDKit::MolFromMacroMolParams &molFromMacroMolParams) {
   auto result = std::make_unique<RWMol>();
-  BuildState state{*result, {}, {}};
+  BuildState state{*result, {}, {}, {}, {}, 0.0, nullptr, nullptr};
 
-  copyAtoms(state, macroMol, templates);
-  copyMacroMolBonds(state, macroMol);
+   // first get some information from the templates to be used when
+  // creating the coords for the new atoms. this is a dirty approach
+  // that simply expands the orginal macro atom coords to be big
+  // enough to hold any expanded macro atom. No attempt is made to
+  // make this look nice, or to avoid overlaps.
+
+  if (macroMol.getNumConformers() != 0) {
+    state.conf = &macroMol.getConformer(0);
+    state.newConf.reset(new Conformer(macroMol.getNumAtoms()));
+    state.newConf->set3D(state.conf->is3D());
+
+    // loop over all main mol atoms and make a list of the templates used
+    // external libs could have thousands of tempaltes, most not used by the 
+    // current macro mol
+
+    std::set<const MacroMolTemplate *> templatesInUse;
+    for (unsigned int atomIdx = 0 ; atomIdx != macroMol.getNumAtoms(); ++atomIdx) {
+      auto atom = macroMol.getAtomWithIdx(atomIdx);
+      auto macroAtomInfo = atom->getMacroAtomInfo();
+      if (macroAtomInfo == nullptr) {
+        continue;
+      }
+
+      auto monomerClass = macroAtomInfo->getMonomerClass();
+      auto templateSymbol = macroAtomInfo->getSymbol();
+
+      auto templatePtr = templates.getBySymbol(monomerClass, templateSymbol);
+
+      if (templatePtr != nullptr && !templatesInUse.contains(templatePtr)) {
+        templatesInUse.insert(templatePtr);
+      }
+    }
+
+    for (auto templateMol : templatesInUse) {
+      RDGeom::Point3D sumOfCoords;
+      const RDKit::Conformer *templateConf = nullptr;
+      auto confCount = templateMol->getMol().getNumConformers();
+      if (confCount == 0) {
+        state.conf = nullptr;   // all templates must have coords or we punt
+        break;
+      }
+      templateConf = &templateMol->getMol().getConformer(0);
+      RDGeom::Point3D maxCoord = templateConf->getAtomPos(0);
+      RDGeom::Point3D minCoord = maxCoord;
+      for (unsigned int atomIdx = 0; atomIdx < templateMol->getMol().getNumAtoms();
+            ++atomIdx) {
+        auto atomCoord = templateConf->getAtomPos(atomIdx);
+        sumOfCoords += atomCoord;
+
+        if (atomCoord.x > maxCoord.x) {
+          maxCoord.x = atomCoord.x;
+        }
+        if (atomCoord.y > maxCoord.y) {
+          maxCoord.y = atomCoord.y;
+        }
+        if (atomCoord.z > maxCoord.z) {
+          maxCoord.z = atomCoord.z;
+        }
+        if (atomCoord.x < minCoord.x) {
+          minCoord.x = atomCoord.x;
+        }
+        if (atomCoord.y < minCoord.y) {
+          minCoord.y = atomCoord.y;
+        }
+        if (atomCoord.z < minCoord.z) {
+          minCoord.z = atomCoord.z;
+        }
+      }
+      state.templateCentroids[templateMol] = (sumOfCoords / templateMol->getMol().getNumAtoms());
+      if (maxCoord.x - minCoord.x > state.maxSize) {
+        state.maxSize = maxCoord.x - minCoord.x;
+      }
+      if (maxCoord.y - minCoord.y > state.maxSize) {
+        state.maxSize = maxCoord.y - minCoord.y;
+      }
+      if (maxCoord.z - minCoord.z > state.maxSize) {
+        state.maxSize = maxCoord.z - minCoord.z;
+      }
+    }
+  }
+  
+  copyAtoms(state, macroMol, templates, molFromMacroMolParams);
+  copyMacroMolBonds(state, macroMol, molFromMacroMolParams.outputSgroups);
+
+  if (state.conf != nullptr) {
+    state.newConf->resize(state.result.getNumAtoms());
+    state.result.addConformer(state.newConf.release());
+  }
 
   result->updatePropertyCache(false);
   return result;
+}
+
+std::unique_ptr<RWMol> MolFromMacroMol(const MacroMol &macroMol, 
+  const RDKit::MolFromMacroMolParams &molFromMacroMolParams) {
+  return MolFromMacroMol(macroMol, getGlobalMacroMolTemplateLibrary(), molFromMacroMolParams);
 }
 
 }  // namespace RDKit

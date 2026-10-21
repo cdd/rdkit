@@ -32,6 +32,12 @@ MacroMol::MacroMol(
   PRECONDITION(dp_localTemplateLibrary, "local template library is null");
 }
 
+MacroMol::MacroMol(std::unique_ptr<RWMol> &rwMol)
+      : RWMol(std::move(*(rwMol))),
+      dp_localTemplateLibrary(std::make_unique<MacroMolTemplateLibrary>()) {
+    rwMol = nullptr;
+}
+
 MacroMol::MacroMol(const MacroMol &other)
     : RWMol(other),
       dp_localTemplateLibrary(std::make_unique<MacroMolTemplateLibrary>(
@@ -51,6 +57,11 @@ void MacroMol::setLocalTemplateLibrary(
     std::unique_ptr<MacroMolTemplateLibrary> newTemplateLibrary) {
   PRECONDITION(newTemplateLibrary, "local template library is null");
   dp_localTemplateLibrary = std::move(newTemplateLibrary);
+}
+
+void MacroMol::addLocalTemplate(
+    std::unique_ptr<MacroMolTemplate> macroMolTemplate) {
+  dp_localTemplateLibrary->addTemplate(std::move(macroMolTemplate));
 }
 
 MacroMolTemplateLibrary &MacroMol::getLocalTemplateLibrary() {
@@ -172,9 +183,9 @@ unsigned int MacroMol::addBond(Atom *beginAtom, Atom *endAtom,
 
 unsigned int MacroMol::addBond(Bond *bond, bool takeOwnership) {
   PRECONDITION(bond, "NULL bond passed in");
-  PRECONDITION(!isMacroAtom(this->getAtomWithIdx(bond->getBeginAtomIdx())),
+  PRECONDITION(bond->getBondType() == Bond::BondType::HYDROGEN ||  !isMacroAtom(this->getAtomWithIdx(bond->getBeginAtomIdx())),
                "begin atom is a macro atom");
-  PRECONDITION(!isMacroAtom(this->getAtomWithIdx(bond->getEndAtomIdx())),
+  PRECONDITION(bond->getBondType() == Bond::BondType::HYDROGEN ||  !isMacroAtom(this->getAtomWithIdx(bond->getEndAtomIdx())),
                "end atom is a macro atom");
   return RWMol::addBond(bond, takeOwnership);
 }

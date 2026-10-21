@@ -84,10 +84,8 @@ TEST_CASE("MolFromMacroMol converts a single amino acid macro atom",
   CHECK(mainSgroup.getProp<std::string>("CLASS") == "AminoAcid");
   CHECK(mainSgroup.getProp<std::string>("LABEL") == "ALA");
   CHECK(mainSgroup.getAtoms() ==
-        std::vector<unsigned int>({0, 1, 2, 4, 5}));
-  REQUIRE(mainSgroup.getAttachPoints().size() == 2);
-  CHECK(mainSgroup.getAttachPoints()[0].lvIdx == 3);
-  CHECK(mainSgroup.getAttachPoints()[1].lvIdx == 6);
+        std::vector<unsigned int>({0, 1, 2, 4, 5,3 ,6}));
+  REQUIRE(mainSgroup.getAttachPoints().size() == 0);
 }
 
 TEST_CASE("MolFromMacroMol converts connected amino acid macro atoms",
@@ -113,12 +111,8 @@ TEST_CASE("MolFromMacroMol converts connected amino acid macro atoms",
   REQUIRE(sgroups.size() == 2);
   CHECK(sgroups[0].getProp<std::string>("LABEL") == "ALA");
   CHECK(sgroups[1].getProp<std::string>("LABEL") == "GLY");
-  REQUIRE(sgroups[0].getAttachPoints().size() == 2);
-  REQUIRE(sgroups[1].getAttachPoints().size() == 2);
-  CHECK(sgroups[0].getAttachPoints()[0].lvIdx >= 0);
-  CHECK(sgroups[0].getAttachPoints()[1].lvIdx == -1);
-  CHECK(sgroups[1].getAttachPoints()[0].lvIdx == -1);
-  CHECK(sgroups[1].getAttachPoints()[1].lvIdx >= 0);
+  REQUIRE(sgroups[0].getAttachPoints().size() == 0);
+  REQUIRE(sgroups[1].getAttachPoints().size() == 0);
 }
 
 TEST_CASE("MolFromMacroMol converts mixed macro and atomistic atoms",
@@ -141,8 +135,6 @@ TEST_CASE("MolFromMacroMol converts mixed macro and atomistic atoms",
         "C[C@H](NC)C(=O)[OH:2]");
   const auto &mainSgroup = getOnlyMainSgroup(*mol);
   CHECK(mainSgroup.getProp<std::string>("LABEL") == "ALA");
-  CHECK(mainSgroup.getAttachPoints()[0].lvIdx == -1);
-  CHECK(mainSgroup.getAttachPoints()[1].lvIdx >= 0);
 }
 
 TEST_CASE("MolFromMacroMol removes complete multi-atom leaving groups",
@@ -164,7 +156,7 @@ TEST_CASE("MolFromMacroMol removes complete multi-atom leaving groups",
     CHECK(mol->getNumAtoms() == 3);
     CHECK(mol->getNumBonds() == 2);
     const auto &mainSgroup = getOnlyMainSgroup(*mol);
-    CHECK(mainSgroup.getAttachPoints()[0].lvIdx == 1);
+    CHECK(mainSgroup.getAttachPoints().size() == 0);
   }
 
   SECTION("used group is removed in full") {
@@ -181,6 +173,6 @@ TEST_CASE("MolFromMacroMol removes complete multi-atom leaving groups",
     const auto &mainSgroup = getOnlyMainSgroup(*mol);
     CHECK(mainSgroup.getProp<std::string>("CLASS") == "Chemical");
     CHECK(mainSgroup.getProp<std::string>("LABEL") == "METHYL");
-    CHECK(mainSgroup.getAttachPoints()[0].lvIdx == -1);
+    CHECK(mainSgroup.getAttachPoints().size() == 0);
   }
 }

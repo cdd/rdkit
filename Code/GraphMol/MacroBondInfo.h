@@ -83,6 +83,8 @@ class RDKIT_GRAPHMOL_EXPORT MacroBondInfo {
   //! Returns all macro-bond connections.
   const std::vector<BondInfo> &getBonds() const { return d_bonds; }
 
+  std::vector<BondInfo> &getBonds() { return d_bonds; }
+
   //! Returns a copy of this macro bond information.
   virtual std::unique_ptr<MacroBondInfo> copy() const {
     return std::make_unique<MacroBondInfo>(*this);

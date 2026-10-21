@@ -23,6 +23,7 @@
 #include <GraphMol/SmilesParse/SmilesWrite.h>
 #include <GraphMol/SmilesParse/SmartsWrite.h>
 #include <GraphMol/FileParsers/FileParsers.h>
+#include <GraphMol/FileParsers/SCSRUtils.h>
 #include <GraphMol/FileParsers/FileParserUtils.h>
 #include <GraphMol/FileParsers/SequenceParsers.h>
 #include <GraphMol/FileParsers/SequenceWriters.h>
@@ -171,24 +172,44 @@ ROMol *MolFromMolFile(const std::string &molFilename, bool sanitize,
   return static_cast<ROMol *>(newM);
 }
 
-RDKit::ROMol *MolFromSCSRBlock(const std::string &molBlock, bool sanitize,
-                               bool removeHs, python::object pyParams) {
-  RDKit::v2::FileParsers::MolFromSCSRParams scsrParams;
-  if (pyParams) {
-    scsrParams =
-        python::extract<RDKit::v2::FileParsers::MolFromSCSRParams>(pyParams);
+RDKit::ROMol *MolFromSCSRBlock(const std::string &molBlock, bool sanitize, bool removeHs, python::object pyMolFromMacroMolParams, bool keepHbonds) {
+  RDKit::MolFromMacroMolParams molFromMacroMolParams;
+  if (pyMolFromMacroMolParams) {
+    molFromMacroMolParams =
+        python::extract<RDKit::MolFromMacroMolParams>(pyMolFromMacroMolParams);
   }
-  std::istringstream inStream(molBlock);
-  unsigned int line = 0;
-  try {
-    RDKit::v2::FileParsers::MolFileParserParams params;
-    params.sanitize = sanitize;
-    params.removeHs = removeHs;
-    params.strictParsing = false;
-    auto mol = RDKit::v2::FileParsers::MolFromSCSRDataStream(
-        inStream, line, params, scsrParams);
 
+  // RDKit::v2::FileParsers::MolFileParserParams params;
+  // if (pyMolParams) {
+  //   params =
+  //       python::extract<RDKit::v2::FileParsers::MolFileParserParams>(pyMolParams);
+  // }
+
+  try {
+    RDKit::v2::FileParsers::MolFileParserParams molFileParserParams;
+    molFileParserParams.sanitize = sanitize;
+    molFileParserParams.removeHs = removeHs;
+    molFileParserParams.strictParsing = false;
+
+    RDKit::SCSRUtils::SCSRBaseHbondOptions scsrBaseHbondOptions = RDKit::SCSRUtils::SCSRBaseHbondOptions::RemoveHBonds;
+    if (keepHbonds) {
+      scsrBaseHbondOptions = RDKit::SCSRUtils::SCSRBaseHbondOptions::FullHBonds;
+    } 
+
+    auto mol =  SCSRUtils::MolFromSCSRBlock(molBlock, molFileParserParams, molFromMacroMolParams, scsrBaseHbondOptions);
     return static_cast<ROMol *>(mol.release());
+
+  // std::istringstream inStream(molBlock);
+  // unsigned int line = 0;
+  // try {
+  //   RDKit::v2::FileParsers::MolFileParserParams params;
+  //   params.sanitize = sanitize;
+  //   params.removeHs = removeHs;
+  //   params.strictParsing = false;
+  //   auto mol = RDKit::SCSRUtils::MolFromSCSRDataStream(
+  //       inStream, line, params, molFromMacroMolParams);
+
+  //   return static_cast<ROMol *>(mol.release());
 
   } catch (RDKit::FileParseException &e) {
     BOOST_LOG(rdWarningLog) << e.what() << std::endl;
@@ -199,18 +220,18 @@ RDKit::ROMol *MolFromSCSRBlock(const std::string &molBlock, bool sanitize,
 
 RDKit::ROMol *MolFromSCSRFile(const std::string &molFilename, bool sanitize,
                               bool removeHs, python::object pyParams) {
-  RDKit::v2::FileParsers::MolFromSCSRParams scsrParams;
+  RDKit::MolFromMacroMolParams molFromMacroMolParams;
   if (pyParams) {
-    scsrParams =
-        python::extract<RDKit::v2::FileParsers::MolFromSCSRParams>(pyParams);
+    molFromMacroMolParams =
+        python::extract<RDKit::MolFromMacroMolParams>(pyParams);
   }
   try {
     RDKit::v2::FileParsers::MolFileParserParams params;
     params.sanitize = sanitize;
     params.removeHs = removeHs;
     params.strictParsing = false;
-    auto mol = RDKit::v2::FileParsers::MolFromSCSRFile(molFilename, params,
-                                                       scsrParams);
+    auto mol = RDKit::SCSRUtils::MolFromSCSRFile(molFilename, params,
+                                                       molFromMacroMolParams);
 
     return static_cast<ROMol *>(mol.release());
 
@@ -798,21 +819,20 @@ python::tuple MolsFromCDXML(python::object cdxml, bool sanitize,
   return python::tuple(res);
 }
 
-python::object MolToCDXMLBlockHelper(
-    const RDKit::ROMol &mol, RDKit::v2::CDXMLParser::CDXMLFormat format) {
+python::object MolToCDXMLBlockHelper(const RDKit::ROMol &mol,
+				     RDKit::v2::CDXMLParser::CDXMLFormat format) {
   auto block = RDKit::v2::CDXMLParser::MolToCDXMLBlock(mol, format);
   // if CDXML return string
   // if CDX return byteszo
 
-  if (format == RDKit::v2::CDXMLParser::CDXMLFormat::CDX) {
-    PyObject *py_bytes = PyBytes_FromStringAndSize(block.data(), block.size());
+  if(format == RDKit::v2::CDXMLParser::CDXMLFormat::CDX) {
+    PyObject* py_bytes = PyBytes_FromStringAndSize(block.data(), block.size());
     return python::object(python::handle<>(py_bytes));
   } else {
-    return python::object(
-        python::handle<>(PyUnicode_FromString(block.c_str())));
+    return python::object(python::handle<>(PyUnicode_FromString(block.c_str())));
   }
 }
-
+ 
 namespace {
 python::object translateMetadataToList(
     const std::vector<std::pair<std::string, std::string>> &metadata) {
@@ -1250,44 +1270,47 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
           "precision of coordinates (only available in V3000)(default=false)")
       .def("__setattr__", &safeSetattr);
 
-  python::class_<RDKit::v2::FileParsers::MolFromSCSRParams, boost::noncopyable>(
-      "MolFromSCSRParams",
-      "Parameters controlling conversion of an SCSRMol to a Mol")
+  python::class_<RDKit::MolFromMacroMolParams, boost::noncopyable>(
+      "MolFromMacroMolParams",
+      "Parameters controlling conversion of mol to a MacroMol")
       .def_readwrite(
           "includeLeavingGroups",
-          &RDKit::v2::FileParsers::MolFromSCSRParams::includeLeavingGroups,
+          &RDKit::MolFromMacroMolParams::includeLeavingGroups,
           "include leaving groups atoms if not substited at that position")
       .def_readwrite(
-          "scsrTemplateNames",
-          &RDKit::v2::FileParsers::MolFromSCSRParams::scsrTemplateNames,
+          "outputSgroups",
+          &RDKit::MolFromMacroMolParams::outputSgroups,
           "If True, the first template name in the Sgroup is used as the Sgroup label")
-      .def_readwrite(
-          "scsrBaseHbondOptions",
-          &RDKit::v2::FileParsers::MolFromSCSRParams::scsrBaseHbondOptions,
-          "One of Ignore, UseSapAll(default) , UseSapOne, Auto")
       .def("__setattr__", &safeSetattr);
 
   docString =
-      "Construct a molecule from an SCSR Mol block.\n\n\
-      ARGUMENTS:\n\
-    \n\
-        - molBlock: string containing the SCSR Mol block\n\
-    \n\
-        - sanitize: (optional) toggles sanitization of the molecule.\n\
-          Defaults to True.\n\
-    \n\
-        - removeHs: (optional) toggles removing hydrogens from the molecule.\n\
-          This only make sense when sanitization is done.\n\
-          Defaults to true.\n\
-    \n\
-        - molFromSCSRParams : MolFromSCSRParams to control conversion\n\
-    \n RETURNS :\n\
-    \n a Mol object, None on failure.\n\
-    \n ";
+  "Construct a molecule from an SCSR Mol block.\n\n\
+  ARGUMENTS:\n\
+    - molBlock: string containing the SCSRMol block\n\
+\n\
+    - sanitize: (optional) toggles sanitization of the molecule.\n\
+      Defaults to True.\n\
+\n\
+    - removeHs: (optional) toggles removing hydrogens from the molecule.\n\
+      This only make sense when sanitization is done.\n\
+      Defaults to true.\n\
+\n\
+    - MolFromMacroMolParams: (optional).  The MolFromMacroMolParams\n\
+\n\
+    - keepHbonds: (optional) if this is false, hBonds are removed\n\
+      Defaults to true.\n\
+\n\
+  RETURNS:\n\
+\n\
+    a Mol object, None on failure.\n\
+\n";
+    
   python::def("MolFromSCSRBlock", RDKit::MolFromSCSRBlock,
-              (python::arg("molBlock"), python::arg("sanitize") = true,
-               python::arg("removeHs") = true,
-               python::arg("molFromSCSRParams") = python::object()),
+              (python::arg("molBlock"),
+              python::arg("sanitize") = true,
+              python::arg("removeHs") = true,
+              python::arg("MolFromMacroMolParams") = python::object(), 
+               python::arg("keepHbonds") = true),
               docString.c_str(),
               python::return_value_policy<python::manage_new_object>());
 
@@ -1328,8 +1351,8 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
 \n";
   python::def(
       "MolToMolBlock",
-      (std::string (*)(const ROMol &, const MolWriterParams &,
-                       int))RDKit::MolToMolBlock,
+      (std::string(*)(const ROMol &, const MolWriterParams &,
+                      int))RDKit::MolToMolBlock,
       (python::arg("mol"), python::arg("params"), python::arg("confId") = -1),
       docString.c_str());
 
@@ -1351,8 +1374,8 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
     a string\n\
 \n";
   python::def("MolToMolBlock",
-              (std::string (*)(const ROMol &, bool, int, bool,
-                               bool))RDKit::MolToMolBlock,
+              (std::string(*)(const ROMol &, bool, int, bool,
+                              bool))RDKit::MolToMolBlock,
               (python::arg("mol"), python::arg("includeStereo") = true,
                python::arg("confId") = -1, python::arg("kekulize") = true,
                python::arg("forceV3000") = false),
@@ -1372,8 +1395,8 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
 \n ";
   python::def(
       "MolToV3KMolBlock",
-      (std::string (*)(const ROMol &, const MolWriterParams &,
-                       int))RDKit::MolToV3KMolBlock,
+      (std::string(*)(const ROMol &, const MolWriterParams &,
+                      int))RDKit::MolToV3KMolBlock,
       (python::arg("mol"), python::arg("params"), python::arg("confId") = -1),
       docString.c_str());
 
@@ -1395,7 +1418,7 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
 
   python::def(
       "MolToV3KMolBlock",
-      (std::string (*)(const ROMol &, bool, int, bool))RDKit::MolToV3KMolBlock,
+      (std::string(*)(const ROMol &, bool, int, bool))RDKit::MolToV3KMolBlock,
       (python::arg("mol"), python::arg("includeStereo") = true,
        python::arg("confId") = -1, python::arg("kekulize") = true),
       docString.c_str());
@@ -1511,8 +1534,8 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
     a string\n\
 \n";
   python::def("MolToMrvBlock",
-              (std::string (*)(const ROMol &, bool, int, bool,
-                               bool))RDKit::MolToMrvBlock,
+              (std::string(*)(const ROMol &, bool, int, bool,
+                              bool))RDKit::MolToMrvBlock,
               (python::arg("mol"), python::arg("includeStereo") = true,
                python::arg("confId") = -1, python::arg("kekulize") = true,
                python::arg("prettyPrint") = false),
@@ -1532,8 +1555,8 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
 \n";
   python::def(
       "MolToMrvBlock",
-      (std::string (*)(const ROMol &, const MrvWriterParams &,
-                       int))RDKit::MolToMrvBlock,
+      (std::string(*)(const ROMol &, const MrvWriterParams &,
+                      int))RDKit::MolToMrvBlock,
       (python::arg("mol"), python::arg("params"), python::arg("confId") = -1),
       docString.c_str());
 
@@ -1815,8 +1838,8 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
       .def("__setattr__", &safeSetattr);
 
   python::def("MolToSmiles",
-              (std::string (*)(const ROMol &,
-                               const SmilesWriteParams &))RDKit::MolToSmiles,
+              (std::string(*)(const ROMol &,
+                              const SmilesWriteParams &))RDKit::MolToSmiles,
               (python::arg("mol"), python::arg("params")),
               "Returns the canonical SMILES string for a molecule");
 
@@ -1850,8 +1873,8 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
 \n";
   python::def(
       "MolToSmiles",
-      (std::string (*)(const ROMol &, bool, bool, int, bool, bool, bool, bool,
-                       bool))RDKit::MolToSmiles,
+      (std::string(*)(const ROMol &, bool, bool, int, bool, bool, bool, bool,
+                      bool))RDKit::MolToSmiles,
       (python::arg("mol"), python::arg("isomericSmiles") = true,
        python::arg("kekuleSmiles") = false, python::arg("rootedAtAtom") = -1,
        python::arg("canonical") = true, python::arg("allBondsExplicit") = false,
@@ -1949,22 +1972,6 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
       .value("CX_ALL_BUT_COORDS",
              RDKit::SmilesWrite::CXSmilesFields::CX_ALL_BUT_COORDS);
 
-  python::enum_<RDKit::v2::FileParsers::SCSRBaseHbondOptions>(
-      "SCSRBaseHbondOptions")
-      .value("Ignore", RDKit::v2::FileParsers::SCSRBaseHbondOptions::Ignore)
-      .value("UseSapAll",
-             RDKit::v2::FileParsers::SCSRBaseHbondOptions::UseSapAll)
-      .value("UseSapOne",
-             RDKit::v2::FileParsers::SCSRBaseHbondOptions::UseSapOne)
-      .value("Auto", RDKit::v2::FileParsers::SCSRBaseHbondOptions::Auto);
-
-  python::enum_<RDKit::v2::FileParsers::SCSRTemplateNames>("SCSRTemplateNames")
-      .value("UseFirstName",
-             RDKit::v2::FileParsers::SCSRTemplateNames::UseFirstName)
-      .value("UseSecondName",
-             RDKit::v2::FileParsers::SCSRTemplateNames::UseSecondName)
-      .value("AsEntered", RDKit::v2::FileParsers::SCSRTemplateNames::AsEntered);
-
   python::enum_<RDKit::RestoreBondDirOption>("RestoreBondDirOption")
       .value("RestoreBondDirOptionClear",
              RDKit::RestoreBondDirOption::RestoreBondDirOptionClear)
@@ -1973,8 +1980,8 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
 
   python::def(
       "MolToCXSmiles",
-      (std::string (*)(const ROMol &, const SmilesWriteParams &, std::uint32_t,
-                       RestoreBondDirOption))RDKit::MolToCXSmiles,
+      (std::string(*)(const ROMol &, const SmilesWriteParams &, std::uint32_t,
+                      RestoreBondDirOption))RDKit::MolToCXSmiles,
       (python::arg("mol"), python::arg("params"),
        python::arg("flags") = RDKit::SmilesWrite::CXSmilesFields::CX_ALL,
        python::arg("restoreBondDirs") =
@@ -2008,8 +2015,8 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
 \n";
   python::def(
       "MolToCXSmiles",
-      (std::string (*)(const ROMol &, bool, bool, int, bool, bool, bool,
-                       bool))RDKit::MolToCXSmiles,
+      (std::string(*)(const ROMol &, bool, bool, int, bool, bool, bool,
+                      bool))RDKit::MolToCXSmiles,
       (python::arg("mol"), python::arg("isomericSmiles") = true,
        python::arg("kekuleSmiles") = false, python::arg("rootedAtAtom") = -1,
        python::arg("canonical") = true, python::arg("allBondsExplicit") = false,
@@ -2097,7 +2104,7 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
     a string\n\
 \n";
   python::def("MolToSmarts",
-              (std::string (*)(const ROMol &, bool, int))RDKit::MolToSmarts,
+              (std::string(*)(const ROMol &, bool, int))RDKit::MolToSmarts,
               (python::arg("mol"), python::arg("isomericSmiles") = true,
                python::arg("rootedAtAtom") = -1),
               docString.c_str());
@@ -2114,8 +2121,8 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
     a string\n\
 \n";
   python::def("MolToSmarts",
-              (std::string (*)(const ROMol &,
-                               const SmilesWriteParams &))RDKit::MolToSmarts,
+              (std::string(*)(const ROMol &,
+                              const SmilesWriteParams &))RDKit::MolToSmarts,
               (python::arg("mol"), python::arg("params")), docString.c_str());
 
   docString =
@@ -2151,7 +2158,7 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
     a string\n\
 \n";
   python::def("MolToCXSmarts",
-              (std::string (*)(const ROMol &, bool))RDKit::MolToCXSmarts,
+              (std::string(*)(const ROMol &, bool))RDKit::MolToCXSmarts,
               (python::arg("mol"), python::arg("isomericSmiles") = true),
               docString.c_str());
 
@@ -2728,7 +2735,7 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
         "controls whether unsupported CDXML query constructs raise instead of warning")
       .def("__setattr__", &safeSetattr);
 
-  docString =
+      docString =
       R"DOC(Construct a molecule from a cdxml file.
 
      Note: that the CDXML format is large and complex, the RDKit doesn't support
@@ -2796,13 +2803,10 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
         - format: CDXMLFormat [default CDXML]
 
       RETURNS:
-        the CDXML or CDX block)DOC";
-
-  python::def(
-      "MolToCDXMLBlock", MolToCDXMLBlockHelper,
-      (python::arg("mol"),
-       python::arg("format") = RDKit::v2::CDXMLParser::CDXMLFormat::CDXML),
-      docString.c_str());
+        a tuple of parsed Mol objects.)DOC";
+  
+  python::def("MolToCDXMLBlock", MolToCDXMLBlockHelper,
+              (python::arg("mol"), python::arg("format")=RDKit::v2::CDXMLParser::CDXMLFormat::CDXML), docString.c_str());
 
   docString = "Returns true if the RDKit is built with ChemDraw CDX support";
   python::def("HasChemDrawCDXSupport",

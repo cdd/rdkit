@@ -459,6 +459,8 @@ class RDKIT_GRAPHMOL_EXPORT ROMol : public RDProps {
     return {&d_graph, pr.first, pr.second};
   }
 
+  void clearSubstanceGroups() { d_sgroups.clear(); }
+
   // returns an iterator that will throw if the number of atoms or bonds changes
   // during iteration
   CXXAtomIterator<const MolGraph, Atom *const, MolGraph::adjacency_iterator,
@@ -1028,7 +1030,6 @@ class RDKIT_GRAPHMOL_EXPORT ROMol : public RDProps {
       ROMol &);
   friend RDKIT_GRAPHMOL_EXPORT const std::vector<SubstanceGroup> &
   getSubstanceGroups(const ROMol &);
-  void clearSubstanceGroups() { d_sgroups.clear(); }
 
  protected:
   unsigned int numBonds{0};

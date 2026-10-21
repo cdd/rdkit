@@ -875,6 +875,18 @@ const std::string GetV3000MolFileAtomLine(
       ss << " CLASS=" << sprop;
     }
   }
+  {
+    std::vector<std::pair<unsigned int, std::string>> attchOrds;
+    if (atom->getPropIfPresent(common_properties::molAttachOrderTemplate,
+                               attchOrds)) {
+      ss << " ATTCHORD=(" << attchOrds.size() * 2;
+      for (const auto &[aidx, lbl] : attchOrds) {
+        ss << " " << aidx + 1 << " " << lbl;
+      }
+      ss << ")";
+    }
+  }
+
   // HCOUNT - *query* hydrogen count. Not written by this writer.
 
   return ss.str();
@@ -1241,7 +1253,8 @@ enum class MolFileFormat {
 std::string outputMolToMolBlock(const RWMol &tmol, int confId,
                                 MolFileFormat whichFormat,
                                 unsigned int precision,
-                                const boost::dynamic_bitset<> &aromaticBonds) {
+                                const boost::dynamic_bitset<> &aromaticBonds,
+                                bool addEndMolLine = true) {
   std::string res;
   unsigned int nAtoms, nBonds, nLists, chiralFlag, nsText, nRxnComponents;
   unsigned int nReactants, nProducts, nIntermediates;
@@ -1400,7 +1413,9 @@ std::string outputMolToMolBlock(const RWMol &tmol, int confId,
     res +=
         FileParserUtils::getV3000CTAB(tmol, aromaticBonds, confId, precision);
   }
-  res += "M  END\n";
+  if (addEndMolLine) {
+    res += "M  END\n";
+  }
   return res;
 }
 
@@ -1436,7 +1451,7 @@ std::string MolToMolBlock(const ROMol &mol, const MolWriterParams &params,
   MolFileFormat whichFormat =
       params.forceV3000 ? MolFileFormat::V3000 : MolFileFormat::unspecified;
   return outputMolToMolBlock(trwmol, confId, whichFormat, params.precision,
-                             aromaticBonds);
+                             aromaticBonds, params.writeEndMolLine);
 }
 
 std::string MolToV2KMolBlock(const ROMol &mol, const MolWriterParams &params,
@@ -1446,7 +1461,7 @@ std::string MolToV2KMolBlock(const ROMol &mol, const MolWriterParams &params,
   boost::dynamic_bitset<> aromaticBonds(trwmol.getNumBonds());
   prepareMol(trwmol, params, aromaticBonds);
   return outputMolToMolBlock(trwmol, confId, MolFileFormat::V2000,
-                             params.precision, aromaticBonds);
+                             params.precision, aromaticBonds, params.writeEndMolLine);
 }
 
 //------------------------------------------------

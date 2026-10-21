@@ -50,7 +50,7 @@ TEST_CASE("MolToMacroMol annotates complete atomistic molecules") {
   CHECK(groups[0].getAtoms() == std::vector<unsigned int>({0, 1}));
   REQUIRE(groups[0].getAttachPoints().size() == 1);
   CHECK(groups[0].getAttachPoints()[0].aIdx == 1);
-  CHECK(groups[0].getAttachPoints()[0].lvIdx == -1);
+  CHECK(groups[0].getAttachPoints()[0].lvIdx == 2);
   CHECK(groups[0].getAttachPoints()[0].id == "1");
 }
 

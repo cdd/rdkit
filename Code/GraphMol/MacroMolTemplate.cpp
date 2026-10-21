@@ -18,6 +18,12 @@
 #include <set>
 #include <unordered_set>
 
+#include <RDGeneral/Exceptions.h>
+
+#include <queue>
+#include <unordered_set>
+
+
 namespace RDKit {
 
 namespace {
@@ -43,14 +49,37 @@ void validateUniqueInRange(const std::vector<unsigned int> &atomIdxs,
   }
 }
 
+bool isConnected(const ROMol &mol,
+                 const std::vector<unsigned int> &atomIdxs) {
+  std::unordered_set<unsigned int> groupAtoms(atomIdxs.begin(), atomIdxs.end());
+  std::unordered_set<unsigned int> visited;
+  std::queue<unsigned int> pending;
+  pending.push(atomIdxs.front());
+  visited.insert(atomIdxs.front());
+
+  while (!pending.empty()) {
+    const auto atomIdx = pending.front();
+    pending.pop();
+    for (const auto *bond : mol.atomBonds(mol.getAtomWithIdx(atomIdx))) {
+      const auto otherAtomIdx = bond->getOtherAtomIdx(atomIdx);
+      if (groupAtoms.find(otherAtomIdx) != groupAtoms.end() &&
+          visited.insert(otherAtomIdx).second) {
+        pending.push(otherAtomIdx);
+      }
+    }
+  }
+  return visited.size() == atomIdxs.size();
+}
+
+
 void validateLeavingGroup(const ROMol &mol,
                           const MacroMolLeavingGroup &leavingGroup,
                           const std::unordered_set<unsigned int> &mainAtoms,
                           std::set<int> &attachmentPoints,
                           std::vector<unsigned int> &atomMembership) {
-  // Validate one leaving group and record its atoms and attachment point.
-  if (leavingGroup.atomIdxs.empty()) {
-    invalidTemplate("leaving groups cannot be empty");
+  // the leaving group atoms CAN be empty - for a hydrogen bond
+  if (leavingGroup.leavingAtomIdx >=0 &&  leavingGroup.atomIdxs.empty()) {
+    invalidTemplate("leaving groups cannot be empty if the leaving atom is defined");
   }
   validateUniqueInRange(leavingGroup.atomIdxs, mol.getNumAtoms(),
                         "leaving group");
@@ -64,37 +93,42 @@ void validateLeavingGroup(const ROMol &mol,
     invalidTemplate("attachment atom must be part of the main group");
   }
 
-  if (std::find(leavingGroup.atomIdxs.begin(), leavingGroup.atomIdxs.end(),
-                leavingGroup.leavingAtomIdx) == leavingGroup.atomIdxs.end()) {
-    invalidTemplate("leaving atom must be part of its leaving group");
-  }
-  if (!mol.getBondBetweenAtoms(leavingGroup.attachAtomIdx,
-                               leavingGroup.leavingAtomIdx)) {
-    invalidTemplate("attachment atom must be bonded to the leaving atom");
-  }
-  const std::unordered_set<unsigned int> leavingAtoms(
-      leavingGroup.atomIdxs.begin(), leavingGroup.atomIdxs.end());
-  unsigned int boundaryBondCount = 0;
-  bool foundAttachmentBond = false;
-  for (const auto atomIdx : leavingGroup.atomIdxs) {
-    if (atomMembership[atomIdx] != 0) {
-      invalidTemplate("main and leaving groups must not overlap");
+  if (leavingGroup.leavingAtomIdx >= 0) {
+    const std::unordered_set<unsigned int> leavingAtoms(
+        leavingGroup.atomIdxs.begin(), leavingGroup.atomIdxs.end());
+    if (leavingAtoms.find(leavingGroup.leavingAtomIdx) == leavingAtoms.end()) {
+      invalidTemplate("leaving atom must be part of its leaving group");
     }
-    atomMembership[atomIdx] = 2;
-    for (const auto nbr : mol.atomNeighbors(mol.getAtomWithIdx(atomIdx))) {
-      const auto otherAtomIdx = nbr->getIdx();
-      if (leavingAtoms.find(otherAtomIdx) == leavingAtoms.end()) {
-        ++boundaryBondCount;
-        if (atomIdx == leavingGroup.leavingAtomIdx &&
-            otherAtomIdx == leavingGroup.attachAtomIdx) {
-          foundAttachmentBond = true;
+    if (!mol.getBondBetweenAtoms(leavingGroup.attachAtomIdx,
+                                leavingGroup.leavingAtomIdx)) {
+      invalidTemplate("attachment atom must be bonded to the leaving atom");
+    }
+    if (!isConnected(mol, leavingGroup.atomIdxs)) {
+      invalidTemplate("each leaving group must be connected");
+    }
+
+    unsigned int boundaryBondCount = 0;
+    bool foundAttachmentBond = false;
+    for (const auto atomIdx : leavingGroup.atomIdxs) {
+      if (atomMembership[atomIdx] != 0) {
+        invalidTemplate("main and leaving groups must not overlap");
+      }
+      atomMembership[atomIdx] = 2;
+      for (const auto *bond : mol.atomBonds(mol.getAtomWithIdx(atomIdx))) {
+        const auto otherAtomIdx = bond->getOtherAtomIdx(atomIdx);
+        if (leavingAtoms.find(otherAtomIdx) == leavingAtoms.end()) {
+          ++boundaryBondCount;
+          if (atomIdx == (unsigned int) leavingGroup.leavingAtomIdx &&
+              otherAtomIdx == leavingGroup.attachAtomIdx) {
+            foundAttachmentBond = true;
+          }
         }
       }
     }
-  }
-  if (boundaryBondCount != 1 || !foundAttachmentBond) {
-    invalidTemplate(
-        "a leaving group must have exactly its declared attachment boundary");
+    if (boundaryBondCount != 1 || !foundAttachmentBond) {
+      invalidTemplate(
+          "a leaving group must have exactly its declared attachment boundary");
+    }
   }
 }
 
@@ -105,7 +139,7 @@ const SubstanceGroup &MacroMolTemplate::getMainSgroup() const {
 }
 
 MacroMolTemplateBuilder &MacroMolTemplateBuilder::setMainGroup(
-    std::vector<unsigned int> &&atomIdxs) {
+    std::vector<unsigned int> atomIdxs) {
   PRECONDITION(!d_mainGroupSet, "main group has already been set");
   d_mainAtomIdxs = std::move(atomIdxs);
   d_mainGroupSet = true;
@@ -177,6 +211,10 @@ std::unique_ptr<MacroMolTemplate> MacroMolTemplateBuilder::build() const {
     sgroup.setProp("CLASS", LGRP_CLASS);
     sgroup.setAtoms(leavingGroup.atomIdxs);
     addSubstanceGroup(mol, std::move(sgroup));
+  }
+
+  if (mol.needsUpdatePropertyCache()) {
+      mol.updatePropertyCache(false);
   }
 
   return std::unique_ptr<MacroMolTemplate>(new MacroMolTemplate(
@@ -256,5 +294,22 @@ MacroMolTemplateLibrary::getTemplates() const {
   }
   return templates;
 }
+
+MacroMolTemplate::MacroMolTemplate(const MacroMolTemplate &other)
+      : d_mol(other.getMol()),
+        d_monomerClass(other.getMonomerClass()),
+        d_name(other.getName()),
+        d_symbol(other.getSymbol()),
+        d_originalData(other.getOriginalData()),
+        d_subclass(other.getSubclass()),
+        d_mainAtomIdxs(other.getMainAtomIdxs()),
+        d_leavingGroups(other.getLeavingGroups()),
+        d_mainSgroupIdx(other.getMainSgroup().getIndexInMol()) {
+
+    if (d_mol.needsUpdatePropertyCache()) {
+      d_mol.updatePropertyCache(false);
+    }
+
+  }
 
 }  // namespace RDKit

@@ -30,7 +30,7 @@ endif()
 rdkit_library(FileParsers
     CDXMLParser.cpp
     Mol2FileParser.cpp MolFileParser.cpp
-    SCSRMolFileParser.cpp
+    SCSRUtils.cpp
     MolSGroupParsing.cpp MolSGroupWriting.cpp
     MolFileStereochem.cpp MolFileWriter.cpp
     ForwardSDMolSupplier.cpp SDMolSupplier.cpp SDWriter.cpp
@@ -50,7 +50,7 @@ rdkit_library(FileParsers
     MultithreadedSDMolSupplier.cpp
     MolToMacroMol.cpp
     MolFromMacroMol.cpp
-    LINK_LIBRARIES GenericGroups Depictor SmilesParse ChemTransforms GraphMol SubstructMatch ${MAEPARSER_LIB} ${RDK_CHEMDRAW_LIBS} ${STANDALONE_ZLIB_LIBRARY}
+    LINK_LIBRARIES GenericGroups Depictor SmilesParse ChemTransforms GraphMol MacroMolTemplateLibrary SubstructMatch ${MAEPARSER_LIB} ${RDK_CHEMDRAW_LIBS} ${STANDALONE_ZLIB_LIBRARY}
 )
 if(STANDALONE_ZLIB_LIBRARY)
     target_include_directories(FileParsers PRIVATE ${ZLIB_INCLUDE_DIRS})
@@ -72,6 +72,7 @@ rdkit_headers(CDXMLParser.h
     PNGParser.h
     MolToMacroMol.h
     MolFromMacroMol.h
+    SCSRUtils.h
     DEST GraphMol/FileParsers)
 
 rdkit_test(fileParsersTest1 test1.cpp
@@ -141,8 +142,15 @@ rdkit_catch_test(v2FileParsersCatchTest v2_file_parsers_catch.cpp
 rdkit_catch_test(atropisomersCatch atropisomers_catch.cpp
     LINK_LIBRARIES FileParsers)
 
+find_package(TBB )
+if(TBB_FOUND)
 rdkit_catch_test(fileParsersIteratorsTest fileParsersIterTest.cpp
-    LINK_LIBRARIES SmilesParse FileParsers SubstructMatch ${TBB_DEP})
+    LINK_LIBRARIES SmilesParse FileParsers SubstructMatch TBB::tbb)
+else()
+rdkit_catch_test(fileParsersIteratorsTest fileParsersIterTest.cpp
+    LINK_LIBRARIES SmilesParse FileParsers SubstructMatch)
+endif()
+
 
 if(RDK_TEST_MULTITHREADED AND RDK_BUILD_THREADSAFE_SSS)
 rdkit_catch_test(multithreadedSupplierCatchTest multithreaded_supplier_catch.cpp

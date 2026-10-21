@@ -16,6 +16,7 @@
 #include <GraphMol/FileParsers/SequenceParsers.h>
 #include <GraphMol/FileParsers/SequenceWriters.h>
 #include <GraphMol/FileParsers/MolFileStereochem.h>
+#include <GraphMol/FileParsers/SCSRUtils.h>
 #include <GraphMol/Depictor/RDDepictor.h>
 #include "MarvinParser.h"
 
@@ -404,12 +405,11 @@ class MrvTests {
       pp.removeHs = false;
       pp.strictParsing = true;
 
-      RDKit::v2::FileParsers::MolFromSCSRParams molFromSCSRParams;
-      molFromSCSRParams.includeLeavingGroups = true;
-      molFromSCSRParams.scsrBaseHbondOptions = SCSRBaseHbondOptions::Auto;
+      RDKit::MolFromMacroMolParams molFromMacroMolParams;
 
       std::unique_ptr<RDKit::RWMol> mol;
-      mol = MolFromSCSRFile(fName, pp, molFromSCSRParams);
+      mol = RDKit::SCSRUtils::MolFromSCSRFile(fName, pp, molFromMacroMolParams, SCSRUtils::SCSRBaseHbondOptions::FullHBonds);
+      
 
       TEST_ASSERT(mol != nullptr);
       TEST_ASSERT(mol->getNumAtoms() == scsrMolTest->atomCount);
@@ -419,8 +419,12 @@ class MrvTests {
       std::string outMolStr = "";
       outMolStr = MolToMrvBlock(*mol, true, -1, true, false);
 
+
       RDKit::v2::MarvinParser::MrvParserParams mpp;
+      mpp.removeHs = false;
+      mpp.sanitize = true;
       mol = RDKit::v2::MarvinParser::MolFromMrvBlock(outMolStr, mpp);
+
 
       TEST_ASSERT(mol != nullptr);
       TEST_ASSERT(mol->getNumAtoms() == scsrMolTest->atomCount);
@@ -1223,9 +1227,9 @@ M  END
       std::list<ScsrMolTest> scsrFileTests{
           ScsrMolTest(
               "153944501_original_structure.mol", true, 859, 1025,
-              {66, 67, 68, 72, 73, 74} /* Some but not all hbonds in the mol */,
-              128),
-          ScsrMolTest("rnaTest.mol", true, 22, 24, {}, 4)};
+              {62, 63, 64, 68, 69, 70} /* Some but not all hbonds in the mol */,
+              124),
+          ScsrMolTest("rnaTest.mol", true, 22, 24, {}, 2)};
 
       for (auto &scsrFileTest : scsrFileTests) {
         BOOST_LOG(rdInfoLog) << "Test: " << scsrFileTest.fileName << std::endl;

@@ -42,6 +42,7 @@ struct GroupSpec {
   const MacroMolTemplate *templ = nullptr;
   std::vector<unsigned int> sourceAtomIndices;
   std::vector<AttachmentPointSpec> attachmentPoints;
+};
 
 struct MainGroupQuery {
   std::unique_ptr<RWMol> query;

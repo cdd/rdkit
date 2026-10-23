@@ -163,7 +163,7 @@ std::optional<GroupSpec> makeGroupForMatch(
           // don't reuse a leaving group.  If there are two or more on the same attachAtomIdx, 
           // if will be random how there are assigned.  And this could lead to undesireable pairings.
           // (like R1-R1 or Al-Al)
-          //the example that causes this is the Phospate group that has two leaving groups on the same P
+          //the example that causes this is the Phosphate group that has two leaving groups on the same P
           // atom.
           //
           // The macroMol reoutines are not supposed to know about the meanings of the attachment types,

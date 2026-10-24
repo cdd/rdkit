@@ -742,6 +742,9 @@ MonomerClass monomerClassFromPolymerType(const std::string &polymerType) {
   if (polymerType == "RNA") {
     return MonomerClass::NucleicAcid;
   }
+  if (polymerType == "CHEM") {
+    return MonomerClass::Chemical;
+  }
   throw std::runtime_error("Unsupported polymer type in monomer definition: " +
                            polymerType);
 }
@@ -870,7 +873,8 @@ MacroMolLeavingGroup attachRGroup(RWMol &mol, unsigned int coreDummyIdx,
       leavingAtom->invertChirality();
     }
   }
-  return {std::move(atomIdxs), attachAtomIdx, coreDummyIdx, rGroupNumber};
+  return {std::move(atomIdxs), attachAtomIdx, static_cast<int>(coreDummyIdx),
+          rGroupNumber};
 }
 
 // Builds a template from CORE_SMILES, a CXSMILES in which the attachment points

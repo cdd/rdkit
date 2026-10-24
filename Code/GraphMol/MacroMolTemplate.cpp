@@ -77,9 +77,19 @@ void validateLeavingGroup(const ROMol &mol,
                           const std::unordered_set<unsigned int> &mainAtoms,
                           std::set<int> &attachmentPoints,
                           std::vector<unsigned int> &atomMembership) {
-  // the leaving group atoms CAN be empty - for a hydrogen bond
-  if (leavingGroup.leavingAtomIdx >=0 &&  leavingGroup.atomIdxs.empty()) {
-    invalidTemplate("leaving groups cannot be empty if the leaving atom is defined");
+  // Validate one leaving group and record its atoms and attachment point.
+  const bool hasLeavingAtom = leavingGroup.leavingAtomIdx >= 0;
+  if (!hasLeavingAtom) {
+    if (leavingGroup.leavingAtomIdx != -1) {
+      invalidTemplate("leaving atom index must be -1 or an atom index");
+    }
+    if (!leavingGroup.atomIdxs.empty()) {
+      invalidTemplate(
+          "an attachment point without a leaving atom cannot have leaving "
+          "group atoms");
+    }
+  } else if (leavingGroup.atomIdxs.empty()) {
+    invalidTemplate("leaving groups cannot be empty");
   }
   validateUniqueInRange(leavingGroup.atomIdxs, mol.getNumAtoms(),
                         "leaving group");
@@ -92,36 +102,35 @@ void validateLeavingGroup(const ROMol &mol,
   if (mainAtoms.find(leavingGroup.attachAtomIdx) == mainAtoms.end()) {
     invalidTemplate("attachment atom must be part of the main group");
   }
+  if (!hasLeavingAtom) {
+    return;  // no leaving atoms to check
+  }
 
-  if (leavingGroup.leavingAtomIdx >= 0) {
-    const std::unordered_set<unsigned int> leavingAtoms(
-        leavingGroup.atomIdxs.begin(), leavingGroup.atomIdxs.end());
-    if (leavingAtoms.find(leavingGroup.leavingAtomIdx) == leavingAtoms.end()) {
-      invalidTemplate("leaving atom must be part of its leaving group");
+  const auto leavingAtomIdx =
+      static_cast<unsigned int>(leavingGroup.leavingAtomIdx);
+  if (std::find(leavingGroup.atomIdxs.begin(), leavingGroup.atomIdxs.end(),
+                leavingAtomIdx) == leavingGroup.atomIdxs.end()) {
+    invalidTemplate("leaving atom must be part of its leaving group");
+  }
+  if (!mol.getBondBetweenAtoms(leavingGroup.attachAtomIdx, leavingAtomIdx)) {
+    invalidTemplate("attachment atom must be bonded to the leaving atom");
+  }
+  const std::unordered_set<unsigned int> leavingAtoms(
+      leavingGroup.atomIdxs.begin(), leavingGroup.atomIdxs.end());
+  unsigned int boundaryBondCount = 0;
+  bool foundAttachmentBond = false;
+  for (const auto atomIdx : leavingGroup.atomIdxs) {
+    if (atomMembership[atomIdx] != 0) {
+      invalidTemplate("main and leaving groups must not overlap");
     }
-    if (!mol.getBondBetweenAtoms(leavingGroup.attachAtomIdx,
-                                leavingGroup.leavingAtomIdx)) {
-      invalidTemplate("attachment atom must be bonded to the leaving atom");
-    }
-    if (!isConnected(mol, leavingGroup.atomIdxs)) {
-      invalidTemplate("each leaving group must be connected");
-    }
-
-    unsigned int boundaryBondCount = 0;
-    bool foundAttachmentBond = false;
-    for (const auto atomIdx : leavingGroup.atomIdxs) {
-      if (atomMembership[atomIdx] != 0) {
-        invalidTemplate("main and leaving groups must not overlap");
-      }
-      atomMembership[atomIdx] = 2;
-      for (const auto *bond : mol.atomBonds(mol.getAtomWithIdx(atomIdx))) {
-        const auto otherAtomIdx = bond->getOtherAtomIdx(atomIdx);
-        if (leavingAtoms.find(otherAtomIdx) == leavingAtoms.end()) {
-          ++boundaryBondCount;
-          if (atomIdx == (unsigned int) leavingGroup.leavingAtomIdx &&
-              otherAtomIdx == leavingGroup.attachAtomIdx) {
-            foundAttachmentBond = true;
-          }
+    atomMembership[atomIdx] = 2;
+    for (const auto nbr : mol.atomNeighbors(mol.getAtomWithIdx(atomIdx))) {
+      const auto otherAtomIdx = nbr->getIdx();
+      if (leavingAtoms.find(otherAtomIdx) == leavingAtoms.end()) {
+        ++boundaryBondCount;
+        if (atomIdx == leavingAtomIdx &&
+            otherAtomIdx == leavingGroup.attachAtomIdx) {
+          foundAttachmentBond = true;
         }
       }
     }
@@ -201,12 +210,15 @@ std::unique_ptr<MacroMolTemplate> MacroMolTemplateBuilder::build() const {
   mainSgroup.setAtoms(d_mainAtomIdxs);
   for (const auto &leavingGroup : d_leavingGroups) {
     mainSgroup.addAttachPoint(leavingGroup.attachAtomIdx,
-                              static_cast<int>(leavingGroup.leavingAtomIdx),
+                              leavingGroup.leavingAtomIdx,
                               std::to_string(leavingGroup.attachPoint));
   }
   const auto mainSgroupIdx = addSubstanceGroup(mol, std::move(mainSgroup));
 
   for (const auto &leavingGroup : d_leavingGroups) {
+    if (leavingGroup.atomIdxs.empty()) {
+      continue;  // an attachment point without a leaving atom
+    }
     SubstanceGroup sgroup(&mol, SUP_TYPE);
     sgroup.setProp("CLASS", LGRP_CLASS);
     sgroup.setAtoms(leavingGroup.atomIdxs);

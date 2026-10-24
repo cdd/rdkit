@@ -25,10 +25,14 @@
 namespace RDKit {
 
 //! Describes the atoms removed at one MacroMol template attachment point.
+/*!
+  Some attachment points, such as the hydrogen-bonding sites of nucleobases,
+  have no leaving atom. For these, leavingAtomIdx is -1 and atomIdxs is empty.
+*/
 struct RDKIT_GRAPHMOL_EXPORT MacroMolLeavingGroup {
   MacroMolLeavingGroup(std::vector<unsigned int> atomIdxs,
-                       unsigned int attachAtomIdx,
-                      int leavingAtomIdx, int attachPoint)
+                       unsigned int attachAtomIdx, int leavingAtomIdx,
+                       int attachPoint)
       : atomIdxs(std::move(atomIdxs)),
         attachAtomIdx(attachAtomIdx),
         leavingAtomIdx(leavingAtomIdx),
@@ -36,7 +40,7 @@ struct RDKIT_GRAPHMOL_EXPORT MacroMolLeavingGroup {
 
   std::vector<unsigned int> atomIdxs;
   unsigned int attachAtomIdx;
-  int leavingAtomIdx;
+  int leavingAtomIdx;  //!< -1 if the attachment point has no leaving atom
   int attachPoint;
 };
 

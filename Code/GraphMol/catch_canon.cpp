@@ -386,6 +386,56 @@ TEST_CASE("chiralRandomTest") {
   }
 }
 
+TEST_CASE("RgroupCanonTest") {
+  SECTION("RgroupCanonTest") {
+    std::vector<std::string> tests = {
+        "C1C(*)CC(*)CC1* |$;;_AP1;;;_AP3;;;_AP2$|",
+        "C1C(*)CC(*)CC1* |$;;_AP3;;;_AP2;;;_AP1$|",
+    };
+
+    UseLegacyStereoPerceptionFixture reset_stereo_perception{false};
+
+    for (const auto &smi1 : tests) {
+      INFO(smi1);
+
+      SmilesParserParams rps;
+      rps.sanitize = true;
+      rps.removeHs = false;
+
+      std::unique_ptr<ROMol> mol1{SmilesToMol(smi1, rps)};
+      REQUIRE(mol1);
+
+      std::vector<unsigned int> idxV(mol1->getNumAtoms());
+      for (unsigned int i = 0; i < mol1->getNumAtoms(); ++i) {
+        idxV[i] = i;
+      }
+
+      std::string smiExpected = "";
+      auto randomGen = std::mt19937(0xf00d);
+      for (auto i = 0; i < 100; ++i) {
+        std::vector<unsigned int> nVect(idxV);
+        if (i > 0) {
+          std::shuffle(nVect.begin(), nVect.end(), randomGen);
+        }
+        std::unique_ptr<ROMol> nmol{MolOps::renumberAtoms(*mol1, nVect)};
+        RDKit::SmilesWriteParams wp;
+        wp.canonical = true;
+        wp.useRgroupLabels = true;
+       
+        RDKit::canonicalizeStereoGroups(nmol);
+
+        auto outSmi1 = MolToCXSmiles(*nmol, wp);
+
+        if (smiExpected == "") {
+          smiExpected = outSmi1;
+        } else {
+          CHECK(outSmi1 == smiExpected);
+        }
+      }
+    }
+  }
+}
+
 TEST_CASE("pseudoTestCanonFailure") {
   SECTION("canonFailure") {
     UseLegacyStereoPerceptionFixture reset_stereo_perception{false};

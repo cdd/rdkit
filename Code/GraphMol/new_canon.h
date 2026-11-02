@@ -17,6 +17,7 @@
 #include <GraphMol/ROMol.h>
 #include <GraphMol/RingInfo.h>
 #include <GraphMol/StereoGroup.h>
+#include <GraphMol/MolOps.h>
 #include <RDGeneral/BoostStartInclude.h>
 #include <cstdint>
 #include <boost/dynamic_bitset.hpp>
@@ -392,6 +393,19 @@ class RDKIT_GRAPHMOL_EXPORT AtomCompareFunctor {
     } else if (ivi > ivj) {
       return 1;
     }
+
+    if (df_useRgroupLabels){
+      ivi = RDKit::MolOps::getAttachmentPointLabelNumber(dp_atoms[i].atom);
+      ivj = RDKit::MolOps::getAttachmentPointLabelNumber(dp_atoms[j].atom);
+      
+      if (ivi < ivj){
+        return -1;
+      } else if (ivi > ivj){
+        return 1;
+      }
+    }
+
+
     // isotopes if we're using them
     if (df_useIsotopes) {
       ivi = dp_atoms[i].atom->getIsotope();
@@ -537,6 +551,7 @@ class RDKIT_GRAPHMOL_EXPORT AtomCompareFunctor {
   bool df_useNonStereoRanks{false};
   bool df_useChiralPresence{true};
   bool df_useAtomMapsOnDummies{true};
+  bool df_useRgroupLabels{false};
 
   AtomCompareFunctor() {}
   AtomCompareFunctor(Canon::canon_atom *atoms, const ROMol &m,
@@ -906,7 +921,7 @@ RDKIT_GRAPHMOL_EXPORT void rankMolAtoms(
     bool includeChirality = true, bool includeIsotopes = true,
     bool includeAtomMaps = true, bool includeChiralPresence = false,
     bool includeStereoGroups = true, bool useNonStereoRanks = false,
-    bool includeRingStereo = true);
+    bool includeRingStereo = true, bool useRgroupLabels = false);
 
 //! Note that atom maps on dummy atoms will always be used
 RDKIT_GRAPHMOL_EXPORT void rankFragmentAtoms(

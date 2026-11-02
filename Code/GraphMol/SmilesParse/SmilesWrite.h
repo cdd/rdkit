@@ -50,6 +50,7 @@ struct RDKIT_SMILESPARSE_EXPORT SmilesWriteParams {
                bonds will be written as single bonds*/
   bool ignoreAtomMapNumbers = false; /**< If true, ignores any atom map numbers
                                         when canonicalizing the molecule */
+  bool useRgroupLabels = false; /**< If true, the Rgroup lables (r1, r2 etc) are used in canonicaliztion */
 };
 
 namespace SmilesWrite {

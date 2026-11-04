@@ -836,7 +836,7 @@ void rankMolAtoms(const ROMol &mol, std::vector<unsigned int> &res,
                   bool breakTies, bool includeChirality, bool includeIsotopes,
                   bool includeAtomMaps, bool includeChiralPresence,
                   bool includeStereoGroups, bool useNonStereoRanks,
-                  bool includeRingStereo) {
+                  bool includeRingStereo, bool useRgroupLabels) {
   if (!mol.getNumAtoms()) {
     return;
   }
@@ -859,6 +859,7 @@ void rankMolAtoms(const ROMol &mol, std::vector<unsigned int> &res,
   ftor.df_useAtomMaps = includeAtomMaps;
   ftor.df_useNonStereoRanks = useNonStereoRanks;
   ftor.df_useChiralPresence = includeChiralPresence;
+  ftor.df_useRgroupLabels = useRgroupLabels;
 
   std::vector<int> order(mol.getNumAtoms());
   detail::rankWithFunctor(ftor, breakTies, order, true, includeChirality,

@@ -51,6 +51,7 @@ struct RDKIT_SMILESPARSE_EXPORT SmilesWriteParams {
   bool ignoreAtomMapNumbers = false; /**< If true, ignores any atom map numbers
                                         when canonicalizing the molecule */
   bool useRgroupLabels = false; /**< If true, the Rgroup lables (r1, r2 etc) are used in canonicaliztion */
+  bool useMacroAtomInfo = false; /**< If true, the macro atoms names and classes are used in canonicalization */
 };
 
 namespace SmilesWrite {

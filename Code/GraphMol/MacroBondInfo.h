@@ -42,6 +42,10 @@ class RDKIT_GRAPHMOL_EXPORT MacroBondInfo {
 
     //! Stored as the numeric Bond::BondType value to avoid a Bond.h dependency.
     unsigned int bondType{0};
+
+    auto operator<=>(const BondInfo&) const = default;
+     //bool operator<(const bondholder &o) const { return compare(*this, o) < 0; }
+
   };
 
   virtual ~MacroBondInfo() = default;

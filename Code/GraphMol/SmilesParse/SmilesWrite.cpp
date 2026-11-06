@@ -642,11 +642,13 @@ std::string MolToSmiles(const ROMol &mol, const SmilesWriteParams &params,
       const bool includeAtomMaps = true;
       const bool useRgroupLabels = params.useRgroupLabels;
       const bool useRingStereo = true;
+      const bool useMacroAtomInfo = params.useMacroAtomInfo;
 
       Canon::rankMolAtoms(*tmol, ranks, breakTies, includeChirality,
                           includeIsotopes, includeAtomMaps,
                           includeChiralPresence, includeStereoGroups,
-+                         useNonStereoRanks, useRingStereo, useRgroupLabels);
++                         useNonStereoRanks, useRingStereo, useRgroupLabels,
+                          useMacroAtomInfo);
       if (params.canonical && params.ignoreAtomMapNumbers) {
         for (auto atom : tmol->atoms()) {
           atom->setAtomMapNum(atomMapNums[atom->getIdx()]);

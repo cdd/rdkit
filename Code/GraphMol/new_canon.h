@@ -58,6 +58,7 @@ struct RDKIT_GRAPHMOL_EXPORT bondholder {
   const std::string *p_symbol{
       nullptr};  // if provided, this is used to order bonds
   unsigned int bondIdx{0};
+  MacroBondInfo dp_macroBondInfo;  // hold bond connection info for macroMols
 
   bondholder() {};
   bondholder(Bond::BondType bt, Bond::BondStereo bs, unsigned int ni,
@@ -95,12 +96,34 @@ struct RDKIT_GRAPHMOL_EXPORT bondholder {
     } else if (x.bondType > y.bondType) {
       return 1;
     }
+
+    if (x.dp_macroBondInfo.getNumBonds() != 0 || y.dp_macroBondInfo.getNumBonds() != 0) {
+      if (x.dp_macroBondInfo.getNumBonds() < y.dp_macroBondInfo.getNumBonds()) {
+        return -1;
+      } else if (x.dp_macroBondInfo.getNumBonds() > y.dp_macroBondInfo.getNumBonds()) {
+        return 1;
+      }
+
+      for ( unsigned int index = 0 ; index < x.dp_macroBondInfo.getNumBonds(); ++index) {
+        if ( x.dp_macroBondInfo.getBond(index) < y.dp_macroBondInfo.getBond(index) ) {
+          return -1;
+        } else if ( x.dp_macroBondInfo.getBond(index) > y.dp_macroBondInfo.getBond(index) ) {
+          return 1;
+        }
+      }
+    }
+
     if (x.bondStereo < y.bondStereo) {
       return -1;
     } else if (x.bondStereo > y.bondStereo) {
       return 1;
     }
-    auto scdiv = x.nbrSymClass / div - y.nbrSymClass / div;
+    int scdiv;
+    if (div != 1) {
+      scdiv = x.nbrSymClass / div - y.nbrSymClass / div;
+    } else {
+      scdiv = x.nbrSymClass - y.nbrSymClass;
+    }
     if (scdiv) {
       return scdiv;
     }
@@ -388,7 +411,6 @@ class RDKIT_GRAPHMOL_EXPORT AtomCompareFunctor {
     } else if (ivi > ivj) {
       return 1;
     }
-    
 
     if (df_useRgroupLabels){
       ivi = RDKit::MolOps::getAttachmentPointLabelNumber(dp_atoms[i].atom);
@@ -398,6 +420,26 @@ class RDKIT_GRAPHMOL_EXPORT AtomCompareFunctor {
         return -1;
       } else if (ivi > ivj){
         return 1;
+      }
+    }
+
+    if (df_useMacroAtomInfo){
+      std::string templateClass, templateName, iLabel, jLabel;
+
+      if (dp_atoms[i].atom->getPropIfPresent(common_properties::molAtomClass, templateClass) &&
+          dp_atoms[i].atom->getPropIfPresent(common_properties::dummyLabel ,templateName)) {
+        iLabel = templateClass + ":" + templateName;
+      
+      
+        if (dp_atoms[j].atom->getPropIfPresent(common_properties::molAtomClass, templateClass) &&
+            dp_atoms[j].atom->getPropIfPresent(common_properties::dummyLabel ,templateName)) {
+          jLabel = templateClass + ":" + templateName;
+        }
+        if (iLabel < jLabel){
+          return -1;
+        } else if (iLabel > jLabel){
+          return 1;
+        }
       }
     }
 
@@ -547,6 +589,7 @@ class RDKIT_GRAPHMOL_EXPORT AtomCompareFunctor {
   bool df_useChiralPresence{true};
   bool df_useAtomMapsOnDummies{true};
   bool df_useRgroupLabels{false};
+  bool df_useMacroAtomInfo{false};
 
   AtomCompareFunctor() {}
   AtomCompareFunctor(Canon::canon_atom *atoms, const ROMol &m,
@@ -916,7 +959,8 @@ RDKIT_GRAPHMOL_EXPORT void rankMolAtoms(
     bool includeChirality = true, bool includeIsotopes = true,
     bool includeAtomMaps = true, bool includeChiralPresence = false,
     bool includeStereoGroups = true, bool useNonStereoRanks = false,
-    bool includeRingStereo = true, bool useRgroupLabels = false);
+    bool includeRingStereo = true, bool useRgroupLabels = false,
+    bool useMacroAtomInfo = false);
 
 //! Note that atom maps on dummy atoms will always be used
 RDKIT_GRAPHMOL_EXPORT void rankFragmentAtoms(
@@ -949,7 +993,8 @@ RDKIT_GRAPHMOL_EXPORT void initCanonAtoms(const ROMol &mol,
                                           std::vector<Canon::canon_atom> &atoms,
                                           std::span<int> neighborIds,
                                           bool includeChirality = true,
-                                          bool includeStereoGroups = true);
+                                          bool includeStereoGroups = true,
+                                          bool includeMacroAtomInfo = false);
 
 namespace detail {
 void initFragmentCanonAtoms(const ROMol &mol,

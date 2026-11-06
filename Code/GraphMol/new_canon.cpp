@@ -413,6 +413,7 @@ void getNbrs(const ROMol &mol, const Atom *at, const std::span<int> ids) {
 
 bondholder makeBondHolder(const Bond *bond, unsigned int otherIdx,
                           bool includeChirality,
+                          bool includeMacroAtomInfo,
                           const std::vector<Canon::canon_atom> &atoms) {
   PRECONDITION(bond, "bad pointer");
   Bond::BondStereo stereo = Bond::STEREONONE;
@@ -483,10 +484,29 @@ bondholder makeBondHolder(const Bond *bond, unsigned int otherIdx,
       }
     }
   }
+
+  if (includeMacroAtomInfo) {
+    auto macroAtomInfo = bond->getMacroBondInfo();
+    if (macroAtomInfo)
+    {
+      for (auto bondInfo : macroAtomInfo->getBonds()) {
+        if (bond->getBeginAtomIdx() == otherIdx) {
+          res.dp_macroBondInfo.addBond(bondInfo.endAttachPt, bondInfo.beginAttachPt, bondInfo.bondType);
+        } else {
+          res.dp_macroBondInfo.addBond(bondInfo.beginAttachPt, bondInfo.endAttachPt, bondInfo.bondType);
+        }
+      }
+      // sort the bondinfo's
+
+      std::sort(res.dp_macroBondInfo.getBonds().begin() , res.dp_macroBondInfo.getBonds().end());
+    }
+  }
+
   return res;
 }
 void getBonds(const ROMol &mol, const Atom *at, BondholderVector &nbrs,
               bool includeChirality,
+              bool includeMacroAtomInfo,
               const std::vector<Canon::canon_atom> &atoms) {
   PRECONDITION(at, "bad pointer");
   ROMol::OEDGE_ITER beg, end;
@@ -495,7 +515,7 @@ void getBonds(const ROMol &mol, const Atom *at, BondholderVector &nbrs,
     const Bond *bond = (mol)[*beg];
     ++beg;
     nbrs.push_back(makeBondHolder(bond, bond->getOtherAtomIdx(at->getIdx()),
-                                  includeChirality, atoms));
+                                  includeChirality, includeMacroAtomInfo, atoms));
   }
   std::sort(nbrs.begin(), nbrs.end(), bondholder::greater);
 }
@@ -590,7 +610,8 @@ void advancedInitCanonAtom(const ROMol &mol, Canon::canon_atom &atom,
 
 void initCanonAtoms(const ROMol &mol, std::vector<Canon::canon_atom> &atoms,
                     std::span<int> neighborIds, bool includeChirality,
-                    bool includeStereoGroups) {
+                    bool includeStereoGroups,
+                    bool includeMacroAtomInfo) {
   PRECONDITION(neighborIds.size() >= 2 * mol.getNumBonds(),
                "neighbor ID storage is too small");
   for (unsigned int i = 0; i < mol.getNumAtoms(); ++i) {
@@ -598,7 +619,7 @@ void initCanonAtoms(const ROMol &mol, std::vector<Canon::canon_atom> &atoms,
     neighborIds = neighborIds.subspan(atoms[i].degree);
     advancedInitCanonAtom(mol, atoms[i], i);
     atoms[i].bonds.reserve(atoms[i].degree);
-    getBonds(mol, atoms[i].atom, atoms[i].bonds, includeChirality, atoms);
+    getBonds(mol, atoms[i].atom, atoms[i].bonds, includeChirality, includeMacroAtomInfo, atoms);
   }
   if (includeChirality && includeStereoGroups) {
     unsigned int sgidx = 1;
@@ -667,9 +688,9 @@ void initFragmentCanonAtoms(const ROMol &mol,
       begAt.nbrIds[begAt.degree++] = bond->getEndAtomIdx();
       endAt.nbrIds[endAt.degree++] = bond->getBeginAtomIdx();
       begAt.bonds.push_back(
-          makeBondHolder(bond, bond->getEndAtomIdx(), includeChirality, atoms));
+          makeBondHolder(bond, bond->getEndAtomIdx(), includeChirality, false /* macroAtomInfo*/, atoms));
       endAt.bonds.push_back(makeBondHolder(bond, bond->getBeginAtomIdx(),
-                                           includeChirality, atoms));
+                                           includeChirality, false /* macroAtomInfo*/, atoms));
       if (bondSymbols) {
         begAt.bonds.back().p_symbol = &(*bondSymbols)[bond->getIdx()];
         endAt.bonds.back().p_symbol = &(*bondSymbols)[bond->getIdx()];
@@ -836,7 +857,8 @@ void rankMolAtoms(const ROMol &mol, std::vector<unsigned int> &res,
                   bool breakTies, bool includeChirality, bool includeIsotopes,
                   bool includeAtomMaps, bool includeChiralPresence,
                   bool includeStereoGroups, bool useNonStereoRanks,
-                  bool includeRingStereo, bool useRgroupLabels) {
+                  bool includeRingStereo, bool includeRgroupLabels,
+                  bool includeMacroAtomInfo) {
   if (!mol.getNumAtoms()) {
     return;
   }
@@ -851,7 +873,7 @@ void rankMolAtoms(const ROMol &mol, std::vector<unsigned int> &res,
   std::vector<Canon::canon_atom> atoms(mol.getNumAtoms());
   std::vector<int> neighborIds(2 * mol.getNumBonds());
   initCanonAtoms(mol, atoms, neighborIds, includeChirality,
-                 includeStereoGroups);
+                 includeStereoGroups, includeMacroAtomInfo);
   AtomCompareFunctor ftor(&atoms.front(), mol);
   ftor.df_useIsotopes = includeIsotopes;
   ftor.df_useChirality = includeChirality;
@@ -859,7 +881,9 @@ void rankMolAtoms(const ROMol &mol, std::vector<unsigned int> &res,
   ftor.df_useAtomMaps = includeAtomMaps;
   ftor.df_useNonStereoRanks = useNonStereoRanks;
   ftor.df_useChiralPresence = includeChiralPresence;
-  ftor.df_useRgroupLabels = useRgroupLabels;
+  ftor.df_useRgroupLabels = includeRgroupLabels;
+  ftor.df_useMacroAtomInfo = includeMacroAtomInfo;
+;
 
   std::vector<int> order(mol.getNumAtoms());
   detail::rankWithFunctor(ftor, breakTies, order, true, includeChirality,

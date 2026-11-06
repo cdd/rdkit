@@ -421,6 +421,7 @@ TEST_CASE("RgroupCanonTest") {
         RDKit::SmilesWriteParams wp;
         wp.canonical = true;
         wp.useRgroupLabels = true;
+        wp.useMacroAtomInfo = true;
        
         RDKit::canonicalizeStereoGroups(nmol);
 

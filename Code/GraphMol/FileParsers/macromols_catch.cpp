@@ -41,6 +41,8 @@
 #include <boost/lexical_cast.hpp>
 #include <RDGeneral/BoostEndInclude.h>
 #include <filesystem>
+#include <random>
+
 using namespace RDKit;
 using namespace v2::FileParsers;
 
@@ -295,13 +297,8 @@ class ScsrMolTest {
       fnameOutBase += ".NoHbonds";
     }
   
-    std::string fOutName = fnameOutBase + ".out.mol";
-    std::string fOutName2 = fnameOutBase + ".scsrout.mol";
-    std::string fOutName3 = fnameOutBase + ".scsroutAnnotated.mol";
+    std::string scsrOutName = fnameOutBase + ".scsrout.mol";
                             
-    std::string fOutName4 = fnameOutBase + ".outNoLeavingGroups.mol";
-    std::string fOutName5 = fnameOutBase + ".outNoSgroups.mol";
-
     RDKit::v2::FileParsers::MolFileParserParams pp;
     pp.sanitize = true;
     pp.removeHs = false;
@@ -350,7 +347,6 @@ class ScsrMolTest {
 
     MolWriterParams params;
     params.forceV3000= true;
-    RDKit::MolToMolFile(*mol, fOutName, params, -1);
 
     auto macroMol = SCSRUtils::MacroMolFromSCSRFile(fName, pp);
 
@@ -376,7 +372,6 @@ class ScsrMolTest {
 
 
     auto outMol = RDKit::MolToMacroMol(*(mol.get()), macroMol->getLocalTemplateLibrary());
-    RDKit::MolToMolFile(*outMol, fOutName3, params, -1);
 
     auto outMacroMol = CollapseMacroMol(*outMol, macroMol->getLocalTemplateLibrary());
 
@@ -395,10 +390,10 @@ class ScsrMolTest {
     CHECK(outMacroMol->getNumBonds() + deletedHbondCount == macroBondCount);
     CHECK(outMacroMol->getLocalTemplateLibrary().getTemplates().size() == macroMol->getLocalTemplateLibrary().getTemplates().size());
 
-    SCSRUtils::MacroMolToSCSRMolFile(*(outMacroMol.get()), fOutName2);
+    SCSRUtils::MacroMolToSCSRMolFile(*(outMacroMol.get()), scsrOutName);
 
     std::unique_ptr<RDKit::ROMol> molReadBackIn = SCSRUtils::MolFromSCSRFile(
-        fOutName2, pp, molFromMacroMolParams, scsrBaseHbondOptions);
+        scsrOutName, pp, molFromMacroMolParams, scsrBaseHbondOptions);
 
     CHECK(molReadBackIn != nullptr);
     CHECK(molReadBackIn->getNumAtoms() == mol->getNumAtoms());
@@ -434,8 +429,6 @@ class ScsrMolTest {
             chiralCheck.second);
     }
 
-    RDKit::MolToMolFile(*molNoLeavingGroups, fOutName4, params, -1);
-
     /* test atomistic output WITHOUT sgroups */
     molFromMacroMolParams.outputSgroups = false;
     molFromMacroMolParams.includeLeavingGroups = true;
@@ -455,7 +448,6 @@ class ScsrMolTest {
     CHECK(mol->getNumAtoms() == ScsrTest->totalAtomCount);
     CHECK(mol->getNumBonds() == ScsrTest->totalBondCount);
     CHECK(getSubstanceGroups(*mol).size() == 0);
-  RDKit::MolToMolFile(*mol, fOutName5, params, -1);
   }
 
   void threeLetterCodeTest(const ScsrTest *ScsrTest) {
@@ -531,6 +523,79 @@ TEST_CASE("scsrTests", "scsrTests") {
       BOOST_LOG(rdInfoLog) << "Test: " << ScsrTest.fileName << std::endl;
 
       ScsrMolTest.testScsrFiles(&ScsrTest);
+    }
+  }
+}
+
+TEST_CASE("scsrCanonTests", "scsrCanonTests") {
+  SECTION("basics") {
+    std::list<std::string> canonTests = {
+        "CAC.mol",
+        "CAC_rev.mol",
+        "PAC.mol",
+        "ThreeAs.mol",
+    };
+    
+    for (auto &fileName : canonTests) {
+
+      BOOST_LOG(rdInfoLog) << "testing scsr canon files" << std::endl;
+
+      INFO(fileName);
+
+      std::string rdbase = getenv("RDBASE");
+      std::string fName = rdbase +
+                          "/Code/GraphMol/FileParsers/test_data/macromols/" +
+                          fileName;
+      std::string fnameOutBase = rdbase +
+                            "/build/Testing/Temporary/" +
+                            fileName;
+      
+      std::string fOutName = fnameOutBase + ".out.mol";
+      RDKit::v2::FileParsers::MolFileParserParams pp;
+      pp.sanitize = true;
+      pp.removeHs = false;
+      pp.strictParsing = true;
+
+
+      MolFromMacroMolParams molFromMacroMolParams;
+      molFromMacroMolParams.includeLeavingGroups = true;
+
+      std::unique_ptr<RDKit::MacroMol> mol;
+      REQUIRE_NOTHROW(mol =  RDKit::SCSRUtils::MacroMolFromSCSRFile(fName, pp));
+
+      RDKit::Chirality::removeNonExplicit3DChirality(*(mol.get()));
+
+      CHECK(mol != nullptr);
+    
+      SmilesWriteParams wp;
+
+      //auto smiOut = RDKit::MolToCXSmiles(*mol.get(), wp);
+
+      std::string smiExpected = "";
+      auto randomGen = std::mt19937(0xf00d);
+
+      std::vector<unsigned int> idxV(mol->getNumAtoms());
+      for (unsigned int i = 0; i < mol->getNumAtoms(); ++i) {
+        idxV[i] = i;
+      }
+
+      for (auto i = 0; i < 10; ++i) {
+        std::vector<unsigned int> nVect(idxV);
+        if (i > 0) {
+          std::shuffle(nVect.begin(), nVect.end(), randomGen);
+        }
+        std::unique_ptr<ROMol> nmol{MolOps::renumberAtoms(*mol, nVect)};
+        
+        RDKit::SmilesWriteParams wp;
+        wp.useMacroAtomInfo = true;
+        auto outSmi1 = MolToCXSmiles(*nmol, wp, SmilesWrite::CXSmilesFields::CX_ALL_BUT_COORDS);
+
+        if (smiExpected == "") {
+          smiExpected = outSmi1;
+        } else {
+          CHECK(outSmi1 == smiExpected);
+        }
+      }
     }
   }
 }
